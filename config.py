@@ -22,7 +22,7 @@ class Config(object):
     PYTHONGRID_DB_USERNAME = os.getenv("DB_USER")
     PYTHONGRID_DB_PASSWORD = os.getenv("DB_PASS")
     PYTHONGRID_DB_TYPE = 'mysql+pymysql'
-    PYTHONGRID_DB_SOCKET = '/home/admin/dockers/reef/reefdb/db/sockets/mysqld.sock'
+    PYTHONGRID_DB_SOCKET = os.getenv("DB_SOCKET")
     PYTHONGRID_DB_CHARSET = 'utf-8'
 
     # constant
