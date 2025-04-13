@@ -1,0 +1,68 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+reef-env/
+*.env
+*.flaskenv
+
+# Flask session files
+flask_session/
+
+# VS Code settings
+.vscode/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+*.out
+*.err
+
+# Database files
+*.sqlite3
+*.db
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Python cache files
+*.pyo
+*.pyd
+
+# Temporary files
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# Static and media files (if generated dynamically)
+static/temp/
+media/
+
+# Ignore compiled translations
+*.mo
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore coverage reports
+htmlcov/
+.coverage
+*.cover
+*.coverage.*
+
+# Ignore test results
+*.pytest_cache/
+.tox/
+.nox/
+
+setup/

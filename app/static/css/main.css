@@ -1,0 +1,454 @@
+:root{
+ 
+    --accent-colour: #a5a5aa;
+    --form-background:#3d405b;
+    --form-text: #a5a5a5;
+
+    --font-title: 'Source Sans Pro', sans-serif;
+    --font-body: 'Source Sans Pro', sans-serif;
+    --font-navbar: 'Source Sans Pro', sans-serif;
+
+    --body-background: #3d405b;
+    --background-accent: #56586b;
+
+
+    --background-color-hover: darkgray;
+    --background-color: lightgrey;
+    --background-color-2: purple;
+    
+    --border: red;
+    
+    --navbar-bg: #707a86;
+    --navbar-text: #bababa;
+    --navbar-text-accent: #dadada;
+    --bs-navbar-hover-color: #ffffff;
+    --bs-tertiary-bg: #868686;
+    
+}
+
+/* .dropdown-menu {
+  --bs-dropdown-zindex: 1000;
+  --bs-dropdown-min-width: 10rem;
+  --bs-dropdown-padding-x: 0;
+  --bs-dropdown-padding-y: 0.5rem;
+  --bs-dropdown-spacer: 0.125rem;
+  --bs-dropdown-font-size: 1rem;
+  --bs-dropdown-color: var(--bs-body-color);
+  --bs-dropdown-bg: var(--bs-body-bg);
+  --bs-dropdown-border-color: var(--bs-border-color-translucent);
+  --bs-dropdown-border-radius: var(--bs-border-radius);
+  --bs-dropdown-border-width: var(--bs-border-width);
+  --bs-dropdown-inner-border-radius: calc(var(--bs-border-radius) - var(--bs-border-width));
+  --bs-dropdown-divider-bg: var(--bs-border-color-translucent);
+  --bs-dropdown-divider-margin-y: 0.5rem;
+  --bs-dropdown-box-shadow: var(--bs-box-shadow);
+  --bs-dropdown-link-color: var(--bs-body-color);
+  --bs-dropdown-link-hover-color: var(--bs-body-color);
+  --bs-dropdown-link-hover-bg: var(--bs-tertiary-bg);
+  --bs-dropdown-link-active-color: #fff;
+  --bs-dropdown-link-active-bg: #0d6efd;
+  --bs-dropdown-link-disabled-color: var(--bs-tertiary-color);
+  --bs-dropdown-item-padding-x: 1rem;
+  --bs-dropdown-item-padding-y: 0.25rem;
+  --bs-dropdown-header-color: #6c757d;
+  --bs-dropdown-header-padding-x: 1rem;
+  --bs-dropdown-header-padding-y: 0.5rem;
+  font-size: var(--bs-dropdown-font-size);
+  color: var(--bs-dropdown-color);
+  text-align: left;
+  list-style: none;
+} */
+
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+body {
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, sans-serif;
+  color: #002240;
+  width: 100%;
+  height: 100%;
+}
+
+.flashes .error {
+  display: inherit;
+  width: inherit;
+  background-color: rgb(241, 10, 10);
+}
+
+.flashes .success {
+  display: inherit;
+  width: inherit;
+  background-color: rgb(27, 212, 27);
+}
+
+.flashes {
+  width:100%;
+  display: inline;
+  /* display: flex; */
+  /* flex-direction: row; */
+  /* list-style: none; */
+  margin: 0;
+  /* padding-left: 1rem;  */
+  background-color: inherit;
+  /* flex: 1; */
+  > * {
+    padding-left: 1rem;
+  }
+
+  > * > a.close-button {
+    float: right;
+    padding-right: 1rem;
+    text-decoration: none;
+  }
+}
+
+.navbar {
+  margin-bottom: 0 !important;
+}
+
+.navbar-custom {
+  background-color: var(--navbar-bg);
+  ul.navbar-nav a:hover { color: #fff !important; }
+  .dropdown-menu.show {
+    background-color: var(--navbar-bg);
+  }
+}
+
+.navbar-nav .nav-link.active, .navbar-nav .nav-link.show {
+    color: var(--navbar-text-accent);
+}
+
+.navbar-custom .navbar-brand,
+.navbar-custom .navbar-text {
+    color: var(--navbar-text);
+}
+
+.navbar-custom li a {
+    color: var(--navbar-text);
+}
+
+h1 {
+    margin-bottom: 2.5rem;
+}
+
+p {
+    line-height: 150%;
+}
+
+.applet-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.title {
+    font-family: monospace;
+    font-size: large;
+    font: var(--font-title);
+    padding: 1.5rem 0rem 0.5rem 0;
+    flex:0.2;
+}
+
+.table-container {
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* #table {
+    width: 95vw;
+} */
+
+.site {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh; /* Full height of the viewport */
+  background-color: var(--background-color);
+}
+
+.app-container {
+  flex: 1; /* Allow the content to grow and fill the available space */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start; /* Align content to the top */
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.title {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.content {
+  flex: 1; /* Allow the content to grow and fill the remaining space */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.footer {
+  background-color: var(--background-accent);
+  text-align: center;
+  padding: 1rem;
+}
+
+.f-container  { 
+  width: 100%;
+  height: 100%;
+  
+  .title {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.form {
+  margin: 0 auto 2rem auto;
+  max-width: 50rem;
+  border: var(--border);
+  font-size: 1.2rem;
+  font: var(--font-body);
+
+  color: var(--form-text);
+  background: var(--form-background);
+  /* border-radius: 8px; */
+
+  /* An explicit background is required here, as it's actually transparent by default, and we
+        don't want to see the shadow element behind */
+  background: var(--background-color);
+  
+  /* This shadow is separated from the edges by 0.75rem, and shrunk by 0.2rem on the
+  top and bottom. */
+  box-shadow: 0.75rem 0.75rem 0 -0.2rem var(--accent-colour);
+}
+  
+.form__container {
+    /* padding-top: 1rem; */
+    padding: 2.5rem 1.5rem 1.5rem 1.5rem;
+    background: var(--body-background)
+  }
+
+  .form__group {
+    /* Surrounds the label and input fields, placing the label above the input */
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1.5rem;
+  }
+  
+  .form__label {
+    margin-bottom: 0.5rem;
+  }
+  
+  .form__field {
+    /* Removes the border and the outline highlight when the text field is in focus */
+    outline: none;
+    border: none;
+  
+    /* Re-adds a bottom border which will be replaces when the field is in focus. This
+         is going to prevent any jumping when we add the border later */
+    border-bottom: 3px solid #fff;
+  
+    /* We have to be explicit about our text fields inheriting font properties */
+    font-size: inherit;
+    font-family: inherit;
+  
+    padding: 0.75rem 0.5rem;
+    background: var(--background-color);
+  }
+  
+  /* When the field is in focus, we change the border colour at the bottom to the accent colour */
+  .form__field:focus {
+    border-bottom: 3px solid var(--accent-colour);
+  }
+  
+.form__link {
+    text-decoration: none;
+    color: red;
+  }
+  
+  .form__link:hover {
+    color: #d05656;
+  }
+  
+  .form__error {
+    margin-top: 0.5rem;
+  }
+  
+  .form__error,
+  .form__flash {
+    display: block;
+    padding: 0.5rem;
+    color: var(--text);
+  }
+  
+  .form__error,
+  .form__flash--danger {
+    background: var(--accent-colour);
+  }
+  
+  .form__flash {
+    margin: 0.5rem;
+  }
+  
+  .form__flash--success {
+    background: var(--accent-colour-2);
+  }
+
+  /* Styles specific to the form buttons */
+.button--form {
+  margin: 2rem 0 0 auto;
+  padding: 0.75rem 3rem;
+  border: none;
+  background: var(--background-color);
+  color: var(--form-text)
+}
+
+.button--form:hover {
+  background: #ffffff;
+  color: #000000;
+}
+
+.button-row {
+  display: flex;
+  align-items: right;
+  justify-items: right;
+}
+
+/* Set font for the entire jqGrid */
+.ui-jqgrid {
+  font-family: var(--font-body), sans-serif; /* Change to your desired font */
+  /*font-size: 14px; /* Adjust font size */
+}
+
+/* Set font for grid headers */
+.ui-jqgrid .ui-jqgrid-htable th {
+  font-family: var(--font-body), sans-serif; /* Change to your desired font */
+  /* font-size: 14px; //Adjust font size */
+  font-weight: bold; /* Make headers bold */
+}
+
+/* Set font for grid rows */
+.ui-jqgrid .ui-jqgrid-btable td {
+  font-family: var(--font-body), sans-serif; /* Change to your desired font */
+  font-size: 14px; /* Adjust font size */
+}
+
+.ui-jqgrid,
+.ui-jqgrid-view,
+.ui-jqgrid-hdiv,
+.ui-jqgrid-bdiv,
+.ui-jqgrid-pager
+{
+  padding: 0 ;
+  margin: 0rem ;
+  border: 0 ; 
+
+}
+.ui-jqgrid .ui-jqgrid-htable {
+	table-layout: fixed;
+	border-collapse: collapse;
+}
+
+.grid-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Two columns of equal width */
+  grid-gap: 20px; /* Space between grid items */
+  width: 100%;
+  margin: 0 auto;
+}
+
+.grid-item {
+  background-color: #f9f9f9;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+.grid-item.full-width {
+  grid-column: span 2; /* Make this item span both columns */
+}
+
+/* Default styles (for larger screens) are already defined above */
+
+/* Small devices (phones, less than 576px) */
+@media (max-width: 575.98px) {
+  .table-container {
+    width: 100%; /* Make tables take full width on small screens */
+    margin: 0; /* Remove horizontal margins */
+  }
+
+  .title {
+    font-size: 1.2rem; /* Adjust title font size */
+    padding: 1rem 0;
+  }
+
+  .form {
+    max-width: 90%; /* Reduce form width */
+    padding: 1rem;
+  }
+
+  .navbar-custom {
+    font-size: 0.9rem; /* Adjust navbar font size */
+  }
+}
+
+/* Medium devices (tablets, 576px to 768px) */
+@media (min-width: 576px) and (max-width: 767.98px) {
+  .table-container {
+    width: 95%; /* Slightly reduce table width */
+  }
+
+  .title {
+    font-size: 1.4rem; /* Adjust title font size */
+  }
+
+  .form {
+    max-width: 80%; /* Adjust form width */
+  }
+}
+
+/* Large devices (desktops, 768px to 992px) */
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .table-container {
+    width: 90%; /* Keep table width at 90% */
+  }
+
+  .title {
+    font-size: 1.6rem; /* Slightly increase title font size */
+  }
+
+  .form {
+    max-width: 70%; /* Adjust form width */
+  }
+}
+
+/* Extra large devices (large desktops, 992px and above) */
+@media (min-width: 992px) {
+  .table-container {
+    width: 90%; /* Keep table width at 90% */
+  }
+
+  .title {
+    font-size: 2rem; /* Larger title font size */
+  }
+
+  .form {
+    max-width: 50%; /* Keep form width at 50% */
+  }
+}

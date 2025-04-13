@@ -1,0 +1,165 @@
+{% extends 'jqgrid-template.html' %}
+
+{% block page_title %} Modify Doser {% endblock %}
+{% block scripts %}
+  {{super()}}
+{% endblock %}
+{% block content %}
+<div class="applet-container">
+  <div class="grid-container">
+    <!-- Products Table -->
+    <div class="grid-item">
+      <div class="title">
+        <h3>Products Table</h3>
+      </div>
+      <div class="content table-container">
+        <div id="productsGridBox">
+          <table id="productsTable"></table>
+          <div id="productsTablePager"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual Dosing Table -->
+    <div class="grid-item">
+      <div class="title">
+        <h3>Manual Dosing Table</h3>
+      </div>
+      <div class="content table-container">
+        <div id="manualDosingGridBox">
+          <table id="manual_DosingTable"></table>
+          <div id="manual_DosingTablePager"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Placeholder for another table -->
+    <div class="grid-item full-width">
+      <div class="title">
+        <h3>Another Table</h3>
+      </div>
+      <div class="content table-container">
+        <div id="anotherGridBox">
+          <table id="anotherTable"></table>
+          <div id="anotherPager"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+
+
+{% block page_scripts %}
+  {{super()}}
+  <script>
+    $(document).ready(function () {
+      // Initialize jqGrid for Products Table
+      $("#productsTable").jqGrid({
+        url: "/api/get_products",
+        datatype: "json",
+        mtype: "GET",
+        colModel: [
+          { label: "Name", name: "name", editable: true, formatoptions: { defaultValue: '' } },
+          { label: "Dose Amount", name: "dose_amt", editable: true, formatoptions: { defaultValue: '' } },
+          { label: "Total Volume", name: "total_volume", editable: true, formatoptions: { defaultValue: '' } },
+          { label: "Current Available", name: "current_avail", editable: true, formatoptions: { defaultValue: '' } },
+          { label: "Used Amount", name: "used_amt", editable: false },
+        ],
+        pager: "#productsTablePager",
+        rowNum: 10,
+        rowList: [10, 20, 30],
+        sortname: "id",
+        sortorder: "asc",
+        viewrecords: true,
+        height: "auto",
+        width: null,
+        shrinkToFit: true,
+        caption: "Editable Products Table",
+        editurl: "/api/edit_products",
+        ajaxGridOptions: {
+          contentType: "application/json",
+        },
+        serializeRowData: function (postData) {
+          return JSON.stringify(postData);
+        },
+      }).jqGrid("inlineNav", "#productsTablePager", {
+        edit: true,
+        add: true,
+        del: true,
+        save: true,
+        cancel: true,
+      });
+
+      // Initialize jqGrid for Manual Dosing Table
+      $("#manual_DosingTable").jqGrid({
+        url: "/api/get_manual_dosing",
+        datatype: "json",
+        mtype: "GET",
+        colModel: [
+          { label: "Added On", name: "added_on", editable: true, sorttype: "date", formatoptions: { defaultValue: new Date().toISOString().split('T')[0] } },
+          { label: "Dosed At", name: "dosed_at", editable: true, formatoptions: { defaultValue: new Date().toISOString().split('T')[1].slice(0, 8) } },
+          { label: "Product", name: "product", editable: true, formatoptions: { defaultValue: '' } },
+          { label: "Amount", name: "amount", editable: true, formatoptions: { defaultValue: '' } },
+          { label: "Reason", name: "reason", editable: true, formatoptions: { defaultValue: '' } },
+        ],
+        pager: "#manual_DosingTablePager",
+        rowNum: 10,
+        rowList: [10, 20, 30],
+        sortname: "id",
+        sortorder: "asc",
+        viewrecords: true,
+        height: "auto",
+        width: null,
+        shrinkToFit: true,
+        caption: "Editable Manual Dosing Table",
+        editurl: "/api/edit_manual_dosing",
+        ajaxGridOptions: {
+          contentType: "application/json",
+        },
+        serializeRowData: function (postData) {
+          return JSON.stringify(postData);
+        },
+      }).jqGrid("inlineNav", "#manual_DosingTablePager", {
+        edit: true,
+        add: true,
+        del: true,
+        save: true,
+        cancel: true,
+      });
+
+/*
+
+      // Resize grids on window resize
+      $(window).on("resize", function (event) {
+        console.log("Resizing" +event.target, this);
+        // Check if the event is triggered by window resize
+        // and not by a resize event from the jqGrid itself
+        // This is to prevent infinite loop of resize events
+        // and to ensure that the grids are resized only once
+        // when the window is resized
+        if (!resizing && event.target === window) {
+          resizing = true;
+          if (!processingResize ) {
+            processingResize = true;
+            window.requestAnimationFrame(processResize);
+
+            //const productsWidth = $("#productsGridBox").width();
+            //const manualDosingWidth = $("#manualDosingGridBox").width();
+
+            //$("#productsTable").setGridWidth($('#productsGridBox').width());
+            //$("#manual_DosingTable").setGridWidth($('#manualDosingGridBox').width());
+
+            $('#productsTable').jqGrid('setGridWidth', $('#productsGridBox').width());
+            $('#manual_DosingTable').jqGrid('setGridWidth', $('#manualDosingGridBox').width());
+
+          }
+        }        
+      }).trigger("resize"); // Trigger resize to set initial width
+
+*/
+    $(window).trigger("resize"); // Trigger resize to set initial width
+    });
+  </script>
+{% endblock %}

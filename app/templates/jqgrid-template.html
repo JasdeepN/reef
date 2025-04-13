@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block page_title %} Test {% endblock %}
+
+{% block styles %}
+  {{super()}}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqgrid/5.8.10/css/ui.jqgrid-bootstrap5.min.css" integrity="sha512-AABKm5AgD3j/uDe6Aa7uO9zUO5u/nZAzbaYFJ8OsBCS9y/raNtLvQJ6qVGcRvTtXSjVylZzG2iDvuUevI2d5bw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqgrid/5.8.10/css/ui.jqgrid.min.css" integrity="sha512-WATgICUij6yo9U32iUgR1UTUoiFMjwF0pcLk4kIr1/JlOxv535WR/3V7gytJER4yzC0yrIA728MpFLqYjXcmeA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqgrid/5.8.10/plugins/searchFilter.min.css" integrity="sha512-NHt+jyctLOsFCXu+2VSoXP93Oei0wpQLBrHgL5/2kwkTgiEa01iXVnfd74/TU/sVA2yEKhmcEm3F1/BpKC/0zw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+{% endblock %}
+
+{% block scripts %}
+  {{super()}}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.14.1/jquery-ui.min.js" integrity="sha512-MSOo1aY+3pXCOCdGAYoBZ6YGI0aragoQsg1mKKBHXCYPIWxamwOE7Drh+N5CPgGI5SA9IEKJiPjdfqWFWmZtRA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jqgrid/5.8.10/js/jquery.jqGrid.min.js" integrity="sha512-lF4wkSz1prE7UFIT2LNaekiTUPON4T5cjgjY4unH80bExVIMRvG66+O/hurLs2WicAxK2o2DPwM30ITP+bx5VA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jqgrid/5.8.10/js/minified/i18n/grid.locale-en.min.js" integrity="sha512-ug8jKOptOwPuOZ9+IADlIuVmr30IwkBCMmYZwx+NBagdJro0urNtfLyB32bwa14EGWm5r31NR83y2Fns74Agww==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+{% endblock %}
+
+{% block content %}
+<div class="table-container">
+  <div id="table"></div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  $.jgrid.defaults = {
+    datatype: "json",
+    mtype: "GET",
+    styleUI: "Bootstrap5",
+    iconSet: "Bootstrap5",
+    responsive: true,
+    rowNum: 10,
+    rowList: [10, 20, 30],
+    ajaxGridOptions: { contentType: "application/json" },
+    ajaxRowOptions: { contentType: "application/json", type: "PUT" },
+    align: "center",
+    viewrecords: true,
+    labels: {
+      loading: "Loading...",
+      emptyrecords: "No records to view",
+      pager: "Page",
+      items: "items",
+    },
+    align: "center",
+    gridComplete: function () {
+      console.log("Grid complete");
+      const gridId = $(this).attr("id");
+      const pagerId = `#${gridId}Pager`;
+
+      console.log(`Grid ID: ${gridId}`);
+      console.log(`Pager ID: ${pagerId}`);
+
+      // Add a custom button to the pager
+      $(this).jqGrid("navButtonAdd", `${pagerId}_left`, {
+        caption: "Delete",
+        buttonicon: "ui-icon-trash", // Use a trash icon
+        onClickButton: function () {
+          const selectedRowId = $(`#${gridId}`).jqGrid("getGridParam", "selrow"); // Get the selected row ID
+          if (selectedRowId) {
+            if (confirm("Are you sure you want to delete this record?")) {
+              // Extract table name from grid ID (assuming grid ID matches table name convention)
+              const tableName = gridId.replace("Table", "").toLowerCase();
+              console.log(tableName, gridId)
+              $.ajax({
+                url: `/api/delete_row/${tableName}`, // Use the generic delete route
+                type: "DELETE",
+                contentType: "application/json",
+                data: JSON.stringify({ id: selectedRowId }),
+                success: function (response) {
+                  alert("Record deleted successfully!");
+                  $(`#${gridId}`).trigger("reloadGrid"); // Reload the grid
+                },
+                error: function (xhr, status, error) {
+                  alert("Error deleting record: " + xhr.responseText);
+                },
+              });
+            }
+          } else {
+            alert("Please select a row to delete.");
+          }
+        },
+        position: "last", // Position of the button
+        title: "Click to delete the selected row", // Tooltip text
+        cursor: "pointer", // Cursor style
+        id: "customDeleteButton", // ID of the button
+        class: ".delete-btn", // CSS class for the button
+      });
+    },
+  };
+
+  // Generic function to resize all jqGrid tables on the page
+  function resizeAllGrids() {
+    $(".ui-jqgrid").each(function () {
+      const gridId = $(this).attr("id").replace("gbox_", ""); // Extract the grid ID
+      const gridContainer = $(`#${gridId}`).closest(".table-container");
+      if (gridContainer.length) {
+        $(`#${gridId}`).jqGrid("setGridWidth", gridContainer.width());
+      }
+    });
+  }
+
+  // Attach the resize event to the window
+  $(window).on("resize", function () {
+    resizeAllGrids();
+  });
+
+  // Trigger resize on page load to ensure grids are properly sized
+  $(document).ready(function () {
+    resizeAllGrids();
+  });
+</script>
+{% endblock %}
+
