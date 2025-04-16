@@ -6,9 +6,6 @@ from modules.utils import process_test_data
 from modules.models import db as models_db  # Import the SQLAlchemy instance from models.py
 from sqlalchemy.inspection import inspect
 
-
-print(models_db.Model)
-
 # Dynamically generate TABLE_MAP from models.py
 TABLE_MAP = {
     model.__tablename__: model
@@ -243,9 +240,6 @@ def edit_manual_dosing():
     try:
         input = request.get_json()
         operation = input.get("oper")
-        print('operation', operation)
-        print('input', input)
-
 
         data = modules.utils.process_dosing_data(input)
         

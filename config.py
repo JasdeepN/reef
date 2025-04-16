@@ -1,5 +1,11 @@
 import os
+from dotenv import load_dotenv
+
 basedir = os.path.abspath(os.path.dirname(__file__))
+# Load environment variables from .flaskenv
+dotenv_path = os.path.join(os.path.dirname(__file__), '.flaskenv')
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path)
 
 class Config(object):
 
@@ -30,5 +36,8 @@ class Config(object):
     JQGRID_ROWID_KEY = '_rowid'
     PK_DELIMITER = '---' # must be 3 characters
 
+    GUNICORN_WORKERS = 4  # Number of worker processes
+    GUNICORN_BIND = "0.0.0.0:5000"  # Bind address
+    GUNICORN_WORKER_CLASS = "gevent"  # Use Gevent worker class
 
     ENGINE_STRING='mysql+pymysql://{0}:{1}@{2}:{3}/{4}'.format(os.getenv("DB_USER"), os.getenv("DB_PASS"), os.getenv("DB_HOST_ADDRESS"), os.getenv("DB_HOST_PORT"), os.getenv("DB_NAME"))

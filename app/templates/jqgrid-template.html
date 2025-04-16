@@ -27,43 +27,61 @@
   $.jgrid.defaults = {
     datatype: "json",
     mtype: "GET",
-    styleUI: "Bootstrap5",
-    iconSet: "Bootstrap5",
+    //styleUI: "Bootstrap5",
+    //iconSet: "Bootstrap5",
     responsive: true,
     rowNum: 10,
     rowList: [10, 20, 30],
     ajaxGridOptions: { contentType: "application/json" },
     ajaxRowOptions: { contentType: "application/json", type: "PUT" },
     align: "center",
-    viewrecords: true,
     labels: {
       loading: "Loading...",
       emptyrecords: "No records to view",
-      pager: "Page",
-      items: "items",
     },
     align: "center",
+    width: "auto",
+    height: "auto",
+    shrinkToFit: true,
+    
     gridComplete: function () {
       console.log("Grid complete");
+      
       const gridId = $(this).attr("id");
       const pagerId = `#${gridId}Pager`;
 
       console.log(`Grid ID: ${gridId}`);
       console.log(`Pager ID: ${pagerId}`);
-
+      $(`#${gridId}`).closest(".ui-jqgrid-btable").addClass("table-complementary");
       // Add a custom button to the pager
-      $(this).jqGrid("navButtonAdd", `${pagerId}_left`, {
-        caption: "Delete",
-        buttonicon: "ui-icon-trash", // Use a trash icon
+      $(this).jqGrid("inlineNav", `${pagerId}`, {
+        edit: true,
+        add: true,
+        del: true,
+        save: true,
+        cancel: true,
+        addParams: {
+          addRowParams: {
+            keys: true, // Save on Enter key press
+            successfunc: function () {
+              $(`${pagerId}`).trigger("reloadGrid"); // Reload grid after saving
+              return true;
+            },
+          },
+        },
+      }).jqGrid("navButtonAdd",  `${pagerId}`, {
+        caption: '', // Button text
+        buttonicon:  'ui-icon-trash', // Icon for the button
+         //onClickButton: function () {
+         //  alert("Custom button clicked!"); // Action to perform when the button is clicked
+         //},
+         
         onClickButton: function () {
-          const selectedRowId = $(`#${gridId}`).jqGrid("getGridParam", "selrow"); // Get the selected row ID
+          const selectedRowId = $(`#${gridId}`).jqGrid("getGridParam", "selrow");
           if (selectedRowId) {
             if (confirm("Are you sure you want to delete this record?")) {
-              // Extract table name from grid ID (assuming grid ID matches table name convention)
-              const tableName = gridId.replace("Table", "").toLowerCase();
-              console.log(tableName, gridId)
               $.ajax({
-                url: `/api/delete_row/${tableName}`, // Use the generic delete route
+                url: "/api/delete_test_results",
                 type: "DELETE",
                 contentType: "application/json",
                 data: JSON.stringify({ id: selectedRowId }),
@@ -81,10 +99,10 @@
           }
         },
         position: "last", // Position of the button
-        title: "Click to delete the selected row", // Tooltip text
+        title: "Click to delete the current row", // Tooltip text
         cursor: "pointer", // Cursor style
         id: "customDeleteButton", // ID of the button
-        class: ".delete-btn", // CSS class for the button
+        class: ".delete-btn", // CSS class for the button  
       });
     },
   };

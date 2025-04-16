@@ -1,110 +1,144 @@
-:root{
- 
-    --accent-colour: #a5a5aa;
-    --form-background:#3d405b;
-    --form-text: #a5a5a5;
+:root {
+  /* Backgrounds */
+  --background-color: var(--outer-space); /* Main background */
+  --background-accent: var(--davys-gray); /* Secondary background */
+  --form-background: var(--cool-gray); /* Form background */
 
-    --font-title: 'Source Sans Pro', sans-serif;
-    --font-body: 'Source Sans Pro', sans-serif;
-    --font-navbar: 'Source Sans Pro', sans-serif;
+  /* Text Colors */
+  --text-color: var(--alice-blue); /* Main text */
+  --text-muted: var(--powder-blue); /* Muted text */
+  --text-accent: var(--powder-blue); /* Highlighted text */
 
-    --body-background: #3d405b;
-    --background-accent: #56586b;
+  /* Primary Colors */
+  --primary-color: var(--powder-blue); /* Primary theme color */
+  --secondary-color: var(--alice-blue); /* Secondary theme color */
+  --tertiary-color: var(--cool-gray); /* Tertiary theme color */
 
+  /* Borders */
+  --border-color: var(--cool-gray); /* Border color */
 
-    --background-color-hover: darkgray;
-    --background-color: lightgrey;
-    --background-color-2: purple;
-    
-    --border: red;
-    
-    --navbar-bg: #707a86;
-    --navbar-text: #bababa;
-    --navbar-text-accent: #dadada;
-    --bs-navbar-hover-color: #ffffff;
-    --bs-tertiary-bg: #868686;
-    
+  /* Buttons */
+  --button-background: var(--powder-blue); /* Button background */
+  --button-hover: var(--alice-blue); /* Button hover background */
+  --button-text: var(--outer-space); /* Button text */
+
+  /* Links */
+  --link-color: var(--powder-blue); /* Link color */
+  --link-hover: var(--alice-blue); /* Link hover color */
+
+  /* Alerts */
+  --success-color: var(--powder-blue); /* Success alert */
+  --warning-color: var(--cool-gray); /* Warning alert */
+  --error-color: var(--davys-gray); /* Error alert */
+
+  /* Navbar */
+  --navbar-bg: var(--davys-gray); /* Navbar background */
+  --navbar-text: var(--alice-blue); /* Navbar text */
+  --navbar-text-accent: var(--powder-blue); /* Navbar active text */
+
+  /* Complementary Table Colors */
+  --table-bg: var(--cool-gray); /* Table background */
+  --table-header-bg: var(--davys-gray); /* Table header background */
+  --table-row-hover-bg: var(--outer-space); /* Table row hover background */
+  --table-border-color: var(--powder-blue); /* Table border color */
+  --table-text-color: var(--alice-blue); /* Table text color */
+  --table-header-text-color: var(--alice-blue); /* Table header text color */
+  --table-row-highlight-bg: var(--outer-space); /* Highlighted row background */
+  --table-cell-disabled-bg: var(--davys-gray); /* Disabled cell background */
+
+  /* CSS HEX */
+  --alice-blue: #dcedffff;
+  --powder-blue: #94b0daff;
+  --cool-gray: #8f91a2ff;
+  --davys-gray: #505a5bff;
+  --outer-space: #343f3eff;
 }
-
-/* .dropdown-menu {
-  --bs-dropdown-zindex: 1000;
-  --bs-dropdown-min-width: 10rem;
-  --bs-dropdown-padding-x: 0;
-  --bs-dropdown-padding-y: 0.5rem;
-  --bs-dropdown-spacer: 0.125rem;
-  --bs-dropdown-font-size: 1rem;
-  --bs-dropdown-color: var(--bs-body-color);
-  --bs-dropdown-bg: var(--bs-body-bg);
-  --bs-dropdown-border-color: var(--bs-border-color-translucent);
-  --bs-dropdown-border-radius: var(--bs-border-radius);
-  --bs-dropdown-border-width: var(--bs-border-width);
-  --bs-dropdown-inner-border-radius: calc(var(--bs-border-radius) - var(--bs-border-width));
-  --bs-dropdown-divider-bg: var(--bs-border-color-translucent);
-  --bs-dropdown-divider-margin-y: 0.5rem;
-  --bs-dropdown-box-shadow: var(--bs-box-shadow);
-  --bs-dropdown-link-color: var(--bs-body-color);
-  --bs-dropdown-link-hover-color: var(--bs-body-color);
-  --bs-dropdown-link-hover-bg: var(--bs-tertiary-bg);
-  --bs-dropdown-link-active-color: #fff;
-  --bs-dropdown-link-active-bg: #0d6efd;
-  --bs-dropdown-link-disabled-color: var(--bs-tertiary-color);
-  --bs-dropdown-item-padding-x: 1rem;
-  --bs-dropdown-item-padding-y: 0.25rem;
-  --bs-dropdown-header-color: #6c757d;
-  --bs-dropdown-header-padding-x: 1rem;
-  --bs-dropdown-header-padding-y: 0.5rem;
-  font-size: var(--bs-dropdown-font-size);
-  color: var(--bs-dropdown-color);
-  text-align: left;
-  list-style: none;
-} */
-
 
 *,
 *::before,
 *::after {
-  box-sizing: inherit;
+  /* box-sizing: inherit; */
 }
 
 body {
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, sans-serif;
-  color: #002240;
+  /* font-family: 'Source Code Pro', monospace; */
+  /* color: var(--text-color); */
   width: 100%;
   height: 100%;
+  /* background-color: var(--background-color); */
+}
+
+h1, h2, h3 {
+  color: var(--text-accent);
+}
+
+a {
+  color: var(--link-color);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--link-hover);
+}
+
+button {
+  background-color: var(--button-background);
+  color: var(--button-text);
+  border: 1px solid var(--border-color);
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: var(--button-hover);
+}
+
+.alert-success {
+  background-color: var(--success-color);
+  color: var(--text-color);
+}
+
+.alert-warning {
+  background-color: var(--warning-color);
+  color: var(--text-color);
+}
+
+.alert-error {
+  background-color: var(--error-color);
+  color: var(--text-color);
+}
+
+.form {
+  background-color: var(--form-background);
+  border: 1px solid var(--border-color);
+  padding: 1rem;
+  border-radius: 5px;
+  color: var(--text-color);
+}
+
+.table {
+  background-color: var(--background-accent);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
 }
 
 .flashes .error {
-  display: inherit;
-  width: inherit;
-  background-color: rgb(241, 10, 10);
+  background-color: var(--error-color);
+  color: var(--text-color);
 }
 
 .flashes .success {
-  display: inherit;
-  width: inherit;
-  background-color: rgb(27, 212, 27);
+  background-color: var (--success-color);
+  color: var(--text-color);
 }
 
 .flashes {
-  width:100%;
+  width: 100%;
   display: inline;
-  /* display: flex; */
-  /* flex-direction: row; */
-  /* list-style: none; */
   margin: 0;
-  /* padding-left: 1rem;  */
   background-color: inherit;
-  /* flex: 1; */
-  > * {
-    padding-left: 1rem;
-  }
-
-  > * > a.close-button {
-    float: right;
-    padding-right: 1rem;
-    text-decoration: none;
-  }
 }
 
 .navbar {
@@ -112,32 +146,74 @@ body {
 }
 
 .navbar-custom {
-  background-color: var(--navbar-bg);
-  ul.navbar-nav a:hover { color: #fff !important; }
-  .dropdown-menu.show {
-    background-color: var(--navbar-bg);
-  }
-}
-
-.navbar-nav .nav-link.active, .navbar-nav .nav-link.show {
-    color: var(--navbar-text-accent);
+  background-color: var(--navbar-bg); /* Navbar background */
+  border-bottom: 1px solid var(--border-color); /* Optional border */
 }
 
 .navbar-custom .navbar-brand,
 .navbar-custom .navbar-text {
-    color: var(--navbar-text);
+  color: var(--navbar-text); /* Navbar text color */
+}
+
+.navbar-custom .navbar-nav .nav-link {
+  color: var(--navbar-text); /* Navbar link color */
+  transition: color 0.3s ease; /* Smooth transition for hover effects */
+}
+
+.navbar-custom .navbar-nav .nav-link:hover,
+.navbar-custom .navbar-nav .nav-link:focus {
+  color: var(--navbar-text-accent); /* Navbar link hover color */
+}
+
+.navbar-custom .navbar-nav .nav-link.active,
+.navbar-custom .navbar-nav .nav-link.show {
+  color: var(--navbar-text-accent); /* Active link color */
+  font-weight: bold; /* Optional: Make active links bold */
+}
+
+.navbar-custom .navbar-toggler {
+  border-color: var(--border-color); /* Toggler border color */
+}
+
+.navbar-custom .navbar-toggler-icon {
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cpath stroke='rgba(248, 248, 242, 1)' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 7h22M4 15h22M4 23h22'/%3E%3C/svg%3E");
+  /* Custom icon color using --text-color */
+}
+
+.navbar-custom .dropdown-menu {
+  background-color: var(--background-accent); /* Dropdown background */
+  border: 1px solid var(--border-color); /* Dropdown border */
+}
+
+.navbar-custom .dropdown-item {
+  color: var(--text-color); /* Dropdown item text color */
+}
+
+.navbar-custom .dropdown-item:hover,
+.navbar-custom .dropdown-item:focus {
+  background-color: var(--button-hover); /* Dropdown item hover background */
+  color: var(--button-text); /* Dropdown item hover text color */
+}
+
+.navbar-custom .navbar-brand,
+.navbar-custom .navbar-text {
+  color: var(--navbar-text);
 }
 
 .navbar-custom li a {
-    color: var(--navbar-text);
+  color: var(--navbar-text);
+}
+
+.navbar-nav .nav-link.active, .navbar-nav .nav-link.show {
+  color: var(--navbar-text-accent);
 }
 
 h1 {
-    margin-bottom: 2.5rem;
+  margin-bottom: 2.5rem;
 }
 
 p {
-    line-height: 150%;
+  line-height: 150%;
 }
 
 .applet-container {
@@ -150,305 +226,182 @@ p {
 }
 
 .title {
-    font-family: monospace;
-    font-size: large;
-    font: var(--font-title);
-    padding: 1.5rem 0rem 0.5rem 0;
-    flex:0.2;
+  font-family: monospace;
+  font-size: large;
+  color: var(--text-accent);
+  padding: 1.5rem 0rem 0.5rem 0;
 }
 
 .table-container {
-    width: 100%;
-    margin: 0 auto;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
-
-/* #table {
-    width: 95vw;
-} */
 
 .site {
   display: flex;
   flex-direction: column;
-  min-height: 100vh; /* Full height of the viewport */
+  min-height: 100vh;
   background-color: var(--background-color);
 }
 
 .app-container {
-  flex: 1; /* Allow the content to grow and fill the available space */
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start; /* Align content to the top */
+  justify-content: flex-start;
   padding: 1rem;
   box-sizing: border-box;
-}
-
-.title {
-  width: 100%;
-  text-align: center;
-  margin-bottom: 2rem;
-}
-
-.content {
-  flex: 1; /* Allow the content to grow and fill the remaining space */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
 }
 
 .footer {
   background-color: var(--background-accent);
   text-align: center;
   padding: 1rem;
+  color: var(--text-color);
 }
 
-.f-container  { 
+.f-container {
   width: 100%;
   height: 100%;
-  
-  .title {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    justify-content: center;
-  }
-}
-
-.form {
-  margin: 0 auto 2rem auto;
-  max-width: 50rem;
-  border: var(--border);
-  font-size: 1.2rem;
-  font: var(--font-body);
-
-  color: var(--form-text);
-  background: var(--form-background);
-  /* border-radius: 8px; */
-
-  /* An explicit background is required here, as it's actually transparent by default, and we
-        don't want to see the shadow element behind */
-  background: var(--background-color);
-  
-  /* This shadow is separated from the edges by 0.75rem, and shrunk by 0.2rem on the
-  top and bottom. */
-  box-shadow: 0.75rem 0.75rem 0 -0.2rem var(--accent-colour);
-}
-  
-.form__container {
-    /* padding-top: 1rem; */
-    padding: 2.5rem 1.5rem 1.5rem 1.5rem;
-    background: var(--body-background)
-  }
-
-  .form__group {
-    /* Surrounds the label and input fields, placing the label above the input */
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 1.5rem;
-  }
-  
-  .form__label {
-    margin-bottom: 0.5rem;
-  }
-  
-  .form__field {
-    /* Removes the border and the outline highlight when the text field is in focus */
-    outline: none;
-    border: none;
-  
-    /* Re-adds a bottom border which will be replaces when the field is in focus. This
-         is going to prevent any jumping when we add the border later */
-    border-bottom: 3px solid #fff;
-  
-    /* We have to be explicit about our text fields inheriting font properties */
-    font-size: inherit;
-    font-family: inherit;
-  
-    padding: 0.75rem 0.5rem;
-    background: var(--background-color);
-  }
-  
-  /* When the field is in focus, we change the border colour at the bottom to the accent colour */
-  .form__field:focus {
-    border-bottom: 3px solid var(--accent-colour);
-  }
-  
-.form__link {
-    text-decoration: none;
-    color: red;
-  }
-  
-  .form__link:hover {
-    color: #d05656;
-  }
-  
-  .form__error {
-    margin-top: 0.5rem;
-  }
-  
-  .form__error,
-  .form__flash {
-    display: block;
-    padding: 0.5rem;
-    color: var(--text);
-  }
-  
-  .form__error,
-  .form__flash--danger {
-    background: var(--accent-colour);
-  }
-  
-  .form__flash {
-    margin: 0.5rem;
-  }
-  
-  .form__flash--success {
-    background: var(--accent-colour-2);
-  }
-
-  /* Styles specific to the form buttons */
-.button--form {
-  margin: 2rem 0 0 auto;
-  padding: 0.75rem 3rem;
-  border: none;
-  background: var(--background-color);
-  color: var(--form-text)
-}
-
-.button--form:hover {
-  background: #ffffff;
-  color: #000000;
-}
-
-.button-row {
-  display: flex;
-  align-items: right;
-  justify-items: right;
-}
-
-/* Set font for the entire jqGrid */
-.ui-jqgrid {
-  font-family: var(--font-body), sans-serif; /* Change to your desired font */
-  /*font-size: 14px; /* Adjust font size */
-}
-
-/* Set font for grid headers */
-.ui-jqgrid .ui-jqgrid-htable th {
-  font-family: var(--font-body), sans-serif; /* Change to your desired font */
-  /* font-size: 14px; //Adjust font size */
-  font-weight: bold; /* Make headers bold */
-}
-
-/* Set font for grid rows */
-.ui-jqgrid .ui-jqgrid-btable td {
-  font-family: var(--font-body), sans-serif; /* Change to your desired font */
-  font-size: 14px; /* Adjust font size */
-}
-
-.ui-jqgrid,
-.ui-jqgrid-view,
-.ui-jqgrid-hdiv,
-.ui-jqgrid-bdiv,
-.ui-jqgrid-pager
-{
-  padding: 0 ;
-  margin: 0rem ;
-  border: 0 ; 
-
-}
-.ui-jqgrid .ui-jqgrid-htable {
-	table-layout: fixed;
-	border-collapse: collapse;
 }
 
 .grid-container {
   display: grid;
-  grid-template-columns: 1fr 1fr; /* Two columns of equal width */
-  grid-gap: 20px; /* Space between grid items */
+  grid-template-columns: 1fr 1fr;
+  grid-gap: 20px;
   width: 100%;
   margin: 0 auto;
 }
 
 .grid-item {
-  background-color: #f9f9f9;
+  background-color: var(--background-accent);
   padding: 20px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 5px;
 }
 
 .grid-item.full-width {
-  grid-column: span 2; /* Make this item span both columns */
+  grid-column: span 2;
 }
 
-/* Default styles (for larger screens) are already defined above */
-
-/* Small devices (phones, less than 576px) */
 @media (max-width: 575.98px) {
-  .table-container {
-    width: 100%; /* Make tables take full width on small screens */
-    margin: 0; /* Remove horizontal margins */
-  }
-
-  .title {
-    font-size: 1.2rem; /* Adjust title font size */
-    padding: 1rem 0;
-  }
-
-  .form {
-    max-width: 90%; /* Reduce form width */
-    padding: 1rem;
-  }
-
-  .navbar-custom {
-    font-size: 0.9rem; /* Adjust navbar font size */
+  .grid-container {
+    grid-template-columns: 1fr;
   }
 }
 
-/* Medium devices (tablets, 576px to 768px) */
 @media (min-width: 576px) and (max-width: 767.98px) {
-  .table-container {
-    width: 95%; /* Slightly reduce table width */
-  }
-
-  .title {
-    font-size: 1.4rem; /* Adjust title font size */
-  }
-
-  .form {
-    max-width: 80%; /* Adjust form width */
+  .grid-container {
+    grid-template-columns: 1fr;
   }
 }
 
-/* Large devices (desktops, 768px to 992px) */
 @media (min-width: 768px) and (max-width: 991.98px) {
-  .table-container {
-    width: 90%; /* Keep table width at 90% */
-  }
-
-  .title {
-    font-size: 1.6rem; /* Slightly increase title font size */
-  }
-
-  .form {
-    max-width: 70%; /* Adjust form width */
+  .grid-container {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
-/* Extra large devices (large desktops, 992px and above) */
 @media (min-width: 992px) {
-  .table-container {
-    width: 90%; /* Keep table width at 90% */
+  .grid-container {
+    grid-template-columns: 1fr 1fr;
   }
+}
 
-  .title {
-    font-size: 2rem; /* Larger title font size */
-  }
+/* override default jQuery UI styles */
+.ui-state-default, .ui-widget-content .ui-state-default, .ui-widget-header .ui-state-default, .ui-button, html .ui-button.ui-state-disabled:hover, html .ui-button.ui-state-disabled:active {
+	/* border: 1px solid #c5c5c5; */
+	background: #777777;
+	font-weight: normal;
+	color: #d8d7d7;
+}
 
-  .form {
-    max-width: 50%; /* Keep form width at 50% */
-  }
+/* Table Styles */
+.table-complementary {
+  background-color: var(--table-bg);
+  color: var(--table-text-color);
+  border: 1px solid var(--table-border-color);
+  border-collapse: collapse;
+  width: 100%;
+  overflow: hidden;
+}
+
+.table-complementary th {
+  background-color: var(--table-header-bg);
+  color: var(--table-header-text-color);
+  /* text-align: left; */
+  /* padding: 8px; */
+  /* border: 1px solid var(--table-border-color); */
+}
+
+.table-complementary td {
+  padding: 8px;
+  border: 1px solid var(--table-border-color);
+}
+
+.table-complementary tr:nth-child(even) {
+  background-color: var(--background-accent); /* Alternate row background */
+  color: var(--table-text-color);
+}
+
+.table-complementary tr:hover {
+  background-color: var(--table-row-hover-bg);
+  color: var(--text-color); /* Ensure text remains readable */
+  cursor: pointer;
+}
+
+/* Change the color of the selected row */
+.ui-jqgrid .ui-state-highlight {
+  background-color: var(--table-row-highlight-bg) !important; /* Cyan background for the selected row */
+  color: var(--tertiary-color) !important;  /* Light text color for contrast */
+  font-weight: bold; /* Optional: Make the text bold */
+  cursor: pointer; /* Optional: Add a pointer cursor */
+  border:#272822 !important; /* Optional: Change border color */
+}
+
+/* Ensure the selected row in complementary tables is styled */
+.table-complementary tr.selected {
+  background-color: var(--table-row-highlight-bg); /* Cyan background for the selected row */
+  color: var(--tertiary-color) !important; /* Light text color for contrast */
+  font-weight: bold; /* Optional: Make the text bold */
+  cursor: pointer; /* Optional: Add a pointer cursor */
+  border:#272822 !important; /* Optional: Change border color */
+}
+
+.ui-state-highlight {
+  background-color: var(--table-row-highlight-bg) !important; /* Cyan background for the selected row */
+  color: var(--tertiary-color) !important; /* Light text color for contrast */
+  font-weight: bold; /* Optional: Make the text bold */
+  cursor: pointer; /* Optional: Add a pointer cursor */
+  border:#272822 !important; /* Optional: Change border color */
+}
+
+.ui-widget-content {
+	border: 1px solid #969696;
+	background: #969696;
+	color: #333;
+}
+
+
+.ui-jqgrid .ui-jqgrid-bdiv {
+	position: relative;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+	text-align:  left;
+	z-index: 101;
+}
+
+.ui-widget {
+	/* font-family: Arial,Helvetica,sans-serif; */
+	font-size: 1em;
+}
+
+.ui-jqgrid .ui-jqgrid-htable .ui-th-div {
+	height: auto;
+	margin-top: 5px;
 }

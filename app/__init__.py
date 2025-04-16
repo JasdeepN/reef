@@ -4,8 +4,8 @@ import os
 from flask_sqlalchemy import SQLAlchemy
 from config import Config
 from sqlalchemy import create_engine
-from flask import Flask, session
 from flask_session import Session
+from prometheus_flask_exporter import PrometheusMetrics
 
 UPLOAD_FOLDER = 'static/temp'
 ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
@@ -20,7 +20,9 @@ UPLOAD_FOLDER = 'static/temp'
 
 bootstrap = Bootstrap5(app)
 
-engine_string="mysql+pymysql://{0}:{1}@{2}:{3}/{4}".format(os.getenv("DB_USER"), os.getenv("DB_PASS"), os.getenv("DB_HOST_ADDRESS"), os.getenv("DB_HOST_PORT"), os.getenv("DB_NAME"))
+engine_string = "mysql+pymysql://{0}:{1}@{2}:{3}/{4}".format(
+    os.getenv("DB_USER"), os.getenv("DB_PASS"), os.getenv("DB_HOST_ADDRESS"), os.getenv("DB_HOST_PORT"), os.getenv("DB_NAME")
+)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = engine_string
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -32,6 +34,17 @@ app.config.from_object(Config)
 
 Session(app)
 
+# Initialize Prometheus metrics
+x_metrics = PrometheusMetrics(app)
+
+# Optional: Add custom metrics
+x_metrics.info('app_info', 'Application info', version='1.0.0')
+x_metrics.counter('doser_requests_total', 'Total requests to the /doser endpoint') 
+x_metrics.counter('timeline_requests_total', 'Total requests to the /timeline endpoint')
+x_metrics.counter('api_requests_total', 'Total requests to the /api endpoint')
+x_metrics.counter('home_requests_total', 'Total requests to the / endpoint')
+x_metrics.counter('metrics_requests_total', 'Total requests to the /metrics endpoint')
+x_metrics.counter('test_results_requests_total', 'Total requests to the /test_results endpoint')
 # Import and register routes
-from app.routes import home, test, doser, timeline, api
-import modules    
+from app.routes import home, metrics, test, doser, timeline, api
+import modules

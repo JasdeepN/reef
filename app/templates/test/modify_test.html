@@ -37,14 +37,6 @@
         datatype: "json",
         mtype: "GET",
         colModel: [
-        /*
-        { label: "ID", name: "id", key: true, width: 50, editable: false,
-          cellattr : function (value, options, rowObject) {
-            return 'style="background-color: #f0f0f0;"';
-          },
-          align: 'center',
-         },
-         */
           { label: "Test Date", name: "test_date", editable: true, sorttype: "date", align: "center",
             formatter: "date",
             formatoptions: {
@@ -67,7 +59,7 @@
           { label: "PO\u2084\u00b3\u207b ppm", name: "po4_ppm",
             editable: false,
             cellattr : function (value, options, rowObject) {
-              return 'style="background-color: #f0f0f0;"';
+              return 'style="background-color: #606060; color: #FFFFFF;"';
             },
             formatter:'number',
             formatoptions: {
@@ -95,15 +87,6 @@
             },
             align: "center",
           },
-        /*  {
-            label: "Actions",
-            name: "actions",
-            width: 100,
-            formatter: function (cellValue, options, rowObject) {
-              return `<button class="btn btn-danger btn-sm delete-btn" data-id="${rowObject.id}">Delete</button>`;
-            },
-            align: "center",
-          },*/
         ],
         pager: "#test_ResultsTablePager",
         rowNum: 15,
@@ -111,91 +94,11 @@
         sortname: "test_date",
         sortorder: "desc",
         viewrecords: true,
-        height: "auto",
         caption: "Editable Test Results Table",
         editurl: "/api/edit_test_results", // Backend endpoint for editing data
-        ajaxGridOptions: {
-          contentType: "application/json", // Explicitly set content type
-        },
-        serializeRowData: function (postData) {
-          return JSON.stringify(postData); // Serialize data as JSON
-        },
-        afterSave: function (rowId, response) {
-          console.log("Row saved:", rowId, response);
-          // Reload the grid after saving a row
-          $("#test_ResultsTable").trigger("reloadGrid");
-        },
-      // Enable inline editing
-      }).jqGrid("inlineNav", "#test_ResultsTablePager", {
-        edit: true,
-        add: true,
-        del: true,
-        save: true,
-        cancel: true,
-        addParams: {
-          addRowParams: {
-            keys: true, // Save on Enter key press
-            successfunc: function () {
-              $("#test_ResultsTable").trigger("reloadGrid"); // Reload grid after saving
-              return true;
-            },
-          },
-        },
-      })/*.jqGrid("navButtonAdd", "#pager_left", {
-       caption: '', // Button text
-       buttonicon:  'bi bi-trash', // Icon for the button
-        //onClickButton: function () {
-        //  alert("Custom button clicked!"); // Action to perform when the button is clicked
-        //},
-        
-        onClickButton: function () {
-          const selectedRowId = $("#test_ResultsTable").jqGrid("getGridParam", "selrow");
-          if (selectedRowId) {
-            if (confirm("Are you sure you want to delete this record?")) {
-              $.ajax({
-                url: "/api/delete_test_results",
-                type: "DELETE",
-                contentType: "application/json",
-                data: JSON.stringify({ id: selectedRowId }),
-                success: function (response) {
-                  alert("Record deleted successfully!");
-                  $("#test_ResultsTable").trigger("reloadGrid"); // Reload the grid
-                },
-                error: function (xhr, status, error) {
-                  alert("Error deleting record: " + xhr.responseText);
-                },
-              });
-            }
-          } else {
-            alert("Please select a row to delete.");
-          }
-        },
-        position: "last", // Position of the button
-        title: "Click to delete the current row", // Tooltip text
-        cursor: "pointer", // Cursor style
-        id: "customDeleteButton", // ID of the button
-        class: ".delete-btn", // CSS class for the button  
-      });
-      */
 
-     /* $(document).on("click", ".delete-btn", function () {
-        const rowId = $(this).data("id");
-        if (confirm("Are you sure you want to delete this record?")) {
-          $.ajax({
-            url: "/api/delete_test_results",
-            type: "DELETE",
-            contentType: "application/json",
-            data: JSON.stringify({ id: rowId }),
-            success: function (response) {
-              alert("Record deleted successfully!");
-              $("#test_ResultsTable").trigger("reloadGrid"); // Reload the grid
-            },
-            error: function (xhr, status, error) {
-              alert("Error deleting record: " + xhr.responseText);
-            },
-          });
-        }
-      });*/
+  
+      });
     });
   </script>
 {% endblock %}

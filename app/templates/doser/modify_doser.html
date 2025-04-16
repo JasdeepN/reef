@@ -73,24 +73,12 @@
         sortname: "id",
         sortorder: "asc",
         viewrecords: true,
-        height: "auto",
-        width: null,
         shrinkToFit: true,
         caption: "Editable Products Table",
         editurl: "/api/edit_products",
-        ajaxGridOptions: {
-          contentType: "application/json",
-        },
-        serializeRowData: function (postData) {
-          return JSON.stringify(postData);
-        },
-      }).jqGrid("inlineNav", "#productsTablePager", {
-        edit: true,
-        add: true,
-        del: true,
-        save: true,
-        cancel: true,
+
       });
+
 
       // Initialize jqGrid for Manual Dosing Table
       $("#manual_DosingTable").jqGrid({
@@ -110,55 +98,11 @@
         sortname: "id",
         sortorder: "asc",
         viewrecords: true,
-        height: "auto",
-        width: null,
         shrinkToFit: true,
         caption: "Editable Manual Dosing Table",
         editurl: "/api/edit_manual_dosing",
-        ajaxGridOptions: {
-          contentType: "application/json",
-        },
-        serializeRowData: function (postData) {
-          return JSON.stringify(postData);
-        },
-      }).jqGrid("inlineNav", "#manual_DosingTablePager", {
-        edit: true,
-        add: true,
-        del: true,
-        save: true,
-        cancel: true,
-      });
+      })
 
-/*
-
-      // Resize grids on window resize
-      $(window).on("resize", function (event) {
-        console.log("Resizing" +event.target, this);
-        // Check if the event is triggered by window resize
-        // and not by a resize event from the jqGrid itself
-        // This is to prevent infinite loop of resize events
-        // and to ensure that the grids are resized only once
-        // when the window is resized
-        if (!resizing && event.target === window) {
-          resizing = true;
-          if (!processingResize ) {
-            processingResize = true;
-            window.requestAnimationFrame(processResize);
-
-            //const productsWidth = $("#productsGridBox").width();
-            //const manualDosingWidth = $("#manualDosingGridBox").width();
-
-            //$("#productsTable").setGridWidth($('#productsGridBox').width());
-            //$("#manual_DosingTable").setGridWidth($('#manualDosingGridBox').width());
-
-            $('#productsTable').jqGrid('setGridWidth', $('#productsGridBox').width());
-            $('#manual_DosingTable').jqGrid('setGridWidth', $('#manualDosingGridBox').width());
-
-          }
-        }        
-      }).trigger("resize"); // Trigger resize to set initial width
-
-*/
     $(window).trigger("resize"); // Trigger resize to set initial width
     });
   </script>

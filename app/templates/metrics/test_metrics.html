@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block page_title %} Test Metrics {% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Test Metrics</h1>
+    <p>This page displays the test results and metrics for the `/x/test` endpoint.</p>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Test Date</th>
+                <th>Test Time</th>
+                <th>Alkalinity (KH)</th>
+                <th>Phosphate (PO₄³⁻ PPM)</th>
+                <th>Phosphate (PO₄³⁻ PPB)</th>
+                <th>Nitrate (NO₃⁻ PPM)</th>
+                <th>Calcium (Ca²⁺ PPM)</th>
+                <th>Magnesium (Mg²⁺ PPM)</th>
+                <th>Specific Gravity (SG)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in db_response %}
+            <tr>
+                <td>{{ result.id }}</td>
+                <td>{{ result.test_date }}</td>
+                <td>{{ result.test_time }}</td>
+                <td>{{ result.alk }}</td>
+                <td>{{ result.po4_ppm }}</td>
+                <td>{{ result.po4_ppb }}</td>
+                <td>{{ result.no3_ppm }}</td>
+                <td>{{ result.cal }}</td>
+                <td>{{ result.mg }}</td>
+                <td>{{ result.sg }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
