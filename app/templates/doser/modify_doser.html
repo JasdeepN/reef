@@ -57,7 +57,7 @@
     $(document).ready(function () {
       // Initialize jqGrid for Products Table
       $("#productsTable").jqGrid({
-        url: "/api/get_products",
+        url: "/api/get/products",
         datatype: "json",
         mtype: "GET",
         colModel: [
@@ -68,21 +68,70 @@
           { label: "Used Amount", name: "used_amt", editable: false },
         ],
         pager: "#productsTablePager",
-        rowNum: 10,
-        rowList: [10, 20, 30],
+        rowNum: 5,
+        rowList: [5, 10, 15],
         sortname: "id",
-        sortorder: "asc",
+        sortorder: "desc",
         viewrecords: true,
-        shrinkToFit: true,
         caption: "Editable Products Table",
         editurl: "/api/edit_products",
-
       });
 
+      // Add navigation buttons to the Products Table pager
+      $("#productsTable").jqGrid("navGrid", "#productsTablePager", {
+        edit: false, // Disable default edit button
+        add: false, // Disable default add button
+        del: false, // Disable default delete button
+        search: false, // Disable default search button
+        refresh: true, // Enable refresh button
+      });
+
+      // Add custom buttons to the Products Table pager
+      $("#productsTable").jqGrid("navButtonAdd", "#productsTablePager", {
+        caption: "Add",
+        buttonicon: "ui-icon-plus",
+        onClickButton: function () {
+          alert("Add button clicked for Products Table!");
+          // Add your custom logic for adding a row here
+        },
+        position: "last",
+        title: "Add a new product",
+        cursor: "pointer",
+      });
+
+      $("#productsTable").jqGrid("navButtonAdd", "#productsTablePager", {
+        caption: "Delete",
+        buttonicon: "ui-icon-trash",
+        onClickButton: function () {
+          const selectedRowId = $("#productsTable").jqGrid("getGridParam", "selrow");
+          if (selectedRowId) {
+            if (confirm("Are you sure you want to delete this record?")) {
+              $.ajax({
+                url: "/api/edit_products",
+                type: "DELETE",
+                contentType: "application/json",
+                data: JSON.stringify({ id: selectedRowId }),
+                success: function () {
+                  alert("Record deleted successfully!");
+                  $("#productsTable").trigger("reloadGrid");
+                },
+                error: function (xhr) {
+                  alert("Error deleting record: " + xhr.responseText);
+                },
+              });
+            }
+          } else {
+            alert("Please select a row to delete.");
+          }
+        },
+        position: "last",
+        title: "Delete the selected product",
+        cursor: "pointer",
+      });
 
       // Initialize jqGrid for Manual Dosing Table
       $("#manual_DosingTable").jqGrid({
-        url: "/api/get_manual_dosing",
+        url: "/api/get/manual_dosing",
         datatype: "json",
         mtype: "GET",
         colModel: [
@@ -93,17 +142,66 @@
           { label: "Reason", name: "reason", editable: true, formatoptions: { defaultValue: '' } },
         ],
         pager: "#manual_DosingTablePager",
-        rowNum: 10,
-        rowList: [10, 20, 30],
+        rowNum: 5,
+        rowList: [5, 10, 15],
         sortname: "id",
-        sortorder: "asc",
+        sortorder: "desc",
         viewrecords: true,
-        shrinkToFit: true,
         caption: "Editable Manual Dosing Table",
         editurl: "/api/edit_manual_dosing",
-      })
+      });
 
-    $(window).trigger("resize"); // Trigger resize to set initial width
+      // Add navigation buttons to the Manual Dosing Table pager
+      $("#manual_DosingTable").jqGrid("navGrid", "#manual_DosingTablePager", {
+        edit: false,
+        add: false,
+        del: false,
+        search: false,
+        refresh: true,
+      });
+
+      // Add custom buttons to the Manual Dosing Table pager
+      $("#manual_DosingTable").jqGrid("navButtonAdd", "#manual_DosingTablePager", {
+        caption: "Add",
+        buttonicon: "ui-icon-plus",
+        onClickButton: function () {
+          alert("Add button clicked for Manual Dosing Table!");
+          // Add your custom logic for adding a row here
+        },
+        position: "last",
+        title: "Add a new manual dosing entry",
+        cursor: "pointer",
+      });
+
+      $("#manual_DosingTable").jqGrid("navButtonAdd", "#manual_DosingTablePager", {
+        caption: "Delete",
+        buttonicon: "ui-icon-trash",
+        onClickButton: function () {
+          const selectedRowId = $("#manual_DosingTable").jqGrid("getGridParam", "selrow");
+          if (selectedRowId) {
+            if (confirm("Are you sure you want to delete this record?")) {
+              $.ajax({
+                url: "/api/edit_manual_dosing",
+                type: "DELETE",
+                contentType: "application/json",
+                data: JSON.stringify({ id: selectedRowId }),
+                success: function () {
+                  alert("Record deleted successfully!");
+                  $("#manual_DosingTable").trigger("reloadGrid");
+                },
+                error: function (xhr) {
+                  alert("Error deleting record: " + xhr.responseText);
+                },
+              });
+            }
+          } else {
+            alert("Please select a row to delete.");
+          }
+        },
+        position: "last",
+        title: "Delete the selected manual dosing entry",
+        cursor: "pointer",
+      });
     });
   </script>
 {% endblock %}

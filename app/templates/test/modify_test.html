@@ -33,7 +33,7 @@
     $(document).ready(function () {
       // Initialize jqGrid
       $("#test_ResultsTable").jqGrid({
-        url: "/api/get_test_results", // Backend endpoint to fetch data
+        url: "/api/get/test_results", // Backend endpoint to fetch data
         datatype: "json",
         mtype: "GET",
         colModel: [
@@ -96,8 +96,59 @@
         viewrecords: true,
         caption: "Editable Test Results Table",
         editurl: "/api/edit_test_results", // Backend endpoint for editing data
+      });
 
-  
+      // Add navigation buttons to the Test Results Table pager
+      $("#test_ResultsTable").jqGrid("navGrid", "#test_ResultsTablePager", {
+        edit: false, // Disable default edit button
+        add: false, // Disable default add button
+        del: false, // Disable default delete button
+        search: false, // Disable default search button
+        refresh: true, // Enable refresh button
+      });
+
+      // Add custom "Add" button
+      $("#test_ResultsTable").jqGrid("navButtonAdd", "#test_ResultsTablePager", {
+        caption: "Add",
+        buttonicon: "ui-icon-plus",
+        onClickButton: function () {
+          alert("Add button clicked for Test Results Table!");
+          // Add your custom logic for adding a row here
+        },
+        position: "last",
+        title: "Add a new test result",
+        cursor: "pointer",
+      });
+
+      // Add custom "Delete" button
+      $("#test_ResultsTable").jqGrid("navButtonAdd", "#test_ResultsTablePager", {
+        caption: "Delete",
+        buttonicon: "ui-icon-trash",
+        onClickButton: function () {
+          const selectedRowId = $("#test_ResultsTable").jqGrid("getGridParam", "selrow");
+          if (selectedRowId) {
+            if (confirm("Are you sure you want to delete this record?")) {
+              $.ajax({
+                url: "/api/edit_test_results",
+                type: "DELETE",
+                contentType: "application/json",
+                data: JSON.stringify({ id: selectedRowId }),
+                success: function () {
+                  alert("Record deleted successfully!");
+                  $("#test_ResultsTable").trigger("reloadGrid");
+                },
+                error: function (xhr) {
+                  alert("Error deleting record: " + xhr.responseText);
+                },
+              });
+            }
+          } else {
+            alert("Please select a row to delete.");
+          }
+        },
+        position: "last",
+        title: "Delete the selected test result",
+        cursor: "pointer",
       });
     });
   </script>

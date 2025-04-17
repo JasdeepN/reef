@@ -57,7 +57,7 @@
 *,
 *::before,
 *::after {
-  /* box-sizing: inherit; */
+  box-sizing: border-box !important;
 }
 
 body {
@@ -118,11 +118,11 @@ button:hover {
   color: var(--text-color);
 }
 
-.table {
+/* .table {
   background-color: var(--background-accent);
   color: var(--text-color);
   border: 1px solid var(--border-color);
-}
+} */
 
 .flashes .error {
   background-color: var(--error-color);
@@ -386,7 +386,6 @@ p {
 	color: #333;
 }
 
-
 .ui-jqgrid .ui-jqgrid-bdiv {
 	position: relative;
 	margin: 0;
@@ -404,4 +403,13 @@ p {
 .ui-jqgrid .ui-jqgrid-htable .ui-th-div {
 	height: auto;
 	margin-top: 5px;
+}
+
+/* Ensure the pager and its sections are always visible */
+.ui-jqgrid .ui-pg-table {
+  display: table !important;
+}
+
+.ui-jqgrid .ui-pg-div {
+  display: inline-block !important;
 }
