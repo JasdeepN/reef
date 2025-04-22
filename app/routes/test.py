@@ -29,7 +29,7 @@ async def add_test():
 #     return render_template('test/modify_test.html', grid=grid)
 
 
-@app.route("/test/modify", methods=['GET'])
+@app.route("/test/db", methods=['GET'])
 def test_modify():
     tables= [
         {

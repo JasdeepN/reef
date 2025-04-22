@@ -22,7 +22,7 @@ def run_doser():
 #     manual_dosing = ManualDosing.query.order_by(ManualDosing.id).all()
 #     return render_template('doser/modify_doser.html', products=products, manual_dosing=manual_dosing)
 
-@app.route("/doser/modify", methods=['GET'])
+@app.route("/doser/db", methods=['GET'])
 def test_doser():
     product_col_name = get_table_columns(Products)
     product_cols = generate_columns(product_col_name)
