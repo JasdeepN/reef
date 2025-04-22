@@ -2,17 +2,26 @@ from sqlalchemy import insert
 from sqlalchemy import select, update, delete
 from app import db
 
-# Create
-async def create_row(table_class, data):
+
+def create_row(table_class, data):
+    """
+    Create a new row in the database table.
+    :param table_class: The SQLAlchemy model class for the table.
+    :param data: A dictionary containing the data to insert.
+    :return: The primary key of the inserted row or None if an error occurs.
+    """
+    if not table_class or not data:
+        print("Invalid table class or data")
+        return None   
     try:
         stmt = insert(table_class).values(data)
         result = db.session.execute(stmt)
         db.session.commit()
         return result.inserted_primary_key
     except Exception as e:
-        print(f"Error creating row: {e}")
+        # print(f"Error creating row: {e}")
         db.session.rollback()
-        return None
+        raise e
 
 # Read
 async def read_rows(table_class, filters=None):

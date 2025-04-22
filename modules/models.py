@@ -10,7 +10,7 @@ import datetime as dt
 
 from modules.forms import BaseForm
 
-class test_results(db.Model):
+class TestResults(db.Model):
     __tablename__ = 'test_results'
     id = db.Column(db.Integer, primary_key=True)
     test_date = db.Column(db.Date)

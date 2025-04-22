@@ -1,0 +1,51 @@
+:root {
+  /* Backgrounds */
+  --background-color: var(--outer-space);
+  --background-accent: var(--davys-gray);
+  --form-background: var(--cool-gray);
+  /* Text Colors */
+  --text-color: var(--alice-blue);
+  --text-muted: var(--powder-blue);
+  --text-accent: var(--powder-blue);
+  /* Primary Colors */
+  --primary-color: var(--cool-gray);
+  --secondary-color: var(--alice-blue);
+  --tertiary-color: var(--cool-gray);
+  /* Borders */
+  --border-color: var(--cool-gray);
+  /* Buttons */
+  --button-background: var(--powder-blue);
+  --button-hover: var(--light-slate-gray);
+  --button-text: var(--outer-space);
+  /* Links */
+  --link-color: var(--powder-blue);
+  --link-hover: var(--alice-blue);
+  /* Alerts */
+  --success-color: var(--powder-blue);
+  --warning-color: var(--cool-gray);
+  --error-color: var(--davys-gray);
+  /* Navbar */
+  --navbar-bg: var(--davys-gray);
+  --navbar-text: var(--alice-blue);
+  --navbar-text-accent: var(--powder-blue);
+  /* Complementary Table Colors */
+  --table-bg: var(--cool-gray);
+  --table-header-bg: var(--davys-gray);
+  --table-row-hover-bg: var(--outer-space);
+  --table-border-color: var(--powder-blue);
+  --table-text-color: var(--alice-blue);
+  --table-header-text-color: var(--alice-blue);
+  --table-row-highlight-bg: var(--outer-space);
+  --table-cell-disabled-bg: var(--davys-gray);
+  --table-header-hover-bg: #778899;
+  /* Light Slate Gray */
+  --table-header-hover-text-color: var(--outer-space);
+  /* White */
+  /* CSS HEX */
+  --alice-blue: #dcedffff;
+  --powder-blue: #94b0daff;
+  --light-slate-gray: #778899ff;
+  --light-gray: #d3d3d3ff;
+  --cool-gray: #8f91a2ff;
+  --davys-gray: #505a5bff;
+  --outer-space: #343f3eff; }

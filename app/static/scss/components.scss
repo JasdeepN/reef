@@ -1,0 +1,211 @@
+// This file contains the styles for the components used in the application.
+
+.alert-success {
+  background-color: var(--success-color);
+  color: var(--text-color);
+}
+
+.alert-warning {
+  background-color: var(--warning-color);
+  color: var(--text-color);
+}
+
+.alert-error {
+  background-color: var(--error-color);
+  color: var(--text-color);
+}
+
+.form {
+  background-color: var(--form-background);
+  border: 1px solid var(--border-color);
+  padding: 1rem;
+  border-radius: 5px;
+  color: var(--text-color);
+}
+
+
+.flashes .error {
+  display: inherit;
+  width: inherit;
+  background-color: rgb(241, 10, 10);
+}
+
+.flashes .success {
+  display: inherit;
+  width: inherit;
+  background-color: rgb(27, 212, 27);
+}
+
+.flashes {
+  width:100%;
+  display: inline;
+  /* display: flex; */
+  /* flex-direction: row; */
+  /* list-style: none; */
+  margin: 0;
+  /* padding-left: 1rem;  */
+  background-color: inherit;
+  /* flex: 1; */
+  > * {
+    padding-left: 1rem;
+  }
+
+  > * > a.close-button {
+    float: right;
+    padding-right: 1rem;
+    text-decoration: none;
+  }
+}
+
+
+.f-container  { 
+  width: 100%;
+  height: 100%;
+  
+  .title {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.form {
+  margin: 0 auto 2rem auto;
+  max-width: 50rem;
+  border: var(--border);
+  font-size: 1.2rem;
+  font: var(--font-body);
+
+  color: var(--form-text);
+  background: var(--form-background);
+  /* border-radius: 8px; */
+
+  /* An explicit background is required here, as it's actually transparent by default, and we
+        don't want to see the shadow element behind */
+  background: var(--background-color);
+  
+  /* This shadow is separated from the edges by 0.75rem, and shrunk by 0.2rem on the
+  top and bottom. */
+  box-shadow: 0.75rem 0.75rem 0 -0.2rem var(--accent-colour);
+}
+  
+.form__container {
+    /* padding-top: 1rem; */
+    padding: 2.5rem 1.5rem 1.5rem 1.5rem;
+    background: var(--body-background)
+  }
+
+  .form__group {
+    /* Surrounds the label and input fields, placing the label above the input */
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1.5rem;
+  }
+  
+  .form__label {
+    margin-bottom: 0.5rem;
+  }
+  
+  .form__field {
+    /* Removes the border and the outline highlight when the text field is in focus */
+    outline: none;
+    border: none;
+  
+    /* Re-adds a bottom border which will be replaces when the field is in focus. This
+         is going to prevent any jumping when we add the border later */
+    border-bottom: 3px solid #fff;
+  
+    /* We have to be explicit about our text fields inheriting font properties */
+    font-size: inherit;
+    font-family: inherit;
+  
+    padding: 0.75rem 0.5rem;
+    background: var(--background-color);
+  }
+  
+  /* When the field is in focus, we change the border colour at the bottom to the accent colour */
+  .form__field:focus {
+    border-bottom: 3px solid var(--accent-colour);
+  }
+  
+.form__link {
+    text-decoration: none;
+    color: red;
+  }
+  
+.form__link:hover {
+  color: #d05656;
+}
+
+.form__error {
+  margin-top: 0.5rem;
+}
+
+.form__error,
+.form__flash {
+  display: block;
+  padding: 0.5rem;
+  color: var(--text);
+}
+
+.form__error,
+.form__flash--danger {
+  background: var(--accent-colour);
+}
+
+.form__flash {
+  margin: 0.5rem;
+}
+
+.form__flash--success {
+  background: var(--accent-colour-2);
+}
+
+.btn {
+  color: white;
+}
+
+button.btn.btn-custom-1 {
+    background-color: var(--button-background ) ; /* Light slate gray background */
+    color: var(--button-text); /* White text */
+    border: none !important;
+    // padding: 5px 10px ;
+    // margin: 0rem 0.5rem 0.5rem 0rem;
+    // transition: red 0.3s ease, color 0.3s ease;  
+}
+
+.btn.btn-custom-1:hover {
+// button.btn-custom:hover {
+  background-color: var(--button-hover) ; /* Example hover background color (orange) */
+  color: #FFFFFF !important; /* White text on hover */
+  border: none !important;
+  outline: 1px solid rgba(255, 255, 255, 0.3);
+  background: -webkit-gradient(linear, left top, left bottom, color-stop(0%, var(--button-background)), color-stop(100%, var(--button-hover)));
+  background: -webkit-linear-gradient(top, var(--button-background) 0%, var(--button-hover) 100%);
+  background: -moz-linear-gradient(top, var(--button-background) 0%, var(--button-hover) 100%);
+  background: -ms-linear-gradient(top, var(--button-background) 0%, var(--button-hover) 100%);
+  background: -o-linear-gradient(top, var(--button-background) 0%, var(--button-hover) 100%);
+  background: linear-gradient(to bottom, var(--button-background) 0%, var(--button-hover) 100%);
+}
+
+
+.btn.btn-custom-2:hover {
+  // button.btn-custom:hover {
+  background-color: red ; /* Example hover background color (orange) */
+  color: #FFFFFF !important; /* White text on hover */
+  border: none !important;
+  outline: 1px solid rgba(255, 255, 255, 0.3);
+  background: -webkit-gradient(linear, left top, left bottom, color-stop(0%, red), color-stop(100%, var(--outer-space)));
+  background: -webkit-linear-gradient(top, red 0%, var(--outer-space) 100%);
+  background: -moz-linear-gradient(top, red 0%, var(--outer-space) 100%);
+  background: -ms-linear-gradient(top, red 0%, var(--outer-space) 100%);
+  background: -o-linear-gradient(top, red 0%, var(--outer-space) 100%);
+  background: linear-gradient(to bottom, red 0%, var(--outer-space) 100%);
+}
+  
+.btn.btn-custom-2.btn-cancel {
+  background-color: var(--outer-space); /* Light slate gray background */
+  color: #9b9b9b; /* White text */
+  border: none !important;
+}

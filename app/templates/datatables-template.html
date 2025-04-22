@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+
+{% block page_title %} {{ page_title | default("Data Tables") }} {% endblock %}
+
+{% block styles %}
+  {{ super() }}
+  <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/select/1.6.2/css/select.dataTables.min.css">
+  
+{% endblock %}
+
+{% block content %}
+<div class="grid-container {% if tables|length == 1 %}single-table{% endif %}">
+  {% if tables is iterable and tables|length > 0 %}
+    {% for table in tables %}
+      <div class="grid-item">
+        <div class="title">
+          <h3>{{ table.title | default("Data Table") }}</h3>
+        </div>
+        <div class="content table-container">
+          <table id="{{ table.id }}" class="display" style="width:100%">
+            <thead>
+              <tr>
+                {% for column in table.columns %}
+                  <th>{{ column.label }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+          </table>
+          <!-- Modal and Backdrop -->
+          <div id="modal-container-{{ table.id }}" class="modal-container">
+            <div id="modal-{{ table.id }}" class="modal">
+              <h4 id="modal-title-{{ table.id }}" class="modal-header"></h4>
+              <form id="editForm-{{ table.id }}">
+                {% for column in table.columns if column.data != 'id' %}
+                  <div class="form-group">
+                    <label for="{{ column.data }}">{{ column.label }}:</label>
+                    <input type="text" id="{{ column.data }}" name="{{ column.data }}" class="form-control">
+                  </div>
+                {% endfor %}
+                <div class="modal-footer">
+                  <button type="submit" id="saveButton-{{ table.id }}" class="btn btn-custom-1 btn-ok">Save</button>
+                  <button type="button" class="btn btn-custom-2 btn-cancel" onclick="closeModal('{{ table.id }}')">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+          <div id="modalBackdrop-{{ table.id }}" class="modal-backdrop"></div>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="grid-item full-width">
+      <p>No tables to display.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
+  <script src="https://cdn.datatables.net/select/1.6.2/js/dataTables.select.min.js"></script>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  let counter = 0;
+  $(document).ready(function () {
+    {% if tables is iterable and tables|length > 0 %}
+      {% for table in tables %}
+        counter++;
+        // Initialize DataTable for each table
+
+        const table_{{ loop.index }} = $('#{{ table.id }}').DataTable({
+          serverSide: true, // Enable server-side processing
+          processing: true, // Show a processing indicator
+          ajax: {
+            url: '{{ table.api_url }}', // Backend API endpoint for fetching data
+            type: 'GET',
+            data: function (d) {
+              // Map DataTables parameters to backend parameters
+              return {
+                draw: d.draw, // Pass the draw counter
+                page: (d.start / d.length) + 1, // Calculate the current page
+                rows: d.length, // Number of rows per page
+                sidx: d.columns[d.order[0].column].data, // Column to sort by
+                sord: d.order[0].dir, // Sort direction (asc/desc)
+                search: d.search.value // Global search value
+              };
+            }
+          },
+          columns: [
+            {% for column in table.columns %}
+              { data: '{{ column.data }}' },
+            {% endfor %}
+          ],
+          paging: true,
+          searching: true,
+          ordering: true,
+          order: [[0, 'desc']], // Default sort by the first column in descending order
+          responsive: true,
+          lengthMenu: [10, 25, 50, 100], // Rows per page options
+          language: {
+            loadingRecords: "Loading...",
+            emptyTable: "No records to display",
+          },
+          select: true, // Enable row selection
+          dom: 'Bfrtip', // Add buttons for CRUD operations
+          buttons: [
+            {
+              text: 'Add',
+              action: function () {
+                openModal(null, '{{ table.id }}');
+              }
+            },
+            {
+              text: 'Edit',
+              action: function () {
+                const selectedData = table_{{ loop.index }}.row({ selected: true }).data();
+                if (selectedData) {
+                  openModal(selectedData, '{{ table.id }}');
+                } else {
+                  alert('Please select a row to edit.');
+                }
+              }
+            },
+            {
+              text: 'Delete',
+              action: function () {
+                const selectedData = table_{{ loop.index }}.row({ selected: true }).data();
+                if (selectedData) {
+                  if (confirm('Are you sure you want to delete this record?')) {
+                    $.ajax({
+                      url: `/api/delete/{{ table.id }}`,
+                      type: 'DELETE',
+                      contentType: 'application/json',
+                      data: JSON.stringify({ id: selectedData.id }),
+                      success: function (response) {
+                        alert('Record deleted successfully.');
+                        table_{{ loop.index }}.ajax.reload();
+                      },
+                      error: function (xhr) {
+                        alert('Error deleting record: ' + xhr.responseText);
+                      }
+                    });
+                  }
+                } else {
+                  alert('Please select a row to delete.');
+                }
+              }
+            }
+          ]
+        });
+
+        // Function to open a modal for adding/editing   
+        function openModal(data, tableId) {
+          console.log("clicked button on table: ", tableId);
+          const isEdit = !!data;
+          const modalContainer = $(`#modal-container-${tableId}`);
+          const modal = $(`#modal-${tableId}`);
+          const backdrop = $(`#modalBackdrop-${tableId}`);
+          
+          modal.find('#modal-title-' + tableId).text(isEdit ? 'Edit Record' : 'Add Record');
+          modal.find('input').each(function () {
+            const fieldName = $(this).attr('name');
+            $(this).val(data ? data[fieldName] || '' : '');
+          });
+
+          modalContainer.addClass('show');
+          backdrop.addClass('show');
+          modal.addClass('show');
+
+          // Handle form submission
+          $(`#editForm-${tableId}`).off('submit').on('submit', function (e) {
+            e.preventDefault();
+            const formData = $(this).serializeArray().reduce((obj, item) => {
+              obj[item.name] = item.value;
+              return obj;
+            }, {});
+            const url = isEdit ? `/api/edit/${tableId}` : `/api/new/${tableId}`;
+            const method = isEdit ? 'PUT' : 'POST';
+            if (isEdit) {
+              formData.id = data.id; // Include the ID of the row if editing
+              console.log("Editing record with ID: ", data.id);
+            }
+            $.ajax({
+              url: url,
+              type: method,
+              contentType: 'application/json',
+              data: JSON.stringify(formData),
+                success: function (response) {
+                alert(`${isEdit ? 'Record updated' : 'Record added'} successfully.`);
+                closeModal(tableId);
+                // Reload the DataTable using the table's unique ID
+                console.log("Reloading table: ", tableId);
+
+                $(`#${tableId}`).DataTable().ajax.reload(); // Reload the DataTable NOT COMMENTED OUT
+              },
+              error: function (xhr) {
+                alert('Error saving record: ' + xhr.responseText);
+              }
+            });
+          });
+        }
+      {% endfor %}
+    {% endif %}
+  });
+
+  // Function to close the modal
+  function closeModal(tableId) {
+    $(`#modal-container-${tableId}`).removeClass('show');
+    $(`#modalBackdrop-${tableId}`).removeClass('show');
+  }
+</script>
+{% endblock %}

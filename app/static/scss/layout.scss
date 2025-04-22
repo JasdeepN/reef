@@ -1,0 +1,119 @@
+.applet-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.navbar {
+  margin-bottom: 0 !important;
+}
+
+.navbar-custom {
+  background-color: var(--navbar-bg);
+  ul.navbar-nav a:hover {
+    color: var(--navbar-text-accent); 
+  }
+  .dropdown-menu.show {
+    background-color: var(--navbar-bg);
+  }
+}
+
+.navbar-nav .nav-link.active, .navbar-nav .nav-link.show {
+    color: var(--navbar-text-accent);
+}
+
+.navbar-custom .navbar-brand,
+.navbar-custom .navbar-text {
+    color: var(--navbar-text);
+}
+
+.navbar-custom li a {
+    color: var(--navbar-text);
+}
+
+.nav-item > .nav-link{
+  color: var(--navbar-text);
+  &:hover {
+    color: var(--navbar-text-accent);
+  }
+}
+
+li > a.dropdown-item {
+  color: var(--navbar-text);
+  &:hover {
+    background-color: var(--light-slate-gray);
+    color: var(--text-color) !important;
+  }
+}
+
+/* Default styles (for larger screens) are already defined above */
+
+/* Small devices (phones, less than 576px) */
+@media (max-width: 575.98px) {
+  .table-container {
+    width: 100%; /* Make tables take full width on small screens */
+    margin: 0; /* Remove horizontal margins */
+  }
+
+  .title {
+    font-size: 1.2rem; /* Adjust title font size */
+    padding: 1rem 0;
+  }
+
+  .form {
+    max-width: 90%; /* Reduce form width */
+    padding: 1rem;
+  }
+
+  .navbar-custom {
+    font-size: 0.9rem; /* Adjust navbar font size */
+  }
+}
+
+/* Medium devices (tablets, 576px to 768px) */
+@media (min-width: 576px) and (max-width: 767.98px) {
+  .table-container {
+    width: 95%; /* Slightly reduce table width */
+  }
+
+  .title {
+    font-size: 1.4rem; /* Adjust title font size */
+  }
+
+  .form {
+    max-width: 80%; /* Adjust form width */
+  }
+}
+
+/* Large devices (desktops, 768px to 992px) */
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .table-container {
+    width: 90%; /* Keep table width at 90% */
+  }
+
+  .title {
+    font-size: 1.6rem; /* Slightly increase title font size */
+  }
+
+  .form {
+    max-width: 70%; /* Adjust form width */
+  }
+}
+
+/* Extra large devices (large desktops, 992px and above) */
+@media (min-width: 992px) {
+  .table-container {
+    width: 90%; /* Keep table width at 90% */
+  }
+
+  .title {
+    font-size: 2rem; /* Larger title font size */
+  }
+
+  .form {
+    max-width: 50%; /* Keep form width at 50% */
+  }
+}
