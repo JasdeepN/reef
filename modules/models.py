@@ -1,5 +1,6 @@
 from app import db
-
+from sqlalchemy import Enum
+import enum
 from sqlalchemy import Computed
 
 from flask_wtf import FlaskForm 
@@ -96,63 +97,25 @@ class ProductForm(BaseForm):
     submit = SubmitField("Submit")
 
 
-class ManualDosing(db.Model):
-    __tablename__ = 'manual_dosing'
+
+
+class DosingTypeEnum(enum.Enum):
+    recurring = 'recurring'
+    single = 'single'
+    intermittent = 'intermittent'
+
+class Dosing(db.Model):
+    __tablename__ = 'dosing'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    added_on = db.Column(db.Date, nullable=False)
-    dosed_at = db.Column(db.Time, nullable=False)
-    product = db.Column(db.String(128), nullable=False)
-    amount = db.Column(db.Float, nullable=True)
-    reason = db.Column(db.Text, nullable=True)
+    _time = db.Column(db.DateTime)
+    _type = db.Column(Enum(DosingTypeEnum), nullable=False)
+    amount = db.Column(db.Float, default=0)
+    reason = db.Column(db.Text)
+    per_dose = db.Column(db.Float)
+    prod_id = db.Column(db.Integer, db.ForeignKey('products.id'))
+    total_dose = db.Column(db.Float, nullable=False)
+    daily_number_of_doses = db.Column(db.Integer)
 
-    def __repr__(self):
-        return f"<ManualDosing {self.product}>"
-    # Custom validate method
-    def validate(self, extra_validators=None):
-        if super().validate(extra_validators):
-            if not self.added_on:
-                raise ValueError("Added on date is required")
-            if not self.dosed_at:
-                raise ValueError("Dosed at time is required")
-            if not self.product:
-                raise ValueError("Product is required")
-            if self.amount is not None and self.amount < 0:
-                raise ValueError("Amount must be non-negative")
-            if self.reason and len(self.reason) > 500:
-                raise ValueError("Reason must be less than 500 characters")
-        
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'added_on': self.added_on.strftime("%Y-%m-%d"),
-            'dosed_at': self.dosed_at.strftime("%H:%M:%S"),
-            'product': self.product,
-            'amount': self.amount,
-            'reason': self.reason
-        }
-
-
-class ManualDosingForm(BaseForm):
-    added_on = DateField("Added On", validators=[DataRequired()])
-    dosed_at = TimeField("Dosed At", format='%H:%M:%S', validators=[DataRequired()])
-    product = StringField("Product", validators=[DataRequired(), Length(max=128)])
-    amount = DecimalField("Amount", validators=[Optional()])
-    reason = TextAreaField("Reason", validators=[Optional()])
-    submit = SubmitField("Submit")
-
-
-class DoseEvents(db.Model):
-    __tablename__ = 'dose_events'
-
-    dose_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    repeat_type = db.Column(db.Enum('Hourly', 'Split-Dose', 'Bi-Hourly', 'Quarterly', 'Custom'), nullable=False)
-    start_time = db.Column(db.DateTime, nullable=False)
-    until_no = db.Column(db.Integer, nullable=True)
-    f_product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
-    description = db.Column(db.String(30), nullable=True)
-
-    product = db.relationship('Products', backref='dose_events', lazy=True)
-
-    def __repr__(self):
-        return f"<DoseEvents {self.description}>"
+    # Optional: relationship to Products
+    product = db.relationship('Products', backref=db.backref('dosings', lazy=True))

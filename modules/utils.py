@@ -2,6 +2,8 @@ from app import app
 from app import db
 from datetime import datetime
 from datetime import date
+import sqlalchemy   
+
 # part of timeline 
 def allowed_file(filename):
     return '.' in filename and \
@@ -97,6 +99,10 @@ def process_product_data(input):
     
     return output
 
+#####
+# Column names for DataTables
+#####
+# for singe table
 def get_table_columns(table_model):
     """
     Returns a list of column names for the given SQLAlchemy table model.
@@ -110,6 +116,32 @@ def get_table_columns(table_model):
         print(f"Error: {table_model} is not a valid SQLAlchemy model.")
         return []
 
+
+def get_query_column_names_from_tuple_list_simple(rows):
+    if not rows or not isinstance(rows[0], sqlalchemy.engine.row.Row):
+        return []
+    column_names = []
+    for item in rows[0]:
+        for col in type(item).__table__.columns:
+            column_names.append(col.key)
+    return column_names
+
+
+def get_query_column_names_from_tuple_list(rows):
+    """
+    Given a list of tuples from a joined SQLAlchemy ORM query,
+    returns a list of column names in the format 'model_column' (e.g., 'dosing_id', 'products_name').
+    """
+    if not rows or not isinstance(rows[0], sqlalchemy.engine.row.Row) :
+        print("Error: The provided rows are not in the expected format.")
+        return []
+    column_names = []
+    for item in rows[0]:
+        model = type(item)
+        prefix = model.__tablename__
+        for col in model.__table__.columns:
+            column_names.append(f"{prefix}_{col.key}")
+    return column_names
 
 def generate_columns(column_names):
     """
@@ -143,3 +175,101 @@ def validate_and_process_data(model, data):
     except Exception as e:
         print(f"Error validating data for model {model.__tablename__}: {e}")
         return None
+
+def advanced_join_query(
+    db,
+    TABLE_MAP,
+    table_names,
+    join_type="inner",  # "inner", "left", "right", "full"
+    join_conditions=None,
+    filters=None,       # list of SQLAlchemy filter expressions
+    order_by=None,      # list of (table, column, direction)
+    limit=None,
+    offset=None
+):
+    """
+    Build and execute a flexible join query with optional filters, ordering, and pagination.
+
+    :param db: SQLAlchemy db instance
+    :param TABLE_MAP: dict mapping table names to model classes
+    :param table_names: list of table names to join
+    :param join_type: join type ("inner", "left", "right", "full")
+    :param join_conditions: list of SQLAlchemy join conditions (len = n-1 for n tables)
+    :param filters: list of SQLAlchemy filter expressions
+    :param order_by: list of (table_name, column_name, direction) tuples
+    :param limit: int
+    :param offset: int
+    :return: list of dicts (rows)
+    """
+
+    print("join_conditions", len(join_conditions))
+    print(join_conditions)
+    if not table_names or len(table_names) < 2:
+        raise ValueError("At least two tables required for join.")
+    if join_conditions is None or len(join_conditions) != len(table_names) - 1:
+        raise ValueError("Number of join conditions must be one less than number of tables.")
+
+    models = [TABLE_MAP[name] for name in table_names]
+    query = db.session.query(*models)
+
+    # Apply joins
+    for idx, condition in enumerate(join_conditions):
+        right_model = models[idx + 1]
+        if join_type == "left":
+            query = query.outerjoin(right_model, condition)
+        elif join_type == "right":
+            # SQLAlchemy does not support right join directly; swap tables and use left join
+            query = query.select_from(right_model).outerjoin(models[idx], condition)
+        elif join_type == "full":
+            query = query.join(right_model, condition, isouter=True, full=True)
+        else:  # default to inner join
+            query = query.join(right_model, condition)
+
+    # Apply filters
+    if filters:
+        for f in filters:
+            query = query.filter(f)
+
+    # Apply ordering
+    if order_by:
+        for table_name, col_name, direction in order_by:
+            model = TABLE_MAP[table_name]
+            col = getattr(model, col_name)
+            if direction.lower() == "desc":
+                query = query.order_by(col.desc())
+            else:
+                query = query.order_by(col.asc())
+
+    # Pagination
+    if offset is not None:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+
+    print ("Executing query:", str(query))
+    results = query.all()
+
+    print("Query results:", results)
+    # Serialize results
+    import enum
+    from datetime import date, time
+    data = []
+    for row in results:
+        row_dict = {}
+        for item in row:
+            model = type(item)
+            prefix = model.__tablename__
+            for col in model.__table__.columns:
+                val = getattr(item, col.key)
+                if isinstance(val, enum.Enum):
+                    row_dict[f"{prefix}_{col.key}"] = val.value
+                elif isinstance(val, date):
+                    row_dict[f"{prefix}_{col.key}"] = val.strftime("%Y-%m-%d")
+                elif isinstance(val, time):
+                    row_dict[f"{prefix}_{col.key}"] = val.strftime("%H:%M:%S")
+                else:
+                    row_dict[f"{prefix}_{col.key}"] = val
+        data.append(row_dict)
+
+    print("Serialized data:", data)
+    return data

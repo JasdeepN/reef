@@ -1,13 +1,14 @@
 import modules
 import json
-import datetime
+from datetime import date, time 
 from flask import jsonify, request
 from app import app, db
-from modules.models import TestResults, Products, ManualDosing
-from modules.utils import process_test_data
+from modules.models import TestResults, Products, Dosing
+from modules.utils import *
 from modules.models import db as models_db  # Import the SQLAlchemy instance from models.py
 from sqlalchemy.inspection import inspect
 from modules.db_functions import create_row, read_rows, update_row, delete_row
+import enum
 
 import pprint
 
@@ -22,6 +23,7 @@ TABLE_MAP = {
 
 @app.route('/api/get/<table_name>', methods=['GET'])
 def get_table_data(table_name):
+    print('get_table_data', table_name)
     try:
         # Check if the table name exists in the mapping
         if table_name not in TABLE_MAP:
@@ -29,7 +31,7 @@ def get_table_data(table_name):
 
         # Get the table model
         table_model = TABLE_MAP[table_name]
-
+        # print('table_model', table_model)
         # Get DataTables parameters
         draw = int(request.args.get('draw', 1))  # Draw counter
         page = int(request.args.get('page', 1))  # Current page number
@@ -68,9 +70,11 @@ def get_table_data(table_name):
             row_data = {}
             for column in table_model.__table__.columns:
                 value = getattr(row, column.name)
-                if isinstance(value, datetime.date):  # Check for date objects
+                if isinstance(value, enum.Enum):
+                    row_data[column.name] = value.value
+                elif isinstance(value, date):
                     row_data[column.name] = value.strftime("%Y-%m-%d")
-                elif isinstance(value, datetime.time):  # Check for time objects
+                elif isinstance(value, time):
                     row_data[column.name] = value.strftime("%H:%M:%S")
                 else:
                     row_data[column.name] = value
@@ -86,6 +90,8 @@ def get_table_data(table_name):
         return jsonify(response)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
 
 
 @app.route('/api/edit/<table_name>', methods=['POST', 'PUT'])
@@ -163,5 +169,109 @@ def delete_record(table_name):
         db.session.commit()
 
         return jsonify({'success': True, 'message': 'Record deleted successfully'}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/get/advanced_join', methods=['GET'])
+def api_advanced_join():
+    """
+    Example usage:
+    /api/get/advanced_join?tables=products,dosing
+        &join_type=inner
+        &conditions=%5B%5B%22products.id%22%2C%22dosing.prod_id%22%5D%5D
+        &filters=%5B%5B%22products.name%22%2C%22like%22%2C%22Neo%25%22%5D%5D
+        &order_by=%5B%5B%22products%22%2C%22id%22%2C%22asc%22%5D%5D
+        &limit=10
+        &offset=0
+
+    - tables: comma-separated table names
+    - join_type: inner, left, right, full
+    - conditions: JSON list of pairs, each pair is [left, right] for join condition
+    - filters: JSON list of [table.column, op, value] (e.g., [["products.name", "like", "Neo%"]])
+    - order_by: JSON list of [table, column, direction]
+    - limit, offset: integers
+    """
+    try:
+        import json
+
+        # Parse tables
+        table_names = request.args.get("tables", "")
+        table_names = [t.strip() for t in table_names.split(",") if t.strip()]
+
+        # Join type
+        join_type = request.args.get("join_type", "inner").lower()
+
+        # Join conditions
+        conditions_json = request.args.get("conditions", "[]")
+        join_conditions_raw = json.loads(conditions_json)
+        print('join_conditions_raw', join_conditions_raw)
+        join_conditions = []
+        for pair in join_conditions_raw:
+            left_table, left_col = pair[0].split('.')
+            right_table, right_col = pair[1].split('.')
+            left_model = TABLE_MAP[left_table]
+            right_model = TABLE_MAP[right_table]
+            join_conditions.append(getattr(left_model, left_col) == getattr(right_model, right_col))
+
+        # Filters
+        filters_json = request.args.get("filters", "[]")
+        filters_raw = json.loads(filters_json)
+        filters = []
+        for f in filters_raw:
+            table_col, op, value = f
+            table_name, col_name = table_col.split('.')
+            model = TABLE_MAP[table_name]
+            col = getattr(model, col_name)
+            if op == "like":
+                filters.append(col.like(value))
+            elif op == "=":
+                filters.append(col == value)
+            elif op == ">":
+                filters.append(col > value)
+            elif op == "<":
+                filters.append(col < value)
+            # Add more operators as needed
+
+        # Order by
+        order_by_json = request.args.get("order_by", "[]")
+        order_by_raw = json.loads(order_by_json)
+        order_by = []
+        for ob in order_by_raw:
+            order_by.append(tuple(ob))
+
+        # Limit and offset
+        limit = request.args.get("limit", None)
+        offset = request.args.get("offset", None)
+        limit = int(limit) if limit is not None else None
+        offset = int(offset) if offset is not None else None
+
+        # Call the advanced join query function
+        data = advanced_join_query(
+            db=db,
+            TABLE_MAP=TABLE_MAP,
+            table_names=table_names,
+            join_type=join_type,
+            join_conditions=join_conditions,
+            filters=filters,
+            order_by=order_by,
+            limit=limit,
+            offset=offset
+        )
+
+
+        draw = int(request.args.get('draw', 1))  # Draw counter
+        total_records = len(data)  # Total records in the database
+        response = {
+            "draw": draw,  # Pass back the draw counter
+            "recordsTotal": total_records,  # Total records in the database
+            "recordsFiltered": total_records,  # Total records after filtering
+            "data": data,  # Data for the current page
+        }
+        # return jsonify({
+        #     "recordsTotal": len(data),
+        #     "data": data
+        # })
+        return jsonify(response)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

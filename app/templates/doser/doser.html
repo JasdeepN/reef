@@ -1,120 +1,26 @@
-{% extends "base.html" %}
+{% extends 'datatables-template.html' %}
 
-{% block title %}
-Doser
+{% block page_title %} {{ super() }} {% endblock %}
+
+{% block styles %}
+  {{ super() }}
 {% endblock %}
 
-{% block content %}
-<h1>Doser Page</h1>
-
-<!-- Products Table -->
-<h2>Products</h2>
-<table class="table table-striped">
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Name</th>
-      <th>Dose Amount</th>
-      <th>Total Volume</th>
-      <th>Current Available</th>
-      <th>Used Amount</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for product in products %}
-    <tr>
-      <td>{{ product.id }}</td>
-      <td>{{ product.name }}</td>
-      <td>{{ product.dose_amt }}</td>
-      <td>{{ product.total_volume }}</td>
-      <td>{{ product.current_avail }}</td>
-      <td>{{ product.used_amt }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-<!-- Manual Dosing Table -->
-<h2>Manual Dosing</h2>
-<table class="table table-striped">
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Added On</th>
-      <th>Dosed At</th>
-      <th>Product</th>
-      <th>Amount</th>
-      <th>Reason</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for dosing in manual_dosing %}
-    <tr>
-      <td>{{ dosing.id }}</td>
-      <td>{{ dosing.added_on }}</td>
-      <td>{{ dosing.dosed_at }}</td>
-      <td>{{ dosing.product }}</td>
-      <td>{{ dosing.amount }}</td>
-      <td>{{ dosing.reason }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-<!-- Dose Events Table -->
-<h2>Dose Events</h2>
-<table class="table table-striped">
-  <thead>
-    <tr>
-      <th>Dose ID</th>
-      <th>Repeat Type</th>
-      <th>Start Time</th>
-      <th>Until No</th>
-      <th>Product ID</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for event in dose_events %}
-    <tr>
-      <td>{{ event.dose_id }}</td>
-      <td>{{ event.repeat_type }}</td>
-      <td>{{ event.start_time }}</td>
-      <td>{{ event.until_no }}</td>
-      <td>{{ event.f_product_id }}</td>
-      <td>{{ event.description }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% endblock %}
 
 {% block page_scripts %}
-<script>
-  new gridjs.Grid({
-    columns: [
-      { id: 'id', name: 'ID' },
-      { id: 'event_date', name: 'Event Date' },
-      { id: 'event_time', name: 'Event Time' },
-      { id: 'product', name: 'Product' },
-      { id: 'amount', name: 'Amount' },
-      { id: 'notes', name: 'Notes' }
-    ],
-    data: [
-      {% for event in dose_events %}
-        {
-          id: '{{ event.id }}',
-          event_date: '{{ event.event_date }}',
-          event_time: '{{ event.event_time }}',
-          product: '{{ event.product }}',
-          amount: '{{ event.amount }}',
-          notes: '{{ event.notes }}'
-        },
-      {% endfor %}
-    ],
-    search: true,
-    sort: true,
-    pagination: true,
-  }).render(document.getElementById('doseEventsTable'));
-</script>
+
+
+
+  <script>
+    const tables = "products,dosing";
+    const join_type = "inner";
+    const conditions = JSON.stringify([["products.id", "dosing.prod_id"]]);
+    const override_url = `/api/get/advanced_join?tables=${tables}&join_type=${join_type}&conditions=${encodeURIComponent(conditions)}`;
+    console.log(override_url);
+
+  </script>
+
+  
+  {{ super() }}
+
 {% endblock %}
