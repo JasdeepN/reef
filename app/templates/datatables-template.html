@@ -78,7 +78,7 @@
           serverSide: true, // Enable server-side processing
           processing: true, // Show a processing indicator
           ajax: {
-            url: override_url ? override_url : '{{ table.api_url }}', // Backend API endpoint for fetching data
+            url: typeof override_url !== 'undefined' && override_url ? override_url : '{{ table.api_url }}', // Backend API endpoint for fetching data
             type: 'GET',
             data: function (d) {
               // Map DataTables parameters to backend parameters
