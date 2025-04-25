@@ -185,7 +185,8 @@ def advanced_join_query(
     filters=None,       # list of SQLAlchemy filter expressions
     order_by=None,      # list of (table, column, direction)
     limit=None,
-    offset=None
+    offset=None,
+    params=None,       # DataTables parameters
 ):
     """
     Build and execute a flexible join query with optional filters, ordering, and pagination.
@@ -202,8 +203,6 @@ def advanced_join_query(
     :return: list of dicts (rows)
     """
 
-    print("join_conditions", len(join_conditions))
-    print(join_conditions)
     if not table_names or len(table_names) < 2:
         raise ValueError("At least two tables required for join.")
     if join_conditions is None or len(join_conditions) != len(table_names) - 1:
@@ -246,10 +245,10 @@ def advanced_join_query(
     if limit is not None:
         query = query.limit(limit)
 
-    print ("Executing query:", str(query))
+    # print ("Executing query:", str(query))
     results = query.all()
 
-    print("Query results:", results)
+    # print("Query results:", results)
     # Serialize results
     import enum
     from datetime import date, time
@@ -271,5 +270,70 @@ def advanced_join_query(
                     row_dict[f"{prefix}_{col.key}"] = val
         data.append(row_dict)
 
-    print("Serialized data:", data)
     return data
+
+def apply_datatables_query_params_to_dicts(data, params):
+    print("Applying DataTables query params to data")
+    """
+    Applies DataTables sorting, ordering, filtering, and search to a list of dicts (rows).
+
+    :param data: List of dicts (rows)
+    :param params: dict containing DataTables parameters:
+        - search: global search string
+        - sidx: column to sort by
+        - sord: sort direction ('asc' or 'desc')
+        - page: page number (1-based)
+        - rows: number of rows per page
+    :return: (filtered_data, total_records)
+    """
+    # Filtering (global search)
+    search = params.get('search', '').lower()
+    if search:
+        def row_matches(row):
+            return any(search in str(value).lower() for value in row.values() if value is not None)
+        data = list(filter(row_matches, data))
+
+    # Ordering
+    sidx = params.get('sidx')
+    sord = params.get('sord', 'asc')
+    if sidx:
+        def sort_key(x):
+            val = x.get(sidx, None)
+            # Treat None as less than any value, and try to convert to float if possible
+            if val is None:
+                return float('-inf') if sord == 'asc' else float('inf')
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return str(val)
+        data = sorted(
+            data,
+            key=sort_key,
+            reverse=(sord == 'desc')
+        )
+
+    # Total records after filtering
+    total_records = len(data)
+
+    # Pagination
+    page = int(params.get('page', 1))
+    rows = int(params.get('rows', 10))
+    start = (page - 1) * rows
+    end = start + rows
+    data = data[start:end]
+
+    return data, total_records
+
+def datatables_response(data, params, draw):
+    """
+    Applies DataTables search, ordering, and pagination to a list of dicts,
+    and returns a response dict ready for jsonify.
+    """
+    filtered_data, total_filtered = apply_datatables_query_params_to_dicts(data, params)
+    response = {
+        "draw": draw,
+        "recordsTotal": len(data),
+        "recordsFiltered": total_filtered,
+        "data": filtered_data,
+    }
+    return response

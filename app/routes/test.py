@@ -31,23 +31,17 @@ async def add_test():
 
 @app.route("/test/db", methods=['GET'])
 def test_modify():
-    tables= [
+    from modules.utils import get_table_columns, generate_columns
+
+    test_col_names = get_table_columns(TestResults)
+    test_cols = generate_columns(test_col_names)
+
+    tables = [
         {
-        "id":"test_results",
-        "api_url":"/api/get/test_results",
-        "title":"Test Results",
-        "columns" : [
-            {"label": "ID", "data": "id"},
-            {"label": "Test Date", "data": "test_date"},
-            {"label": "Test Time", "data": "test_time"},
-            {"label": "Alkalinity (KH)", "data": "alk"},
-            {"label": "Phosphate (PO₄³⁻ ppm)", "data": "po4_ppm"},
-            {"label": "Phosphate (PO₄³⁻ ppb)", "data": "po4_ppb"},
-            {"label": "Nitrate (NO₃⁻ ppm)", "data": "no3_ppm"},
-            {"label": "Calcium (Ca²⁺ ppm)", "data": "cal"},
-            {"label": "Magnesium (Mg²⁺ ppm)", "data": "mg"},
-            {"label": "Specific Gravity (SG)", "data": "sg"}
-        ],
+            "id": "test_results",
+            "api_url": "/api/get/test_results",
+            "title": "Test Results",
+            "columns": test_cols,
         }
     ]
     return render_template('test/modify_test.html', tables=tables)

@@ -1,26 +1,22 @@
 import urllib.parse
-from flask import render_template
+from flask import render_template, request
 from app import app
 from modules.models import Products, TestResults, Dosing  # Import your models
 from modules.utils import *
 
-
 @app.route("/doser", methods=["GET"])
 def doser_joined():
-    """
-    Returns the result of:
-    SELECT * FROM products JOIN dosing ON products.id = dosing.prod_id
-    using the api_advanced_join logic.
-    """
     import json
+    import urllib.parse
     from app.routes.api import advanced_join_query, TABLE_MAP, db
 
     # Prepare parameters for advanced_join_query
     table_names = ["products", "dosing"]
     join_type = "inner"
     join_conditions = [getattr(TABLE_MAP["products"], "id") == getattr(TABLE_MAP["dosing"], "prod_id")]
-    print(join_conditions, 'join_conditions')
-    print("table_names:", table_names)
+
+    
+
     # No filters, order_by, limit, or offset for this simple join
     data = advanced_join_query(
         db=db,
@@ -31,27 +27,26 @@ def doser_joined():
         filters=None,
         order_by=None,
         limit=None,
-        offset=None
+        offset=None,
     )
 
+    # print(data , 'data')
     tables = "products,dosing"
     conditions = json.dumps([["products.id", "dosing.prod_id"]])  # Proper JSON
-    encoded_conditions = urllib.parse.quote(conditions)           # URL-encode
+    # Do NOT encode here, just send the raw JSON string for JS
+    js_safe_url = f"/api/get/advanced_join?tables={tables}&join_type={join_type}&conditions={conditions}"
 
-    url = f"/api/get/advanced_join?tables={tables}&join_type={join_type}&conditions={encoded_conditions}"
-    print(url)
-
-    # print('ssss',data)
     cols = generate_columns(data[0].keys()) if data else []
-    print("COlUMNS", cols)
+    # print (data)
     return render_template(
         'doser/doser.html',
         tables=[{
             "id": "products_dosing_join",
-            "api_url": url,
+            "api_url": js_safe_url,  # Pass the JS-safe URL
             "title": "Products & Dosing Join",
             "columns": cols,
-            # "data": data
+            # "data": data,
+            # "total": data.total,
         }]
     )
 
