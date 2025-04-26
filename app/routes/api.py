@@ -44,32 +44,10 @@ def get_table_data(table_name):
             'page': request.args.get('page', 1),
             'rows': request.args.get('rows', 10)
         }
-
-
+        
         # Base query
         query = table_model.query
-
-        # Apply global search
-        # if search_value:
-        #     search_filters = []
-        #     for column in table_model.__table__.columns:
-        #         search_filters.append(column.like(f"%{search_value}%"))
-        #     query = query.filter(db.or_(*search_filters))
-
-        # # Apply sorting
-        # if sort_column and hasattr(table_model, sort_column):
-        #     if sort_order == 'asc':
-        #         query = query.order_by(getattr(table_model, sort_column).asc())
-        #     else:
-        #         query = query.order_by(getattr(table_model, sort_column).desc())
-
-        # # Pagination
-        # total_records = query.count()
-        # query = query.offset((page - 1) * rows).limit(rows)
-
-        # Fetch results
         results = query.all()
-
         # Process results to handle date and time objects
         data = []
         for row in results:

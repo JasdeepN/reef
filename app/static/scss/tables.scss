@@ -68,13 +68,13 @@
 
 .grid-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(25%, 1fr)); /* Default responsive grid */
+  grid-template-columns: repeat(2, 1fr); // Two columns for most layouts
   gap: 1rem;
   width: 100%;
 }
 
 .grid-container.single-table {
-  grid-template-columns: 1fr; /* Full width for a single table */
+  grid-template-columns: 1fr; // Full width for a single table
 }
 
 .grid-item {
@@ -82,6 +82,10 @@
   padding: 1rem;
   border: 1px solid var(--border-color, #ccc);
   border-radius: 5px;
+}
+
+.grid-item.full-width {
+  grid-column: 1 / -1; // Span both columns
 }
 
 .table-container {
@@ -114,8 +118,14 @@
 }
 
 .modal-container.show {
-  display: flex; /* Show the modal when the "show" class is added */
+  display: flex;
   width: inherit;
+  height: 100%;
+  // align-items: flex-start; // Align modal to the top of the viewport
+  // justify-content: center;
+  // padding-top: 5vh;        // Optional: add some space from the top
+  // padding-bottom: 2vh;     // Optional: add some space at the bottom
+  // min-height: 100vh;       // Ensure container fills the viewport
 }
 
 .modal {
@@ -128,6 +138,28 @@
   width: 100%;
   position: relative;
   height: fit-content;
+  max-height: 80vh;      // Limit modal height to 80% of viewport
+  overflow-y: auto;      // Add vertical scroll if content is too tall
+  display: flex;
+  flex-direction: column;
+
+  // scrollbar-width: thin;              // Firefox
+  // scrollbar-color: var(--outer-space) var(--powder-blue); // Firefox
+
+  // &::-webkit-scrollbar {
+  //   width: 10px;
+  //   background: var(--outer-space);
+  // }
+  // &::-webkit-scrollbar-thumb {
+  //   background: var(--accent-colour);
+  //   border-radius: 6px;
+  // }
+  // &::-webkit-scrollbar-thumb:hover {
+  //   background: var(--button-hover);
+  // }
+  // &::-webkit-scrollbar-corner {
+  //   background: var(--background-color);
+  // }
 }
 
 .modal-header {

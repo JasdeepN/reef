@@ -273,7 +273,7 @@ def advanced_join_query(
     return data
 
 def apply_datatables_query_params_to_dicts(data, params):
-    print("Applying DataTables query params to data")
+    # print("Applying DataTables query params to data")
     """
     Applies DataTables sorting, ordering, filtering, and search to a list of dicts (rows).
 
@@ -287,6 +287,15 @@ def apply_datatables_query_params_to_dicts(data, params):
     :return: (filtered_data, total_records)
     """
     # Filtering (global search)
+    if params is None:
+        
+        params = {
+            'search': '',  
+            'sidx': '',
+            'sord': 'asc',
+            'page': 1,
+            'rows': 10
+        }
     search = params.get('search', '').lower()
     if search:
         def row_matches(row):

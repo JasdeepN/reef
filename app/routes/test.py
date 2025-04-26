@@ -42,6 +42,14 @@ def test_modify():
             "api_url": "/api/get/test_results",
             "title": "Test Results",
             "columns": test_cols,
+            "datatable_options": {
+                "dom": "Bfrtip",
+                "buttons": [
+                    {"text": "Add", "action": "add"},
+                    {"text": "Edit", "action": "edit"},
+                    {"text": "Delete", "action": "delete"}
+                ]
+            }
         }
     ]
     return render_template('test/modify_test.html', tables=tables)

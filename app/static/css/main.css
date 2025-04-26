@@ -389,20 +389,21 @@ li > a.dropdown-item {
 
 .grid-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(25%, 1fr));
-  /* Default responsive grid */
+  grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
   width: 100%; }
 
 .grid-container.single-table {
-  grid-template-columns: 1fr;
-  /* Full width for a single table */ }
+  grid-template-columns: 1fr; }
 
 .grid-item {
   background-color: var(--background-color, #f9f9f9);
   padding: 1rem;
   border: 1px solid var(--border-color, #ccc);
   border-radius: 5px; }
+
+.grid-item.full-width {
+  grid-column: 1 / -1; }
 
 .table-container {
   overflow-x: auto;
@@ -433,8 +434,8 @@ li > a.dropdown-item {
 
 .modal-container.show {
   display: flex;
-  /* Show the modal when the "show" class is added */
-  width: inherit; }
+  width: inherit;
+  height: 100%; }
 
 .modal {
   background: var(--light-slate-gray);
@@ -445,7 +446,11 @@ li > a.dropdown-item {
   max-width: 500px;
   width: 100%;
   position: relative;
-  height: fit-content; }
+  height: fit-content;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column; }
 
 .modal-header {
   font-size: 1.5rem;
@@ -521,6 +526,28 @@ body {
   width: 100%;
   height: 100%;
   font: source-sans-pro; }
+
+/* Works on Firefox */
+* {
+  scrollbar-width: auto;
+  scrollbar-color: var(--outer-space) var(--powder-blue); }
+
+/* Works on Chrome, Edge, and Safari */
+body::-webkit-scrollbar {
+  width: 12px;
+  /* width of the entire scrollbar */ }
+
+body::-webkit-scrollbar-track {
+  background: var(--powder-blue);
+  /* color of the tracking area */ }
+
+body::-webkit-scrollbar-thumb {
+  background-color: var(--outer-space);
+  /* color of the scroll thumb */
+  border-radius: 20px;
+  /* roundness of the scroll thumb */
+  border: 3px solid var(--powder-blue);
+  /* creates padding around scroll thumb */ }
 
 h1, h2, h3 {
   color: var(--text-accent); }

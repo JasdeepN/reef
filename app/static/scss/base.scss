@@ -10,8 +10,29 @@ body {
   width: 100%;
   height: 100%;
   font: source-sans-pro;
-
 }
+
+/* Works on Firefox */
+* {
+  scrollbar-width: auto;
+  scrollbar-color: var(--outer-space) var(--powder-blue);
+}
+
+/* Works on Chrome, Edge, and Safari */
+body::-webkit-scrollbar {
+  width: 12px;               /* width of the entire scrollbar */
+}
+
+body::-webkit-scrollbar-track {
+  background: var(--powder-blue);        /* color of the tracking area */
+}
+
+body::-webkit-scrollbar-thumb {
+  background-color: var(--outer-space);    /* color of the scroll thumb */
+  border-radius: 20px;       /* roundness of the scroll thumb */
+  border: 3px solid var(--powder-blue);  /* creates padding around scroll thumb */
+}
+
 
 h1, h2, h3 {
   color: var(--text-accent);
@@ -70,3 +91,4 @@ a:hover {
   text-align: center;
   padding: 1rem;
 }
+

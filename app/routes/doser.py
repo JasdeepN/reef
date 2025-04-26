@@ -45,16 +45,100 @@ def doser_joined():
             "api_url": js_safe_url,  # Pass the JS-safe URL
             "title": "Products & Dosing Join",
             "columns": cols,
-            # "data": data,
-            # "total": data.total,
+            "datatable_options": {
+                "dom": "Bfrtip",
+                "buttons": [
+                    {"text": "Add", "action": "add"},
+                    {"text": "Edit", "action": "edit"},
+                    {"text": "Delete", "action": "delete"}
+                ]
+            }
         }]
     )
 
-# @app.route("/doser/modify", methods=['GET', 'POST'])
-# def modify_doser():
-#     products = Products.query.order_by(Products.id).all()
-#     manual_dosing = ManualDosing.query.order_by(ManualDosing.id).all()
-#     return render_template('doser/modify_doser.html', products=products, manual_dosing=manual_dosing)
+@app.route("/doser/modify", methods=['GET'])
+def modify_doser():
+    from modules.utils import get_table_columns, generate_columns
+    from app.routes.api import TABLE_MAP, db
+    import enum
+
+    # Get all products
+    product_col_name = get_table_columns(Products)
+    product_cols = generate_columns(product_col_name)
+    products = Products.query.order_by(Products.id).all()
+
+    # For each product, get related dosing entries
+    dosing_col_name = get_table_columns(Dosing)
+    dosing_cols = generate_columns(dosing_col_name)
+    product_dosing = []
+    for product in products:
+        dosing_entries = Dosing.query.filter_by(prod_id=product.id).all()
+        for dosing in dosing_entries:
+            # Combine product and dosing info in a dict
+            row = {}
+            for col in product_col_name:
+                val = getattr(product, col)
+                if isinstance(val, enum.Enum):
+                    val = val.value
+                row[f"product_{col}"] = val
+            for col in dosing_col_name:
+                val = getattr(dosing, col)
+                if isinstance(val, enum.Enum):
+                    val = val.value
+                row[f"dosing_{col}"] = val
+            product_dosing.append(row)
+
+    # print(product_dosing, 'product_dosing')
+
+    # join_data = datatables_response(product_dosing, None, 1)
+    # print(join_data, 'join_data')
+    # Prepare tables for template
+    tables = [
+        {
+            "id": "products",
+            "api_url": "/api/get/products",
+            "title": "Products",
+            "columns": product_cols,
+            "datatable_options": {
+                "dom": "Bfrtip",
+                "buttons": [
+                    {"text": "Add", "action": "add"},
+                    {"text": "Edit", "action": "edit"},
+                    {"text": "Delete", "action": "delete"}
+                ]
+            }
+        },
+        {
+            "id": "dosing",
+            "api_url": "/api/get/dosing",
+            "title": "Dosing",
+            "columns": dosing_cols,
+            "datatable_options": {
+                "dom": "Bfrtip",
+                "buttons": [
+                    {"text": "Add", "action": "add"},
+                    {"text": "Edit", "action": "edit"},
+                    {"text": "Delete", "action": "delete"}
+                ]
+            }
+
+        },
+        {  
+            "id": "products_dosing_join",
+            "api_url": None,
+            "title": "Products & Dosing Join",
+            "columns": generate_columns(list(product_dosing[0].keys()) if product_dosing else []),
+            "initial_data": product_dosing,
+            "datatable_options": {
+                "dom": "frtip", 
+                "buttons": [],
+                "serverSide": False,
+                "processing": False,
+            },
+        }
+    ]
+
+    return render_template('doser/modify_doser.html', tables=tables)
 
 @app.route("/doser/db", methods=['GET'])
 def test_doser():
@@ -71,13 +155,29 @@ def test_doser():
         "id":"products",
         "api_url":"/api/get/products",
         "title":"Products",
-        "columns": product_cols
+        "columns": product_cols,
+            "datatable_options": {
+                "dom": "Bfrtip",
+                "buttons": [
+                    {"text": "Add", "action": "add"},
+                    {"text": "Edit", "action": "edit"},
+                    {"text": "Delete", "action": "delete"}
+                ]
+            }
         },
         {
         "id":"dosing",
         "api_url":"/api/get/dosing",
         "title":"Dosing",
-        "columns": dosing_cols
+        "columns": dosing_cols,
+            "datatable_options": {
+                "dom": "Bfrtip",
+                "buttons": [
+                    {"text": "Add", "action": "add"},
+                    {"text": "Edit", "action": "edit"},
+                    {"text": "Delete", "action": "delete"}
+                ]
+            }
         },
         
     ]

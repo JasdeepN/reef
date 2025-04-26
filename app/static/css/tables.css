@@ -64,20 +64,21 @@
 
 .grid-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(25%, 1fr));
-  /* Default responsive grid */
+  grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
   width: 100%; }
 
 .grid-container.single-table {
-  grid-template-columns: 1fr;
-  /* Full width for a single table */ }
+  grid-template-columns: 1fr; }
 
 .grid-item {
   background-color: var(--background-color, #f9f9f9);
   padding: 1rem;
   border: 1px solid var(--border-color, #ccc);
   border-radius: 5px; }
+
+.grid-item.full-width {
+  grid-column: 1 / -1; }
 
 .table-container {
   overflow-x: auto;
@@ -108,8 +109,8 @@
 
 .modal-container.show {
   display: flex;
-  /* Show the modal when the "show" class is added */
-  width: inherit; }
+  width: inherit;
+  height: 100%; }
 
 .modal {
   background: var(--light-slate-gray);
@@ -120,7 +121,11 @@
   max-width: 500px;
   width: 100%;
   position: relative;
-  height: fit-content; }
+  height: fit-content;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column; }
 
 .modal-header {
   font-size: 1.5rem;
