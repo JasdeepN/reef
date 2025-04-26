@@ -3,7 +3,7 @@ import json
 from datetime import date, time 
 from flask import jsonify, request
 from app import app, db
-from modules.models import TestResults, Products, Dosing
+from modules.models import *
 from modules.utils import *
 from modules.models import db as models_db  # Import the SQLAlchemy instance from models.py
 from sqlalchemy.inspection import inspect
@@ -14,13 +14,60 @@ import pprint
 
 import modules.utils
 from modules.utils import datatables_response
+import ast
 
 # Dynamically generate TABLE_MAP from models.py
 TABLE_MAP = {
     model.__tablename__: model
     for model in models_db.Model.registry._class_registry.values()
     if isinstance(model, type) and hasattr(model, "__tablename__")
-}
+} 
+
+@app.route('/api/get/schedule', methods=['GET'])
+def get_sched():
+   
+    params = {
+        'search': request.args.get('search', ''),
+        'sidx': request.args.get('sidx', ''),
+        'sord': request.args.get('sord', 'asc'),
+        'page': request.args.get('page', 1),
+        'rows': request.args.get('rows', 10)
+    }
+
+    draw = int(request.args.get('draw', 1))
+    
+    # print('params', params)
+    
+    # Equivalent SQLAlchemy query for:
+    # select d_schedule.id, trigger_interval, amount, current_avail, total_volume, products.name
+    # from d_schedule join products on products.id=prod_id;
+    rows = (
+        db.session.query(
+            DSchedule.id,
+            DSchedule.trigger_interval,
+            DSchedule.amount,
+            Products.current_avail,
+            Products.total_volume,
+            Products.name
+        )
+        .join(Products, Products.id == DSchedule.prod_id)
+        .all()
+    )
+    data = [
+        {
+            "id": row[0],
+            "trigger_interval": row[1],
+            "amount": row[2],
+            "current_avail": row[3],
+            "total_volume": row[4],
+            "name": row[5]
+        }
+        for row in rows
+    ]
+    
+    response = datatables_response(data, params, draw)
+    # print(response, 'response')
+    return jsonify(response)
 
 
 @app.route('/api/get/<table_name>', methods=['GET'])
@@ -44,7 +91,7 @@ def get_table_data(table_name):
             'page': request.args.get('page', 1),
             'rows': request.args.get('rows', 10)
         }
-        
+
         # Base query
         query = table_model.query
         results = query.all()
@@ -64,9 +111,9 @@ def get_table_data(table_name):
                     row_data[column.name] = value
             data.append(row_data)
 
-        filterd = apply_datatables_query_params_to_dicts(data, params)
+        # filterd = apply_datatables_query_params_to_dicts(data, params)
     # print(filterd, 'filterd')
-    
+        
         response = datatables_response(data, params, draw)
         return jsonify(response)
     except Exception as e:
@@ -165,20 +212,40 @@ def api_advanced_join():
         &order_by=%5B%5B%22products%22%2C%22id%22%2C%22asc%22%5D%5D
         &limit=10
         &offset=0
-
-    - tables: comma-separated table names
-    - join_type: inner, left, right, full
-    - conditions: JSON list of pairs, each pair is [left, right] for join condition
-    - filters: JSON list of [table.column, op, value] (e.g., [["products.name", "like", "Neo%"]])
-    - order_by: JSON list of [table, column, direction]
-    - limit, offset: integers
     """
+    import json
 
+    # Parse query parameters
+    tables = request.args.get('tables', '').split(',')
+    join_type = request.args.get('join_type', 'inner')
+    conditions = request.args.get('conditions', '[]')
+    filters = request.args.get('filters', '[]')
+    order_by = request.args.get('order_by', '[]')
+    limit = request.args.get('limit', None)
+    offset = request.args.get('offset', None)
 
-    # Prepare parameters for advanced_join_query
-    table_names = ["products", "dosing"]
-    join_type = "inner"
-    join_conditions = [getattr(TABLE_MAP["products"], "id") == getattr(TABLE_MAP["dosing"], "prod_id")]
+    # Convert JSON strings to Python objects
+    try:
+        join_conditions_raw = json.loads(conditions)
+        filters = json.loads(filters)
+        order_by = json.loads(order_by)
+    except Exception as e:
+        return jsonify({"error": f"Invalid JSON in query parameters: {str(e)}"}), 400
+
+    # Build join_conditions as SQLAlchemy expressions
+    join_conditions = []
+    for pair in join_conditions_raw:
+        if len(pair) != 2:
+            return jsonify({"error": "Each join condition must be a pair [left, right]."}), 400
+        left_table, left_col = pair[0].split('.')
+        right_table, right_col = pair[1].split('.')
+        left = getattr(TABLE_MAP[left_table], left_col)
+        right = getattr(TABLE_MAP[right_table], right_col)
+        join_conditions.append(left == right)
+
+    # Convert limit/offset to int if present
+    limit = int(limit) if limit is not None else None
+    offset = int(offset) if offset is not None else None
 
     draw = int(request.args.get('draw', 1))  # Draw counter
 
@@ -190,22 +257,19 @@ def api_advanced_join():
         'rows': request.args.get('rows', 10)
     }
 
-
-    # No filters, order_by, limit, or offset for this simple join
+    # Call advanced_join_query with parsed parameters
     data = advanced_join_query(
         db=db,
         TABLE_MAP=TABLE_MAP,
-        table_names=table_names,
+        table_names=tables,
         join_type=join_type,
         join_conditions=join_conditions,
-        filters=None,
-        order_by=None,
-        limit=None,
-        offset=None,
+        filters=filters,
+        order_by=order_by,
+        limit=limit,
+        offset=offset,
     )
 
-    
-    
     try:
         response = datatables_response(data, params, draw)
         return jsonify(response)

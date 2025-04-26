@@ -1,8 +1,14 @@
 import urllib.parse
-from flask import render_template, request
+from flask import jsonify, render_template, request
 from app import app
-from modules.models import Products, TestResults, Dosing  # Import your models
+from modules.models import *  # Import your models
 from modules.utils import *
+from app.routes.api import TABLE_MAP, db
+import enum
+from flask_wtf import FlaskForm
+from wtforms import StringField, IntegerField, SubmitField
+from wtforms.validators import DataRequired
+
 
 @app.route("/doser", methods=["GET"])
 def doser_joined():
@@ -11,11 +17,11 @@ def doser_joined():
     from app.routes.api import advanced_join_query, TABLE_MAP, db
 
     # Prepare parameters for advanced_join_query
+    print(request.args, 'request.args')
+    # we know what tables went to join in this route
     table_names = ["products", "dosing"]
     join_type = "inner"
     join_conditions = [getattr(TABLE_MAP["products"], "id") == getattr(TABLE_MAP["dosing"], "prod_id")]
-
-    
 
     # No filters, order_by, limit, or offset for this simple join
     data = advanced_join_query(
@@ -45,6 +51,7 @@ def doser_joined():
             "api_url": js_safe_url,  # Pass the JS-safe URL
             "title": "Products & Dosing Join",
             "columns": cols,
+            "initial_data": data,
             "datatable_options": {
                 "dom": "Bfrtip",
                 "buttons": [
@@ -56,11 +63,8 @@ def doser_joined():
         }]
     )
 
-@app.route("/doser/modify", methods=['GET'])
-def modify_doser():
-    from modules.utils import get_table_columns, generate_columns
-    from app.routes.api import TABLE_MAP, db
-    import enum
+@app.route("/doser/db", methods=['GET'])
+def db_doser():
 
     # Get all products
     product_col_name = get_table_columns(Products)
@@ -85,14 +89,20 @@ def modify_doser():
                 val = getattr(dosing, col)
                 if isinstance(val, enum.Enum):
                     val = val.value
-                row[f"dosing_{col}"] = val
+                # If this is the prod_id column, replace with product name
+                if col == "prod_id":
+                    val = product.name  # Assuming Products has a 'name' field
+                    row["dosing_product_name"] = val
+                else:
+                    row[f"dosing_{col}"] = val
             product_dosing.append(row)
 
-    # print(product_dosing, 'product_dosing')
 
     # join_data = datatables_response(product_dosing, None, 1)
     # print(join_data, 'join_data')
     # Prepare tables for template
+    # print(product_dosing, 'product_dosing')
+
     tables = [
         {
             "id": "products",
@@ -121,7 +131,6 @@ def modify_doser():
                     {"text": "Delete", "action": "delete"}
                 ]
             }
-
         },
         {  
             "id": "products_dosing_join",
@@ -138,50 +147,56 @@ def modify_doser():
         }
     ]
 
-    return render_template('doser/modify_doser.html', tables=tables)
+    return render_template('doser/dosing_db.html', tables=tables)
 
-@app.route("/doser/db", methods=['GET'])
-def test_doser():
-    product_col_name = get_table_columns(Products)
-    product_cols = generate_columns(product_col_name)
+@app.route("/doser/modify", methods=["GET", "POST"])
+def modify_doser():
+    d_form = DosingForm()
+    p_form = ProductForm()
+    s_form = DScheduleForm()
+    if d_form.validate_on_submit():
+        # Handle form submission logic here (e.g., save to DB)
+        # Example:
+        # new_dosing = Dosing(
+        #     _time=form._time.data,
+        #     _type=form._type.data,
+        #     amount=form.amount.data,
+        #     reason=form.reason.data,
+        #     per_dose=form.per_dose.data,
+        #     prod_id=form.prod_id.data,
+        #     total_dose=form.total_dose.data,
+        #     daily_number_of_doses=form.daily_number_of_doses.data
+        # )
+        # db.session.add(new_dosing)
+        # db.session.commit()
+        pass  # Implement as needed
+    
+    # forms = [(form, "dosing add")]
 
-    dosing_col_name = get_table_columns(Dosing)
-    dosing_cols = generate_columns(dosing_col_name)
 
-    # print('product_cols', product_cols)
-    # print('mnaual_cols', dosing_cols)
-    tables= [
-        {
-        "id":"products",
-        "api_url":"/api/get/products",
-        "title":"Products",
-        "columns": product_cols,
+    return render_template("doser/modify.html", d_form=d_form, p_form=p_form, s_form=s_form, title="Modify Dosing")
+
+@app.route("/doser/schedule", methods=["GET", "POST"])
+def run_schedule():
+
+    cols =  ['id', 'trigger_interval', 'amount', 'current_avail', 'total_volume', 'name']
+
+    named_cols = generate_columns(cols)
+    # print(named_cols, 'named_cols')
+    table=[
+        {  
+            "id": "schedule",
+            "api_url": '/api/get/schedule',
+            "title": "Schedule",
+            "columns": named_cols,
             "datatable_options": {
-                "dom": "Bfrtip",
-                "buttons": [
-                    {"text": "Add", "action": "add"},
-                    {"text": "Edit", "action": "edit"},
-                    {"text": "Delete", "action": "delete"}
-                ]
-            }
-        },
-        {
-        "id":"dosing",
-        "api_url":"/api/get/dosing",
-        "title":"Dosing",
-        "columns": dosing_cols,
-            "datatable_options": {
-                "dom": "Bfrtip",
-                "buttons": [
-                    {"text": "Add", "action": "add"},
-                    {"text": "Edit", "action": "edit"},
-                    {"text": "Delete", "action": "delete"}
-                ]
-            }
-        },
-        
+                "dom": "frtip", 
+                "buttons": [],
+                "serverSide": False,
+                "processing": False,
+            },
+        }
     ]
-    # print(type(tables))
-
-    return render_template('doser/modify_doser.html', tables=tables)
-
+    # packaged = datatables_response(result, None, 1)
+    # print(packaged, 'packaged')
+    return render_template("doser/schedule.html", tables=table, title="Schedule Dosing")

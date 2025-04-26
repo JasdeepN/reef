@@ -1,0 +1,26 @@
+{% macro render_wtf_form(form, title=None) %}
+  <div class="form-wrapper" id="form-wrapper-{{ title }}">
+    {% if title %}
+      <h2>{{ title }}</h2>
+    {% endif %}
+    <form method="POST" action="" enctype="multipart/form-data" id="form-{{ title }}">
+      {{ form.hidden_tag() }}
+      {% for field in form %}
+        {% if field.type != 'CSRFTokenField' and field.type != 'HiddenField' and field.name != 'csrf_token' and field.name != 'submit' %}
+          <div class="form-group mb-3" id="form-group-{{ title }}-{{ field.name }}">
+            {{ field.label(class="form-label", for=field.id ~ '-' ~ title) }}
+            {{ field(class="form-control", id=field.id ~ '-' ~ title) }}
+            {% for error in field.errors %}
+              <div class="text-danger">{{ error }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endfor %}
+      <div class="form-group">
+        {{ form.submit(class="btn btn-custom-1", id="submit-{{ title }}") }}
+      </div>
+    </form>
+  </div>
+{% endmacro %}
+
+

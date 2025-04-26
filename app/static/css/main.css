@@ -28,6 +28,7 @@
   --navbar-bg: var(--davys-gray);
   --navbar-text: var(--alice-blue);
   --navbar-text-accent: var(--powder-blue);
+  --grid-item-bg: var(--davys-gray);
   /* Complementary Table Colors */
   --table-bg: var(--cool-gray);
   --table-header-bg: var(--davys-gray);
@@ -41,7 +42,13 @@
   /* Light Slate Gray */
   --table-header-hover-text-color: var(--outer-space);
   /* White */
-  /* CSS HEX */
+  /* Form Colors */
+  --form-background: var(--outer-space);
+  --form-text-color: var(--alice-blue);
+  --form-border-color: var(--powder-blue);
+  --form-border-radius: 4px;
+  --form-padding: 0.5rem;
+  /* CSS HEX Colors */
   --alice-blue: #dcedffff;
   --powder-blue: #94b0daff;
   --light-slate-gray: #778899ff;
@@ -181,7 +188,7 @@
 .btn {
   color: white; }
 
-button.btn.btn-custom-1 {
+.btn.btn-custom-1 {
   background-color: var(--button-background);
   /* Light slate gray background */
   color: var(--button-text);
@@ -222,6 +229,9 @@ button.btn.btn-custom-1 {
   color: #9b9b9b;
   /* White text */
   border: none !important; }
+
+.card {
+  --bs-card-bg: var(--form-background); }
 
 .applet-container {
   display: flex;
@@ -387,17 +397,30 @@ li > a.dropdown-item {
   color: var(--text-color);
   width: 100%; }
 
+.bg-primary {
+  background-color: var(--table-bg) !important;
+  /* Light slate gray background */ }
+
+.bg-secondary {
+  background-color: var(--table-row-hover-bg) !important;
+  /* Light slate gray background */ }
+
 .grid-container {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
   width: 100%; }
 
+.grid-container.single-wide {
+  display: block;
+  width: 70%; }
+
 .grid-container.single-table {
   grid-template-columns: 1fr; }
 
 .grid-item {
-  background-color: var(--background-color, #f9f9f9);
+  background-color: var(--grid-item-bg, #f0f0f0);
+  /* Default background color */
   padding: 1rem;
   border: 1px solid var(--border-color, #ccc);
   border-radius: 5px; }

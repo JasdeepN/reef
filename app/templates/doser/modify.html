@@ -1,34 +1,204 @@
-{% extends 'datatables-plus-template.html' %}
+{% extends 'base.html' %}
+{% from "forms.html" import render_wtf_form %}
 
-{% block page_title %} {{ super() }} {% endblock %}
-
-{% block styles %}
-  {{ super() }}
-{% endblock %}
-
-
-{% block plus %}
-<div class="grid-container place">
+{% block content %}
+<div class="grid-container single-wide">
   <div class="grid-item">
-    <div class="title">
-      <h3></h3>
-    </div>
-    <div class="content3">
-         gsdag
-      </div>
 
-    <div class="grid-item full-width">
-      <p>DATA</p>
+    <!-- Always show the type select -->
+    <div class="form-group mb-3" id="form-group-type">
+      {{ d_form.type.label(class="form-label") }}
+      {{ d_form.type(class="form-control") }}
+      {% for error in d_form.type.errors %}
+        <div class="text-danger">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div id="dosing-form-container">
+      <h2>Dosing Form</h2>
+      <form method="POST" action="" enctype="multipart/form-data" id="dosing-form">
+        {{ d_form.hidden_tag() }}
+        {% for field in d_form %}
+          {% if field.name == 'type' %}
+            {# Already rendered above #}
+          
+          {% elif field.name == 'prod_id' %}
+            <div class="form-group mb-3" id="form-group-prod_id">
+              {{ field.label(class="form-label") }}
+              <select name="{{ field.name }}" id="{{ field.id }}" class="form-control">
+                {% for value, label in field.choices %}
+                  <option value="{{ value }}" {% if field.data == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+                <option value="add_new_product">Add a new Product</option>
+              </select>
+              {% for error in field.errors %}
+                <div class="text-danger">{{ error }}</div>
+              {% endfor %}
+              <div id="add-product-form-container" style="display:none; margin-top:1rem;">
+                <div class="card card-body form-background">
+                  <h4>Add a New Product</h4>
+                  {{ render_wtf_form(p_form, "New Product") }}
+                </div>
+              </div>
+            </div>
+          {% elif field.type != 'CSRFTokenField' and field.type != 'HiddenField' and field.name != 'csrf_token' and field.name != 'submit' %}
+            <div class="form-group mb-3" id="form-group-{{ field.name }}">
+              {{ field.label(class="form-label") }}
+              {{ field(class="form-control") }}
+              {% for error in field.errors %}
+                <div class="text-danger">{{ error }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endfor %}
+        <div class="form-group">
+          {{ d_form.submit(class="btn btn-custom-1") }}
+        </div>
+      </form>
+    </div>
+
+    <div id="schedule-form-container" style="display:none; margin-top:2rem;">
+      <h2>Schedule Form</h2>
+      <form method="POST" action="" enctype="multipart/form-data" id="schedule-form">
+        {{ s_form.hidden_tag() }}
+        {% for field in s_form %}
+          {% if field.name == 'prod_id' %}
+            <div class="form-group mb-3" id="sform-group-prod_id">
+              {{ field.label(class="form-label") }}
+              <select name="{{ field.name }}" id="{{ field.id }}-s" class="form-control">
+                {% for value, label in field.choices %}
+                  <option value="{{ value }}" {% if field.data == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+                <option value="add_new_product">Add a new Product</option>
+              </select>
+              {% for error in field.errors %}
+                <div class="text-danger">{{ error }}</div>
+              {% endfor %}
+              <div id="add-product-form-container-s" style="display:none; margin-top:1rem;">
+                <div class="card card-body form-background">
+                  <h4>Add a New Product</h4>
+                  {{ render_wtf_form(p_form, "New Product") }}
+                </div>
+              </div>
+            </div>
+          {% elif field.type != 'CSRFTokenField' and field.type != 'HiddenField' and field.name != 'csrf_token' and field.name != 'submit' %}
+            <div class="form-group mb-3" id="sform-group-{{ field.name }}">
+              {{ field.label(class="form-label") }}
+              {{ field(class="form-control") }}
+              {% for error in field.errors %}
+                <div class="text-danger">{{ error }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endfor %}
+        <div class="form-group">
+          {{ s_form.submit(class="btn btn-custom-1") }}
+        </div>
+      </form>
     </div>
   </div>
 </div>
-
-
-
 {% endblock %}
 
 {% block page_scripts %}
-  
   {{ super() }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Dosing form add product logic
+      var prodSelect = document.getElementById('{{ d_form.prod_id.id }}');
+      var addProductContainer = document.getElementById('add-product-form-container');
+      var cancelBtn = document.getElementById('cancel-add-product');
+      if (prodSelect) {
+        prodSelect.addEventListener('change', function() {
+          if (this.value === 'add_new_product') {
+            addProductContainer.style.display = 'block';
+          } else {
+            addProductContainer.style.display = 'none';
+          }
+        });
+      }
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+          addProductContainer.style.display = 'none';
+          if (prodSelect) {
+            prodSelect.value = "";
+          }
+        });
+      }
 
+      // Schedule form add product logic
+      var sProdSelect = document.getElementById('{{ s_form.prod_id.id }}-s');
+      var addProductContainerS = document.getElementById('add-product-form-container-s');
+      var cancelBtnS = document.getElementById('cancel-add-product-s');
+      if (sProdSelect) {
+        sProdSelect.addEventListener('change', function() {
+          if (this.value === 'add_new_product') {
+            addProductContainerS.style.display = 'block';
+          } else {
+            addProductContainerS.style.display = 'none';
+          }
+        });
+      }
+      if (cancelBtnS) {
+        cancelBtnS.addEventListener('click', function() {
+          addProductContainerS.style.display = 'none';
+          if (sProdSelect) {
+            sProdSelect.value = "";
+          }
+        });
+      }
+
+      // Show/hide fields based on dosing type and toggle schedule form and dosing form
+      var typeSelect = document.getElementById('{{ d_form.type.id }}');
+      var scheduleFormContainer = document.getElementById('schedule-form-container');
+      var dosingFormContainer = document.getElementById('dosing-form-container');
+      function updateFieldVisibility() {
+        var selectedType = typeSelect.value;
+        // List of all field names
+        var allFields = [
+          'time', 'prod_id', 'amount', 'reason', 'per_dose', 'total_dose', 'daily_number_of_doses'
+        ];
+        // Fields to show for each type
+        var singleFields = ['time', 'prod_id', 'amount', 'reason'];
+        var recurringFields = ['time', 'prod_id', 'amount', 'reason', 'per_dose', 'total_dose', 'daily_number_of_doses'];
+        var intermittentFields = ['time', 'prod_id', 'amount', 'reason', 'per_dose'];
+
+        var showFields = [];
+        if (selectedType === 'single') {
+          showFields = singleFields;
+          scheduleFormContainer.style.display = 'none';
+          dosingFormContainer.style.display = '';
+        } else if (selectedType === 'recurring') {
+          showFields = recurringFields;
+          scheduleFormContainer.style.display = 'block';
+          dosingFormContainer.style.display = 'none';
+        } else if (selectedType === 'intermittent') {
+          showFields = intermittentFields;
+          scheduleFormContainer.style.display = 'none';
+          dosingFormContainer.style.display = '';
+        } else {
+          scheduleFormContainer.style.display = 'none';
+          dosingFormContainer.style.display = '';
+        }
+
+        allFields.forEach(function(field) {
+          var group = document.getElementById('form-group-' + field);
+          if (group) {
+            if (showFields.includes(field)) {
+              group.style.display = '';
+            } else {
+              group.style.display = 'none';
+            }
+          }
+        });
+      }
+
+      if (typeSelect) {
+        typeSelect.addEventListener('change', updateFieldVisibility);
+        updateFieldVisibility(); // Initial call on page load
+      }
+    });
+  </script>
 {% endblock %}
+
+

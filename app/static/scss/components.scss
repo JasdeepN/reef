@@ -166,7 +166,7 @@
   color: white;
 }
 
-button.btn.btn-custom-1 {
+.btn.btn-custom-1 {
     background-color: var(--button-background ) ; /* Light slate gray background */
     color: var(--button-text); /* White text */
     border: none !important;
@@ -210,3 +210,6 @@ button.btn.btn-custom-1 {
   border: none !important;
 }
 
+.card {
+	--bs-card-bg: var(--form-background);
+}

@@ -305,6 +305,7 @@ def apply_datatables_query_params_to_dicts(data, params):
     # Ordering
     sidx = params.get('sidx')
     sord = params.get('sord', 'asc')
+    # print(params)
     if sidx:
         def sort_key(x):
             val = x.get(sidx, None)
@@ -339,6 +340,7 @@ def datatables_response(data, params, draw):
     and returns a response dict ready for jsonify.
     """
     filtered_data, total_filtered = apply_datatables_query_params_to_dicts(data, params)
+    # print("Filtered data:", filtered_data)
     response = {
         "draw": draw,
         "recordsTotal": len(data),

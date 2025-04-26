@@ -93,9 +93,8 @@ class ProductForm(BaseForm):
     dose_amt = DecimalField("Dose Amount", validators=[Optional()])
     total_volume = DecimalField("Total Volume", validators=[Optional()])
     current_avail = DecimalField("Current Available", validators=[Optional()])
-    used_amt = DecimalField("Used Amount", validators=[Optional()])
+    # used_amt = DecimalField("Used Amount", validators=[])
     submit = SubmitField("Submit")
-
 
 
 
@@ -119,3 +118,86 @@ class Dosing(db.Model):
 
     # Optional: relationship to Products
     product = db.relationship('Products', backref=db.backref('dosings', lazy=True))
+
+    def validate(self):
+        if self.amount is not None and self.amount < 0:
+            raise ValueError("Amount must be non-negative")
+        if self.per_dose is not None and self.per_dose < 0:
+            raise ValueError("Per dose must be non-negative")
+        if self.total_dose is not None and self.total_dose < 0:
+            raise ValueError("Total dose must be non-negative")
+        if self.daily_number_of_doses is not None and self.daily_number_of_doses < 0:
+            raise ValueError("Daily number of doses must be non-negative")
+        if self.prod_id is None:
+            raise ValueError("Product must be selected")
+        if self._type is None:
+            raise ValueError("Dosing type must be specified")
+
+
+class DosingForm(FlaskForm):
+    type = SelectField(
+        "Dosing Type",
+        choices=[(e.value, e.value.capitalize()) for e in DosingTypeEnum],
+        validators=[DataRequired()]
+    )
+    time = DateField("Dosing Time", format='%Y-%m-%d', validators=[Optional()])
+    prod_id = SelectField("Product", coerce=int, validators=[Optional()])
+    per_dose = DecimalField("Per Dose", validators=[Optional()])
+   
+    total_dose = DecimalField("Total Dose", validators=[DataRequired()])
+    daily_number_of_doses = IntegerField("Daily Number of Doses", validators=[Optional()])
+    amount = DecimalField("Amount", validators=[Optional()])
+    reason = TextAreaField("Reason", validators=[Optional(), Length(max=255)])
+   
+    submit = SubmitField("Submit")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Dynamically populate product choices from the database
+        self.prod_id.choices = [
+            (p.id, p.name) for p in Products.query.order_by(Products.name).all()
+        ]
+
+
+class DSchedule(db.Model):
+    __tablename__ = 'd_schedule'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    prod_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    amount = db.Column(db.Float)
+    last_trigger = db.Column(db.DateTime, default=None)
+    trigger_interval = db.Column(db.Integer, nullable=False)
+
+    # Relationship to Products
+    product = db.relationship('Products', backref=db.backref('schedules', lazy=True))
+
+    def __repr__(self):
+        return f"<DSchedule id={self.id} prod_id={self.prod_id} amount={self.amount}>"
+
+
+class DScheduleForm(FlaskForm):
+    prod_id = SelectField("Product", coerce=int, validators=[DataRequired()])
+    amount = DecimalField("Amount", validators=[DataRequired()])
+    last_trigger = DateField("Last Trigger", format='%Y-%m-%d', validators=[Optional()])
+    trigger_interval = IntegerField("Trigger Interval (minutes)", validators=[DataRequired()])
+    submit = SubmitField("Submit")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Dynamically populate product choices from the database
+        self.prod_id.choices = [
+            (p.id, p.name) for p in Products.query.order_by(Products.name).all()
+        ]
+
+def get_d_schedule_dict(d_schedule):
+    """Helper to serialize DSchedule model to dict."""
+    return {
+        "id": d_schedule.id,
+        "prod_id": d_schedule.prod_id,
+        "product_name": d_schedule.product.name if d_schedule.product else None,
+        "amount": d_schedule.amount,
+        "last_trigger": d_schedule.last_trigger.isoformat() if d_schedule.last_trigger else None,
+        "trigger_interval": d_schedule.trigger_interval,
+    }
+
+

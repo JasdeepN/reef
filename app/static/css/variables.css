@@ -28,6 +28,7 @@
   --navbar-bg: var(--davys-gray);
   --navbar-text: var(--alice-blue);
   --navbar-text-accent: var(--powder-blue);
+  --grid-item-bg: var(--davys-gray);
   /* Complementary Table Colors */
   --table-bg: var(--cool-gray);
   --table-header-bg: var(--davys-gray);
@@ -41,7 +42,13 @@
   /* Light Slate Gray */
   --table-header-hover-text-color: var(--outer-space);
   /* White */
-  /* CSS HEX */
+  /* Form Colors */
+  --form-background: var(--outer-space);
+  --form-text-color: var(--alice-blue);
+  --form-border-color: var(--powder-blue);
+  --form-border-radius: 4px;
+  --form-padding: 0.5rem;
+  /* CSS HEX Colors */
   --alice-blue: #dcedffff;
   --powder-blue: #94b0daff;
   --light-slate-gray: #778899ff;
