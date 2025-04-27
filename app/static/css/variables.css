@@ -29,11 +29,16 @@
   --navbar-text: var(--alice-blue);
   --navbar-text-accent: var(--powder-blue);
   --grid-item-bg: var(--davys-gray);
+  --card-bg: var(--grey2);
+  --card-bg-secondary: var(--davys-gray);
+  --card-header-text: var(--powder-blue);
+  --card-border-color: var(--cool-gray);
+  --card-text-color-primary: var(--alice-blue);
   /* Complementary Table Colors */
   --table-bg: var(--cool-gray);
   --table-header-bg: var(--davys-gray);
   --table-row-hover-bg: var(--outer-space);
-  --table-border-color: var(--powder-blue);
+  --table-border-color: var(--cool-gray);
   --table-text-color: var(--alice-blue);
   --table-header-text-color: var(--alice-blue);
   --table-row-highlight-bg: var(--outer-space);
@@ -45,7 +50,7 @@
   /* Form Colors */
   --form-background: var(--outer-space);
   --form-text-color: var(--alice-blue);
-  --form-border-color: var(--powder-blue);
+  --form-border-color: var(--cool-gray);
   --form-border-radius: 4px;
   --form-padding: 0.5rem;
   /* CSS HEX Colors */
@@ -55,4 +60,5 @@
   --light-gray: #d3d3d3ff;
   --cool-gray: #8f91a2ff;
   --davys-gray: #505a5bff;
-  --outer-space: #343f3eff; }
+  --outer-space: #343f3eff;
+  --grey2: #56666B; }

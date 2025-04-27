@@ -46,6 +46,7 @@ def get_sched():
             DSchedule.id,
             DSchedule.trigger_interval,
             DSchedule.amount,
+            DSchedule.suspended,
             Products.current_avail,
             Products.total_volume,
             Products.name
@@ -58,9 +59,10 @@ def get_sched():
             "id": row[0],
             "trigger_interval": row[1],
             "amount": row[2],
-            "current_avail": row[3],
-            "total_volume": row[4],
-            "name": row[5]
+            "suspended": row[3],
+            "current_avail": row[4],
+            "total_volume": row[5],
+            "name": row[6]
         }
         for row in rows
     ]
@@ -69,6 +71,102 @@ def get_sched():
     # print(response, 'response')
     return jsonify(response)
 
+@app.route('/api/get/schedule_stats', methods=['GET'])
+def get_schedule_stats():
+    """
+    Returns stats for each product being dosed, including:
+    - product name
+    - trigger_interval (seconds)
+    - amount per dose
+    - current_avail
+    - total_volume
+    - doses_remaining
+    - doses_per_day
+    - days_until_empty
+    - estimated_empty_datetime
+    """
+    from datetime import datetime, timedelta
+
+    rows = (
+        db.session.query(
+            DSchedule.id,
+            DSchedule.trigger_interval,
+            DSchedule.amount,
+            DSchedule.suspended,
+            DSchedule.last_trigger,
+            DSchedule.last_refill,
+            Products.total_volume,
+            Products.current_avail,
+            Products.name
+        )
+        .join(Products, Products.id == DSchedule.prod_id)
+        .all()
+    )
+
+    print(rows)
+    stats = []
+    now = datetime.utcnow()
+    for row in rows:
+        (
+            sched_id,
+            trigger_interval,
+            amount,
+            suspended,
+            last_trigger,
+            last_refill,
+            total_volume,
+            current_avail,
+            name,
+            
+        ) = row
+
+        # Avoid division by zero
+        doses_remaining = int(current_avail // amount) if amount and current_avail else 0
+        doses_per_day = int(86400 // trigger_interval) if trigger_interval else 0  # 86400 seconds in a day
+        days_until_empty = (doses_remaining / doses_per_day) if doses_per_day else None
+        # estimated_empty_datetime = (now + timedelta(days=days_until_empty)).isoformat() if days_until_empty else None
+        if doses_remaining > 0 and last_trigger and trigger_interval:
+            # The last dose was at last_trigger, so the next dose will be after trigger_interval seconds, etc.
+            estimated_empty_datetime = (
+                (last_trigger + timedelta(seconds=trigger_interval * doses_remaining)).isoformat()
+            )
+        else:
+            estimated_empty_datetime = None
+        amount_used_per_day = amount * doses_per_day if amount and doses_per_day else 0
+        # Calculate days when full and percent remaining
+        days_when_full = (total_volume // amount) / doses_per_day if amount and doses_per_day else None
+        percent_remaining = (current_avail / total_volume * 100) if total_volume else None
+        # Format the last_trigger and last_refill dates
+        last_trigger = last_trigger.isoformat() if last_trigger else None
+        last_refill = last_refill.isoformat() if last_refill else None
+        # Format the estimated_empty_datetime
+        if trigger_interval:
+            hours = trigger_interval // 3600
+            minutes = (trigger_interval % 3600) // 60
+            trigger_interval_hhmm = f"{int(hours):02d}:{int(minutes):02d}"
+        else:
+            trigger_interval_hhmm = None
+        trigger_interval = trigger_interval_hhmm
+        stats.append({
+            "id": sched_id,
+            "product_name": name,
+            "trigger_interval": trigger_interval,
+            "amount_per_dose": amount,
+            "current_avail": current_avail,
+            "total_volume": total_volume,
+            "doses_remaining": doses_remaining,
+            "doses_per_day": doses_per_day,
+            "days_until_empty": round(days_until_empty, 2) if days_until_empty is not None else None,
+            "estimated_empty_datetime": estimated_empty_datetime,
+            "amount_used_per_day": amount_used_per_day,
+            "days_when_full": round(days_when_full, 2) if days_when_full is not None else None,
+            "percent_remaining": round(percent_remaining, 2) if percent_remaining is not None else None,
+            "last_trigger": last_trigger,
+            "last_refill": last_refill,
+            "suspended": suspended
+        })
+
+    return jsonify(stats)
 
 @app.route('/api/get/<table_name>', methods=['GET'])
 def get_table_data(table_name):
@@ -163,10 +261,9 @@ def add_new_record(table_name):
     print('cleaned data', data)
 
     try:
-        create_row(table, data)
+        new_row = create_row(table, data)
         db.session.commit()
-
-        return jsonify({'success': True, 'message': 'Record added successfully'}), 201
+        return jsonify({'success': True, 'id': new_row.id, 'message': 'Record added successfully'}), 201
     except Exception as e:
         return jsonify({'error': f"Failed to add record: {str(e)}"}), 500
     

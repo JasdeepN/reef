@@ -167,6 +167,8 @@ class DSchedule(db.Model):
     amount = db.Column(db.Float)
     last_trigger = db.Column(db.DateTime, default=None)
     trigger_interval = db.Column(db.Integer, nullable=False)
+    suspended = db.Column(db.Boolean, default=False)
+    last_refill = db.Column(db.DateTime, default=None)
 
     # Relationship to Products
     product = db.relationship('Products', backref=db.backref('schedules', lazy=True))
@@ -178,7 +180,7 @@ class DSchedule(db.Model):
 class DScheduleForm(FlaskForm):
     prod_id = SelectField("Product", coerce=int, validators=[DataRequired()])
     amount = DecimalField("Amount", validators=[DataRequired()])
-    last_trigger = DateField("Last Trigger", format='%Y-%m-%d', validators=[Optional()])
+    # last_trigger = DateField("Last Trigger", format='%Y-%m-%d', validators=[Optional()])
     trigger_interval = IntegerField("Trigger Interval (minutes)", validators=[DataRequired()])
     submit = SubmitField("Submit")
 
@@ -198,6 +200,8 @@ def get_d_schedule_dict(d_schedule):
         "amount": d_schedule.amount,
         "last_trigger": d_schedule.last_trigger.isoformat() if d_schedule.last_trigger else None,
         "trigger_interval": d_schedule.trigger_interval,
+        "suspended": d_schedule.suspended,
+        "last_refill": d_schedule.last_refill.isoformat() if d_schedule.last_refill else None
     }
 
 

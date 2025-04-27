@@ -149,37 +149,21 @@ def db_doser():
 
     return render_template('doser/dosing_db.html', tables=tables)
 
-@app.route("/doser/modify", methods=["GET", "POST"])
+@app.route("/doser/modify", methods=["GET"])
 def modify_doser():
+
+    
+    # Initialize forms with existing data if needed
     d_form = DosingForm()
     p_form = ProductForm()
     s_form = DScheduleForm()
-    if d_form.validate_on_submit():
-        # Handle form submission logic here (e.g., save to DB)
-        # Example:
-        # new_dosing = Dosing(
-        #     _time=form._time.data,
-        #     _type=form._type.data,
-        #     amount=form.amount.data,
-        #     reason=form.reason.data,
-        #     per_dose=form.per_dose.data,
-        #     prod_id=form.prod_id.data,
-        #     total_dose=form.total_dose.data,
-        #     daily_number_of_doses=form.daily_number_of_doses.data
-        # )
-        # db.session.add(new_dosing)
-        # db.session.commit()
-        pass  # Implement as needed
-    
-    # forms = [(form, "dosing add")]
-
 
     return render_template("doser/modify.html", d_form=d_form, p_form=p_form, s_form=s_form, title="Modify Dosing")
 
 @app.route("/doser/schedule", methods=["GET", "POST"])
 def run_schedule():
 
-    cols =  ['id', 'trigger_interval', 'amount', 'current_avail', 'total_volume', 'name']
+    cols =  ['id', 'suspended', 'trigger_interval', 'amount', 'current_avail', 'total_volume', 'name']
 
     named_cols = generate_columns(cols)
     # print(named_cols, 'named_cols')

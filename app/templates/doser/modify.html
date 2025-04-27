@@ -1,6 +1,67 @@
 {% extends 'base.html' %}
 {% from "forms.html" import render_wtf_form %}
 
+{% macro dosing_or_schedule_form(form, form_id, prod_id, prod_container_id, prod_select_id, add_product_form_id, add_product_submit_id, submit_btn=None, title=None) %}
+  {# Map field names to types they should be visible for #}
+  {% set field_types = {
+    'prod_id': ['recurring', 'single'],
+    'per_dose': ['recurring'],
+    'amount': ['recurring', 'single'],
+    'trigger_interval': ['recurring'],
+    'time': ['single'],
+    'reason': ['single']
+  } %}
+  <div id="{{ form_id }}-container" style="margin-top:2rem;">
+    {% if title %}
+      <h2>{{ title }}</h2>
+    {% endif %}
+    <form method="POST" action="" enctype="multipart/form-data" id="{{ form_id }}">
+      {{ form.hidden_tag() }}
+      <input type="hidden" name="type" id="{{ form_id }}-type" value="{{ form.type.data }}">
+      {% for field in form %}
+        {% if field.name in field_types %}
+          <div class="form-group mb-3"
+               id="{{ form_id }}-form-group-{{ field.name }}"
+               data-types="{{ field_types[field.name]|join(',') }}">
+            {{ field.label(class="form-label") }}
+            {% if field.name == 'prod_id' %}
+              <select name="{{ field.name }}" id="{{ prod_select_id }}" class="form-control">
+                {% for value, label in field.choices %}
+                  {% if value != 'intermittent' %}
+                    <option value="{{ value }}" {% if field.data == value %}selected{% endif %}>{{ label }}</option>
+                  {% endif %}
+                {% endfor %}
+                <option value="add_new_product">Add a new Product</option>
+              </select>
+              {% for error in field.errors %}
+                <div class="text-danger">{{ error }}</div>
+              {% endfor %}
+              <div id="{{ prod_container_id }}" style="display:none; margin-top:1rem;">
+                {{ add_product_form(add_product_form_id, add_product_submit_id) }}
+              </div>
+            {% else %}
+              {{ field(class="form-control") }}
+              {% for error in field.errors %}
+                <div class="text-danger">{{ error }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
+        {% endif %}
+      {% endfor %}
+      <div class="form-group">
+        <button type="button" class="btn btn-custom-1" id="{{ submit_btn }}"> submit </button>
+      </div>
+    </form>
+  </div>
+{% endmacro %}
+
+{% macro add_product_form(form_id, submit_id) %}
+  <div class="card card-body form-background" id="{{ form_id }}">
+    <h4>Add a New Product</h4>
+    {{ render_wtf_form(p_form, "New Product", submit_id) }}
+  </div>
+{% endmacro %}
+
 {% block content %}
 <div class="grid-container single-wide">
   <div class="grid-item">
@@ -14,88 +75,18 @@
       {% endfor %}
     </div>
 
-    <div id="dosing-form-container">
-      <h2>Dosing Form</h2>
-      <form method="POST" action="" enctype="multipart/form-data" id="dosing-form">
-        {{ d_form.hidden_tag() }}
-        {% for field in d_form %}
-          {% if field.name == 'type' %}
-            {# Already rendered above #}
-          
-          {% elif field.name == 'prod_id' %}
-            <div class="form-group mb-3" id="form-group-prod_id">
-              {{ field.label(class="form-label") }}
-              <select name="{{ field.name }}" id="{{ field.id }}" class="form-control">
-                {% for value, label in field.choices %}
-                  <option value="{{ value }}" {% if field.data == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-                <option value="add_new_product">Add a new Product</option>
-              </select>
-              {% for error in field.errors %}
-                <div class="text-danger">{{ error }}</div>
-              {% endfor %}
-              <div id="add-product-form-container" style="display:none; margin-top:1rem;">
-                <div class="card card-body form-background">
-                  <h4>Add a New Product</h4>
-                  {{ render_wtf_form(p_form, "New Product") }}
-                </div>
-              </div>
-            </div>
-          {% elif field.type != 'CSRFTokenField' and field.type != 'HiddenField' and field.name != 'csrf_token' and field.name != 'submit' %}
-            <div class="form-group mb-3" id="form-group-{{ field.name }}">
-              {{ field.label(class="form-label") }}
-              {{ field(class="form-control") }}
-              {% for error in field.errors %}
-                <div class="text-danger">{{ error }}</div>
-              {% endfor %}
-            </div>
-          {% endif %}
-        {% endfor %}
-        <div class="form-group">
-          {{ d_form.submit(class="btn btn-custom-1") }}
-        </div>
-      </form>
-    </div>
+    {{ dosing_or_schedule_form(
+      d_form,
+      'dosing-form',
+      d_form.prod_id.id,
+      'add-product-form-container',
+      d_form.prod_id.id,
+      'add-product-form',
+      'add-product-submit',
+      'submit-btn',
+      "Dosing Form"
+    ) }}
 
-    <div id="schedule-form-container" style="display:none; margin-top:2rem;">
-      <h2>Schedule Form</h2>
-      <form method="POST" action="" enctype="multipart/form-data" id="schedule-form">
-        {{ s_form.hidden_tag() }}
-        {% for field in s_form %}
-          {% if field.name == 'prod_id' %}
-            <div class="form-group mb-3" id="sform-group-prod_id">
-              {{ field.label(class="form-label") }}
-              <select name="{{ field.name }}" id="{{ field.id }}-s" class="form-control">
-                {% for value, label in field.choices %}
-                  <option value="{{ value }}" {% if field.data == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-                <option value="add_new_product">Add a new Product</option>
-              </select>
-              {% for error in field.errors %}
-                <div class="text-danger">{{ error }}</div>
-              {% endfor %}
-              <div id="add-product-form-container-s" style="display:none; margin-top:1rem;">
-                <div class="card card-body form-background">
-                  <h4>Add a New Product</h4>
-                  {{ render_wtf_form(p_form, "New Product") }}
-                </div>
-              </div>
-            </div>
-          {% elif field.type != 'CSRFTokenField' and field.type != 'HiddenField' and field.name != 'csrf_token' and field.name != 'submit' %}
-            <div class="form-group mb-3" id="sform-group-{{ field.name }}">
-              {{ field.label(class="form-label") }}
-              {{ field(class="form-control") }}
-              {% for error in field.errors %}
-                <div class="text-danger">{{ error }}</div>
-              {% endfor %}
-            </div>
-          {% endif %}
-        {% endfor %}
-        <div class="form-group">
-          {{ s_form.submit(class="btn btn-custom-1") }}
-        </div>
-      </form>
-    </div>
   </div>
 </div>
 {% endblock %}
@@ -104,10 +95,9 @@
   {{ super() }}
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-      // Dosing form add product logic
+      // Show/hide add product form logic
       var prodSelect = document.getElementById('{{ d_form.prod_id.id }}');
       var addProductContainer = document.getElementById('add-product-form-container');
-      var cancelBtn = document.getElementById('cancel-add-product');
       if (prodSelect) {
         prodSelect.addEventListener('change', function() {
           if (this.value === 'add_new_product') {
@@ -117,85 +107,93 @@
           }
         });
       }
-      if (cancelBtn) {
-        cancelBtn.addEventListener('click', function() {
-          addProductContainer.style.display = 'none';
-          if (prodSelect) {
-            prodSelect.value = "";
-          }
-        });
-      }
 
-      // Schedule form add product logic
-      var sProdSelect = document.getElementById('{{ s_form.prod_id.id }}-s');
-      var addProductContainerS = document.getElementById('add-product-form-container-s');
-      var cancelBtnS = document.getElementById('cancel-add-product-s');
-      if (sProdSelect) {
-        sProdSelect.addEventListener('change', function() {
-          if (this.value === 'add_new_product') {
-            addProductContainerS.style.display = 'block';
-          } else {
-            addProductContainerS.style.display = 'none';
-          }
-        });
-      }
-      if (cancelBtnS) {
-        cancelBtnS.addEventListener('click', function() {
-          addProductContainerS.style.display = 'none';
-          if (sProdSelect) {
-            sProdSelect.value = "";
-          }
-        });
-      }
-
-      // Show/hide fields based on dosing type and toggle schedule form and dosing form
+      // Dosing type select logic
       var typeSelect = document.getElementById('{{ d_form.type.id }}');
-      var scheduleFormContainer = document.getElementById('schedule-form-container');
-      var dosingFormContainer = document.getElementById('dosing-form-container');
-      function updateFieldVisibility() {
-        var selectedType = typeSelect.value;
-        // List of all field names
-        var allFields = [
-          'time', 'prod_id', 'amount', 'reason', 'per_dose', 'total_dose', 'daily_number_of_doses'
-        ];
-        // Fields to show for each type
-        var singleFields = ['time', 'prod_id', 'amount', 'reason'];
-        var recurringFields = ['time', 'prod_id', 'amount', 'reason', 'per_dose', 'total_dose', 'daily_number_of_doses'];
-        var intermittentFields = ['time', 'prod_id', 'amount', 'reason', 'per_dose'];
+      function updateFormFields() {
+        var type = typeSelect.value;
+        document.getElementById('dosing-form-type').value = type;
+        document.querySelectorAll('#dosing-form [data-types]').forEach(function(el) {
+          var types = el.getAttribute('data-types').split(',');
+          el.style.display = types.includes(type) ? '' : 'none';
+        });
+      }
+      if (typeSelect) {
+        typeSelect.addEventListener('change', updateFormFields);
+        updateFormFields();
+      }
 
-        var showFields = [];
-        if (selectedType === 'single') {
-          showFields = singleFields;
-          scheduleFormContainer.style.display = 'none';
-          dosingFormContainer.style.display = '';
-        } else if (selectedType === 'recurring') {
-          showFields = recurringFields;
-          scheduleFormContainer.style.display = 'block';
-          dosingFormContainer.style.display = 'none';
-        } else if (selectedType === 'intermittent') {
-          showFields = intermittentFields;
-          scheduleFormContainer.style.display = 'none';
-          dosingFormContainer.style.display = '';
-        } else {
-          scheduleFormContainer.style.display = 'none';
-          dosingFormContainer.style.display = '';
-        }
+      // Shared AJAX Add Product logic
+      function handleAddProduct(e, selectId, containerId, formId) {
+        e.preventDefault();
+        const addProductDiv = document.getElementById(formId);
+        const inputs = addProductDiv.querySelectorAll('input, select, textarea');
+        const data = {};
+        inputs.forEach(input => {
+          if (input.name) data[input.name] = input.value;
+        });
 
-        allFields.forEach(function(field) {
-          var group = document.getElementById('form-group-' + field);
-          if (group) {
-            if (showFields.includes(field)) {
-              group.style.display = '';
-            } else {
-              group.style.display = 'none';
-            }
+        fetch('/api/new/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+          if (result.success && result.id) {
+            const prodSelect = document.getElementById(selectId);
+            const option = document.createElement('option');
+            option.value = result.id;
+            option.text = data.name || 'New Product';
+            const addNewOpt = prodSelect.querySelector('option[value="add_new_product"]');
+            prodSelect.insertBefore(option, addNewOpt);
+            prodSelect.value = result.id;
+            document.getElementById(containerId).style.display = 'none';
+          } else {
+            alert('Failed to add product: ' + (result.error || 'Unknown error'));
           }
         });
       }
 
-      if (typeSelect) {
-        typeSelect.addEventListener('change', updateFieldVisibility);
-        updateFieldVisibility(); // Initial call on page load
+      // Attach handler to add product button
+      const addProductBtn = document.getElementById('add-product-submit');
+      if (addProductBtn) {
+        addProductBtn.addEventListener('click', function(e) {
+          if (addProductContainer && addProductContainer.style.display === 'block') {
+            handleAddProduct(e, '{{ d_form.prod_id.id }}', 'add-product-form-container', 'add-product-form');
+          }
+        });
+      }
+
+      // Make #submit-btn trigger AJAX POST to /api/new/dosing
+      const submitBtn = document.getElementById('submit-btn');
+      if (submitBtn) {
+        submitBtn.addEventListener('click', function() {
+          const form = document.getElementById('dosing-form');
+          const formData = new FormData(form);
+          const data = {};
+          formData.forEach((value, key) => {
+            data[key] = value;
+          });
+
+          fetch('/api/new/dosing', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          })
+          .then(response => response.json())
+          .then(result => {
+            if (result.success) {
+              alert('Dosing record added! ID: ' + result.id);
+              // Optionally redirect or reset form here
+            } else {
+              alert('Error: ' + (result.error || result.message));
+            }
+          })
+          .catch(err => {
+            alert('Request failed: ' + err);
+          });
+        });
       }
     });
   </script>

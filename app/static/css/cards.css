@@ -1,0 +1,56 @@
+.schedule-card {
+  min-width: 20%;
+  max-width: 25%;
+  margin-bottom: 1.5rem;
+  margin-right: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+  border-radius: 8px;
+  border: 1px solid var(--card-border-color);
+  background: var(--card-bg);
+  display: flex;
+  flex-direction: column;
+  height: 100%; }
+
+.schedule-card .card-header {
+  background: var(--card-bg-secondary);
+  font-weight: bold;
+  font-size: 1.21rem;
+  color: var(--card-header-text);
+  border-radius: 8px 8px 0 0;
+  padding: 0.75rem 1rem;
+  margin-top: 1rem; }
+
+.schedule-card .card-body {
+  padding: 1rem;
+  font-size: 0.98rem; }
+  .schedule-card .card-body .label {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: var(--card-text-color-primary); }
+  .schedule-card .card-body .value {
+    display: grid;
+    justify-content: end; }
+  .schedule-card .card-body .unit {
+    padding: 0;
+    margin: 0; }
+
+.schedule-card .card-body table {
+  width: 100%;
+  margin-bottom: 0; }
+
+.schedule-card .card-body td {
+  padding: 0.25rem 0.5rem;
+  border: none; }
+
+.schedule-card .card-body tr:nth-child(odd) {
+  background-color: var(--card-bg-secondary); }
+
+.schedule-card .card-body td:first-child {
+  font-weight: bold; }
+
+@media (min-width: 768px) {
+  #schedule-stats-cards-row {
+    padding-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start; } }

@@ -1,3 +1,53 @@
 {% extends 'datatables-template.html' %}
 
 {% block page_title %} {{ title }} {% endblock %}
+
+{% block content %}
+  {{ super() }}
+  <div class="container-fluid">
+    <div class="row" id="schedule-stats-cards-row">
+      <!-- Cards will be populated by JS -->
+    </div>
+  </div>
+{% endblock %}
+
+{% block page_scripts %}
+  {{ super() }}
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      fetch('/api/get/schedule_stats')
+        .then(response => response.json())
+        .then(data => {
+          const row = document.getElementById('schedule-stats-cards-row');
+          row.innerHTML = '';
+          data.forEach((stat, idx) => {
+            const card = document.createElement('div');
+            card.className = 'schedule-card col-12 col-sm-6 col-md-4 col-lg-3';
+            card.innerHTML = `
+              <div class="card-header">${stat.product_name}</div>
+              <div class="card-body">
+                <table class='card-table'>
+                  <tr><td class='label'>Trigger Interval (HH:mm):</td><td class='value'>${stat.trigger_interval}</td><td class='unit'></td></tr>
+                  <tr><td class='label'>Amount per Dose:</td><td class='value'>${stat.amount_per_dose}</td><td class='unit'>ml</td></tr>
+                  <tr><td class='label'>Current Available:</td><td class='value'>${stat.current_avail}</td><td class='unit'>ml</td></tr>
+                  <tr><td class='label'>Total Volume:</td><td class='value'>${stat.total_volume}</td><td class='unit'>ml</td></tr>
+                  <tr><td class='label'>Doses Remaining:</td><td class='value'>${stat.doses_remaining}</td><td class='unit'>doses</td></tr>
+                  <tr><td class='label'>Doses per Day:</td><td class='value'>${stat.doses_per_day}</td><td class='unit'>/day</td></tr>
+                  <tr><td class='label'>Days Until Empty:</td><td class='value'>${stat.days_until_empty !== null ? stat.days_until_empty : ''}</td><td class='unit'> days</td></tr>
+                  <tr><td class='label'>Estimated Empty Date:</td><td class='value'>${stat.estimated_empty_datetime !== null ? stat.estimated_empty_datetime : ''}</td><td class='unit'> </td></tr>
+                  <tr><td class='label'>Amount Used Per Day:</td><td class='value'>${stat.amount_used_per_day !== undefined ? stat.amount_used_per_day : ''}</td><td class='unit'> </td></tr>
+                  <tr><td class='label'>Days When Full:</td><td class='value'>${stat.days_when_full !== undefined && stat.days_when_full !== null ? stat.days_when_full.toFixed(2) : ''}</td><td class='unit'> days </td></tr>
+                  <tr><td class='label'>% Remaining:</td><td class='value'>${stat.percent_remaining !== undefined && stat.percent_remaining !== null ? stat.percent_remaining.toFixed(2) : ''}</td><td class='unit'>%</td></tr>
+                  <tr><td class='label'>Last Trigger:</td><td class='value'>${stat.last_trigger !== undefined && stat.last_trigger !== null ? stat.last_trigger : ''}</td><td class='unit'></td></tr>
+                  <tr><td class='label'>Last Refill:</td><td class='value'>${stat.last_refill !== undefined && stat.last_refill !== null ? stat.last_refill : ''}</td><td class='unit'></td></tr>
+                  <tr><td class='label'>Suspended:</td><td class='value'>${stat.suspended !== undefined && stat.suspended !== null ? (stat.suspended ? 'Yes' : 'No') : ''}</td><td class='unit'></td></tr>
+                </table>
+              </div>
+            `;
+            row.appendChild(card);
+          });
+        });
+    });
+  </script>
+{% endblock %}

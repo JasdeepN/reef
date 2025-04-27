@@ -1,4 +1,4 @@
-{% macro render_wtf_form(form, title=None) %}
+{% macro render_wtf_form(form, title=None, submit=None) %}
   <div class="form-wrapper" id="form-wrapper-{{ title }}">
     {% if title %}
       <h2>{{ title }}</h2>
@@ -17,7 +17,9 @@
         {% endif %}
       {% endfor %}
       <div class="form-group">
-        {{ form.submit(class="btn btn-custom-1", id="submit-{{ title }}") }}
+        <!-- {{ form.submit(class="btn btn-custom-1", id="submit-{{ title }}") }} -->
+        <button type="button" class="btn btn-custom-1" id="{{ submit }}">Add Product</button>
+
       </div>
     </form>
   </div>
