@@ -1,9 +1,19 @@
+.card-body {
+    background: var(--shadow-blue);
+    background: var(--card-bg);
+}
+
+.card-body .card-secondary
+{
+    background: var(--card-bg-secondary);
+    color: var(--card-text-color-primary);
+}
+
 .schedule-card {
-    min-width: 20%;
+    min-width: 0;
+    flex: 1 1 0;
     max-width: 25%;
     margin-bottom: 1.5rem;
-    margin-right: 1rem;
-    // margin-left: 1rem;
     box-shadow: 0 2px 8px rgba(0,0,0,0.07);
     border-radius: 8px;
     border: 1px solid var(--card-border-color);
@@ -24,7 +34,8 @@
     margin-top: 1rem;
 }
 
-.schedule-card .card-body {
+.schedule-card .card-body { 
+   
     padding: 1rem;
     font-size: 0.98rem;
     .label {
@@ -41,6 +52,10 @@
         padding: 0;
         margin: 0;
     }
+}
+
+.card-secondary {
+    margin: 1rem;
 }
 
 .schedule-card .card-body table {
@@ -68,5 +83,12 @@
         display: flex;
         flex-wrap: wrap;
         justify-content: flex-start;
+        align-content: space-between;
+        gap: 1.5rem; // Add space between cards
+    }
+    .schedule-card {
+        flex: 1 1 0;
+        max-width: 25%;
+        margin-bottom: 0; // Remove bottom margin, gap handles spacing
     }
 }

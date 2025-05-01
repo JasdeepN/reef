@@ -47,6 +47,8 @@
   /* Light Slate Gray */
   --table-header-hover-text-color: var(--outer-space);
   /* White */
+  --grey-out: rgba(216, 216, 216, 0.032);
+  /* Semi-transparent background */
   /* Form Colors */
   --form-background: var(--outer-space);
   --form-text-color: var(--alice-blue);
@@ -61,7 +63,8 @@
   --cool-gray: #8f91a2ff;
   --davys-gray: #505a5bff;
   --outer-space: #343f3eff;
-  --grey2: #56666B; }
+  --grey2: #56666B;
+  --shadow-blue: #6b7a8fff; }
 
 .alert-success {
   background-color: var(--success-color);
@@ -148,19 +151,6 @@
 .form__label {
   margin-bottom: 0.5rem; }
 
-.form__field {
-  /* Removes the border and the outline highlight when the text field is in focus */
-  outline: none;
-  border: none;
-  /* Re-adds a bottom border which will be replaces when the field is in focus. This
-       is going to prevent any jumping when we add the border later */
-  border-bottom: 3px solid #fff;
-  /* We have to be explicit about our text fields inheriting font properties */
-  font-size: inherit;
-  font-family: inherit;
-  padding: 0.75rem 0.5rem;
-  background: var(--background-color); }
-
 /* When the field is in focus, we change the border colour at the bottom to the accent colour */
 .form__field:focus {
   border-bottom: 3px solid var(--accent-colour); }
@@ -238,6 +228,11 @@
 
 .card {
   --bs-card-bg: var(--form-background); }
+
+.form-control:disabled,
+.grey-out {
+  background-color: var(--grey-out);
+  color: var(--text-muted); }
 
 .applet-container {
   display: flex;
@@ -544,11 +539,19 @@ li > a.dropdown-item {
   /* Current page background color */
   font-weight: bold; }
 
+.card-body {
+  background: var(--shadow-blue);
+  background: var(--card-bg); }
+
+.card-body .card-secondary {
+  background: var(--card-bg-secondary);
+  color: var(--card-text-color-primary); }
+
 .schedule-card {
-  min-width: 20%;
+  min-width: 0;
+  flex: 1 1 0;
   max-width: 25%;
   margin-bottom: 1.5rem;
-  margin-right: 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
   border-radius: 8px;
   border: 1px solid var(--card-border-color);
@@ -580,6 +583,9 @@ li > a.dropdown-item {
     padding: 0;
     margin: 0; }
 
+.card-secondary {
+  margin: 1rem; }
+
 .schedule-card .card-body table {
   width: 100%;
   margin-bottom: 0; }
@@ -599,7 +605,14 @@ li > a.dropdown-item {
     padding-top: 1rem;
     display: flex;
     flex-wrap: wrap;
-    justify-content: flex-start; } }
+    justify-content: flex-start;
+    align-content: space-between;
+    gap: 1.5rem; }
+
+  .schedule-card {
+    flex: 1 1 0;
+    max-width: 25%;
+    margin-bottom: 0; } }
 *,
 *::before,
 *::after {

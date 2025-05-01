@@ -54,7 +54,9 @@
   --table-cell-disabled-bg: var(--davys-gray);
   --table-header-hover-bg: #778899; /* Light Slate Gray */
   --table-header-hover-text-color: var(--outer-space); /* White */
+  
 
+  --grey-out: rgba(216, 216, 216, 0.032); /* Semi-transparent background */
 
   /* Form Colors */
   --form-background: var(--outer-space);
@@ -73,5 +75,6 @@
   --davys-gray: #505a5bff;
   --outer-space: #343f3eff;
   --grey2: #56666B;
+  --shadow-blue: #6b7a8fff;
 
 }

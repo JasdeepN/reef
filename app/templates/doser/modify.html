@@ -1,202 +1,237 @@
 {% extends 'base.html' %}
-{% from "forms.html" import render_wtf_form %}
 
-{% macro dosing_or_schedule_form(form, form_id, prod_id, prod_container_id, prod_select_id, add_product_form_id, add_product_submit_id, submit_btn=None, title=None) %}
-  {# Map field names to types they should be visible for #}
-  {% set field_types = {
-    'prod_id': ['recurring', 'single'],
-    'per_dose': ['recurring'],
-    'amount': ['recurring', 'single'],
-    'trigger_interval': ['recurring'],
-    'time': ['single'],
-    'reason': ['single']
-  } %}
-  <div id="{{ form_id }}-container" style="margin-top:2rem;">
-    {% if title %}
-      <h2>{{ title }}</h2>
-    {% endif %}
-    <form method="POST" action="" enctype="multipart/form-data" id="{{ form_id }}">
-      {{ form.hidden_tag() }}
-      <input type="hidden" name="type" id="{{ form_id }}-type" value="{{ form.type.data }}">
-      {% for field in form %}
-        {% if field.name in field_types %}
-          <div class="form-group mb-3"
-               id="{{ form_id }}-form-group-{{ field.name }}"
-               data-types="{{ field_types[field.name]|join(',') }}">
-            {{ field.label(class="form-label") }}
-            {% if field.name == 'prod_id' %}
-              <select name="{{ field.name }}" id="{{ prod_select_id }}" class="form-control">
-                {% for value, label in field.choices %}
-                  {% if value != 'intermittent' %}
-                    <option value="{{ value }}" {% if field.data == value %}selected{% endif %}>{{ label }}</option>
-                  {% endif %}
-                {% endfor %}
-                <option value="add_new_product">Add a new Product</option>
-              </select>
-              {% for error in field.errors %}
-                <div class="text-danger">{{ error }}</div>
-              {% endfor %}
-              <div id="{{ prod_container_id }}" style="display:none; margin-top:1rem;">
-                {{ add_product_form(add_product_form_id, add_product_submit_id) }}
-              </div>
-            {% else %}
-              {{ field(class="form-control") }}
-              {% for error in field.errors %}
-                <div class="text-danger">{{ error }}</div>
-              {% endfor %}
-            {% endif %}
-          </div>
-        {% endif %}
-      {% endfor %}
-      <div class="form-group">
-        <button type="button" class="btn btn-custom-1" id="{{ submit_btn }}"> submit </button>
-      </div>
-    </form>
-  </div>
-{% endmacro %}
-
-{% macro add_product_form(form_id, submit_id) %}
-  <div class="card card-body form-background" id="{{ form_id }}">
-    <h4>Add a New Product</h4>
-    {{ render_wtf_form(p_form, "New Product", submit_id) }}
-  </div>
-{% endmacro %}
+{% from "forms.html" import combined_form %}
 
 {% block content %}
 <div class="grid-container single-wide">
   <div class="grid-item">
+    <div class="title"><h1>{{ title }}</h1></div>
+  
+    <div class="card card-body form-background" id="combined-form">
+      <h4>Select the Dose Form</h4>
+      <form id="dynamic-create-form">
+        <div class="form__container">
+    
+          <div class="form__group">
+            <div class="form-group mb-3">
+              <label for="form-type-select">Form Type <span class="text-danger" title="Required">*</span></label>
+              <select id="form-type-select" name="form_type" class="form-control">
+                {% for value, label in selector %}
+                  <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
 
-    <!-- Always show the type select -->
-    <div class="form-group mb-3" id="form-group-type">
-      {{ d_form.type.label(class="form-label") }}
-      {{ d_form.type(class="form-control") }}
-      {% for error in d_form.type.errors %}
-        <div class="text-danger">{{ error }}</div>
-      {% endfor %}
+
+          <!-- Dosing Fields -->
+          <div class="form-group" data-types="recurring,single,intermittent">
+            <label for="dosing_type">
+              Dosing Type <span class="text-danger" title="Required">*</span>
+            </label>
+            <select name="dosing_type" id="dosing_type" class="form-control grey-out" disabled>
+              <option value="recurring">Recurring</option>
+              <option value="single">Single</option>
+              <option value="intermittent">Intermittent</option>
+            </select>
+            <input type="hidden" name="dosing_type" id="dosing_type_hidden">
+          </div>
+          <div class="form-group" data-types="recurring,single,intermittent">
+            <label for="prod_id">
+              Product
+              <span class="text-danger" title="Required for recurring">*</span>
+            </label>
+            <select name="prod_id" id="prod_id" class="form-control">
+              <!-- Options will be populated dynamically -->
+              <option value="add_new_product">Add New Product</option>
+            </select>
+            <!-- Place the product form placeholder right here -->
+            <div id="product-form-placeholder" style="display:none;"></div>
+          </div>
+          <div class="form-group" data-types="recurring,single,intermittent">
+            <label for="amount">
+              Amount
+              <span class="text-danger" title="Required for recurring">*</span>
+            </label>
+            <input type="number" step="any" name="amount" id="amount" class="form-control">
+          </div>
+        
+          <div class="form-group" data-types="recurring,single,intermittent">
+            <label for="schedule_time">
+              Dose Time
+              <span class="text-danger" title="Required for recurring, single and intermittent">*</span>
+            </label>
+            <input type="datetime-local" name="schedule_time" id="schedule_time" class="form-control">
+          </div>
+
+          <div class="form-group" data-types="recurring">
+            <label for="trigger_interval">
+              Trigger Interval
+              <span class="text-danger" title="Required for recurring">*</span>
+            </label>
+            <input type="number" name="trigger_interval" id="trigger_interval" class="form-control">
+          </div>
+          <div class="form-group" data-types="single,intermittent">
+            <label for="reason">Reason</label>
+            <input type="text" name="reason" id="reason" class="form-control">
+          </div>
+        </div>
+        <div class="form-group">
+          <button type="submit" class="btn btn-custom-1">Lets goooo</button>
+        </div>
+      </form>
     </div>
-
-    {{ dosing_or_schedule_form(
-      d_form,
-      'dosing-form',
-      d_form.prod_id.id,
-      'add-product-form-container',
-      d_form.prod_id.id,
-      'add-product-form',
-      'add-product-submit',
-      'submit-btn',
-      "Dosing Form"
-    ) }}
-
   </div>
 </div>
 {% endblock %}
 
 {% block page_scripts %}
-  {{ super() }}
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      // Show/hide add product form logic
-      var prodSelect = document.getElementById('{{ d_form.prod_id.id }}');
-      var addProductContainer = document.getElementById('add-product-form-container');
+{{ super() }}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const typeSelect = document.getElementById('form-type-select');
+    const dosingType = document.getElementById('dosing_type');
+    const dosingTypeHidden = document.getElementById('dosing_type_hidden');
+    const prodSelect = document.getElementById('prod_id');
+    const productFormPlaceholder = document.getElementById('product-form-placeholder');
+
+    // Product form HTML as a string
+    const productFormFields = `
+      <div class="card card-body form-background card-secondary">
+        <h4>Add a New Product</h4>
+      <div class="form-group">
+        <label for="name">Product Name</label>
+        <input type="text" name="name" id="name" class="form-control">
+      </div>
+      <div class="form-group">
+        <label for="total_volume">Total Volume</label>
+        <input type="number" step="any" name="total_volume" id="total_volume" class="form-control">
+      </div>
+      <div class="form-group">
+        <label for="current_avail">Current Available</label>
+        <input type="number" step="any" name="current_avail" id="current_avail" class="form-control">
+      </div>
+      <div class="form-group">
+        <label for="dry_refill">Dry Refill</label>
+        <input type="number" step="any" name="dry_refill" id="dry_refill" class="form-control">
+      </div>
+      </div>
+
+    `;
+
+    // Populate product select from API
+    function populateProductSelect() {
+      fetch('/api/get/raw/products')
+        .then(resp => resp.json())
+        .then(data => {
+          prodSelect.innerHTML = '';
+          if (Array.isArray(data.data)) {
+            data.data.forEach(product => {
+              const opt = document.createElement('option');
+              opt.value = product.id;
+              opt.textContent = product.name;
+              prodSelect.appendChild(opt);
+            });
+          }
+          // Always add "Add New Product" at the end
+          const addNewOption = document.createElement('option');
+          addNewOption.value = 'add_new_product';
+          addNewOption.textContent = 'Add New Product';
+          prodSelect.appendChild(addNewOption);
+
+          // After populating, update the form fields visibility
+          updateFormFields();
+        });
+    }
+
+    function updateFormFields() {
+      const selectedType = typeSelect.value;
+      document.querySelectorAll('#dynamic-create-form [data-types]').forEach(function(el) {
+        const types = el.getAttribute('data-types').split(',');
+        el.style.display = types.includes(selectedType) ? '' : 'none';
+      });
+      if (dosingType) {
+        dosingType.value = selectedType;
+      }
+      if (dosingTypeHidden) {
+        dosingTypeHidden.value = selectedType;
+      }
+      // Show product form only if "Add New Product" is selected
+      if (prodSelect && prodSelect.value === 'add_new_product') {
+        productFormPlaceholder.innerHTML = productFormFields;
+        productFormPlaceholder.style.display = '';
+      } else {
+        productFormPlaceholder.innerHTML = '';
+        productFormPlaceholder.style.display = 'none';
+      }
+    }
+
+    typeSelect.addEventListener('change', updateFormFields);
+    prodSelect.addEventListener('change', updateFormFields);
+
+    // Initial population and setup
+    populateProductSelect();
+
+    // Handle form submission to API endpoint
+    document.getElementById('dynamic-create-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      const data = {};
+      formData.forEach((value, key) => {
+        if (value !== '') data[key] = value;
+      });
+
+      // Ensure prod_id is set from the dropdown (and is an integer if not "add_new_product")
+      const prodSelect = document.getElementById('prod_id');
       if (prodSelect) {
-        prodSelect.addEventListener('change', function() {
-          if (this.value === 'add_new_product') {
-            addProductContainer.style.display = 'block';
-          } else {
-            addProductContainer.style.display = 'none';
-          }
-        });
+        const selectedProdId = prodSelect.value;
+        if (selectedProdId && selectedProdId !== 'add_new_product') {
+          data.prod_id = parseInt(selectedProdId, 10);
+        } else {
+          data.prod_id = selectedProdId; // keep as string for add_new_product
+        }
       }
 
-      // Dosing type select logic
-      var typeSelect = document.getElementById('{{ d_form.type.id }}');
-      function updateFormFields() {
-        var type = typeSelect.value;
-        document.getElementById('dosing-form-type').value = type;
-        document.querySelectorAll('#dosing-form [data-types]').forEach(function(el) {
-          var types = el.getAttribute('data-types').split(',');
-          el.style.display = types.includes(type) ? '' : 'none';
-        });
-      }
-      if (typeSelect) {
-        typeSelect.addEventListener('change', updateFormFields);
-        updateFormFields();
+      // Extra validation for recurring
+      if (data.form_type === "recurring") {
+        const requiredFields = ["amount", "prod_id", "trigger_interval", "schedule_time"];
+        const missing = requiredFields.filter(field => !data[field]);
+        if (missing.length > 0) {
+          alert(`Missing required fields for recurring: ${missing.join(', ')}`);
+          return;
+        }
       }
 
-      // Shared AJAX Add Product logic
-      function handleAddProduct(e, selectId, containerId, formId) {
-        e.preventDefault();
-        const addProductDiv = document.getElementById(formId);
-        const inputs = addProductDiv.querySelectorAll('input, select, textarea');
-        const data = {};
-        inputs.forEach(input => {
-          if (input.name) data[input.name] = input.value;
-        });
-
-        fetch('/api/new/products', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        })
-        .then(response => response.json())
-        .then(result => {
-          if (result.success && result.id) {
-            const prodSelect = document.getElementById(selectId);
-            const option = document.createElement('option');
-            option.value = result.id;
-            option.text = data.name || 'New Product';
-            const addNewOpt = prodSelect.querySelector('option[value="add_new_product"]');
-            prodSelect.insertBefore(option, addNewOpt);
-            prodSelect.value = result.id;
-            document.getElementById(containerId).style.display = 'none';
-          } else {
-            alert('Failed to add product: ' + (result.error || 'Unknown error'));
-          }
-        });
+      // Convert schedule_time from "YYYY-MM-DDTHH:MM" to "YYYY-MM-DD HH:MM:SS"
+      if (data.schedule_time && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(data.schedule_time)) {
+        data.schedule_time = data.schedule_time.replace('T', ' ') + ':00';
       }
-
-      // Attach handler to add product button
-      const addProductBtn = document.getElementById('add-product-submit');
-      if (addProductBtn) {
-        addProductBtn.addEventListener('click', function(e) {
-          if (addProductContainer && addProductContainer.style.display === 'block') {
-            handleAddProduct(e, '{{ d_form.prod_id.id }}', 'add-product-form-container', 'add-product-form');
-          }
-        });
+      if ("schedule_time" in data) {
+        data["_time"] = data["schedule_time"];
       }
+      delete data.schedule_time;
 
-      // Make #submit-btn trigger AJAX POST to /api/new/dosing
-      const submitBtn = document.getElementById('submit-btn');
-      if (submitBtn) {
-        submitBtn.addEventListener('click', function() {
-          const form = document.getElementById('dosing-form');
-          const formData = new FormData(form);
-          const data = {};
-          formData.forEach((value, key) => {
-            data[key] = value;
-          });
-
-          fetch('/api/new/dosing', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-          })
-          .then(response => response.json())
-          .then(result => {
-            if (result.success) {
-              alert('Dosing record added! ID: ' + result.id);
-              // Optionally redirect or reset form here
-            } else {
-              alert('Error: ' + (result.error || result.message));
-            }
-          })
-          .catch(err => {
-            alert('Request failed: ' + err);
-          });
-        });
-      }
+      fetch('/doser/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      .then(resp => resp.json())
+      .then(resp => {
+        if (resp.success) {
+          alert('Entry added!');
+          this.reset();
+          populateProductSelect();
+          updateFormFields();
+        } else {
+          alert('Error: ' + (resp.error || resp.message));
+        }
+      })
+      .catch(err => alert('Request failed: ' + err));
     });
-  </script>
+  });
+</script>
 {% endblock %}
+
 
 

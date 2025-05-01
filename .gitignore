@@ -67,3 +67,6 @@ htmlcov/
 
 setup/
 .sass-cache/
+
+**/*/*.nosync # my personal ignore
+todo.nosync

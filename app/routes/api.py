@@ -97,6 +97,7 @@ def get_schedule_stats():
             DSchedule.last_refill,
             Products.total_volume,
             Products.current_avail,
+            Products.dry_refill, 
             Products.name
         )
         .join(Products, Products.id == DSchedule.prod_id)
@@ -116,6 +117,7 @@ def get_schedule_stats():
             last_refill,
             total_volume,
             current_avail,
+            dry_g, 
             name,
             
         ) = row
@@ -147,11 +149,29 @@ def get_schedule_stats():
         else:
             trigger_interval_hhmm = None
         trigger_interval = trigger_interval_hhmm
+        # Format the amount
+        # Calculate grams per dose using solution concentration (total_volume / dry_g)
+        # grams_per_dose = amount * (dry_g / total_volume)
+        if total_volume and dry_g:
+            solution_concentration = dry_g / total_volume  # grams per ml
+            grams_per_dose = amount * solution_concentration
+        else:
+            grams_per_dose = None
+
+        # Calculate mix_ratio for backward compatibility (grams per ml)
+        mix_ratio = solution_concentration if total_volume and dry_g else None
+
+        # Add grams_per_dose to stats
+        amount = {
+            "ml": amount,
+            "g": round(grams_per_dose, 4) if grams_per_dose is not None else None
+        }
+
         stats.append({
             "id": sched_id,
             "product_name": name,
             "trigger_interval": trigger_interval,
-            "amount_per_dose": amount,
+            "amount_per_dose": amount['ml'],
             "current_avail": current_avail,
             "total_volume": total_volume,
             "doses_remaining": doses_remaining,
@@ -163,7 +183,10 @@ def get_schedule_stats():
             "percent_remaining": round(percent_remaining, 2) if percent_remaining is not None else None,
             "last_trigger": last_trigger,
             "last_refill": last_refill,
-            "suspended": suspended
+            "suspended": suspended,
+            "mix_ratio": round(mix_ratio, 4) if mix_ratio is not None else None,
+            "dose_amount_g": amount["g"],
+            
         })
 
     return jsonify(stats)
@@ -218,6 +241,42 @@ def get_table_data(table_name):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/get/raw/<table_name>', methods=['GET'])
+def get_raw_data(table_name):
+    try:
+        # Check if the table name exists in the mapping
+        if table_name not in TABLE_MAP:
+            return jsonify({"error": f"Table '{table_name}' not found."}), 404
+
+        # Get the table model
+        table_model = TABLE_MAP[table_name]
+        query = table_model.query
+        results = query.all()
+        print(results, 'results')
+        print(type(results), 'type(results)')
+
+    # Convert SQLAlchemy model instances to dicts for JSON serialization
+        data = []
+        for row in results:
+            print(row, 'row')
+            row_data = {}
+            for column in table_model.__table__.columns:
+                value = getattr(row, column.name)
+                if isinstance(value, enum.Enum):
+                    row_data[column.name] = value.value
+                elif isinstance(value, date):
+                    row_data[column.name] = value.strftime("%Y-%m-%d")
+                elif isinstance(value, time):
+                    row_data[column.name] = value.strftime("%H:%M:%S")
+                else:
+                    row_data[column.name] = value
+            data.append(row_data)
+            # print(data, 'data')   
+    
+    except Exception as e:
+       return jsonify({"error": str(e)}), 500
+    return jsonify({"data":data, "success": True}), 200
+    
 
 
 @app.route('/api/edit/<table_name>', methods=['POST', 'PUT'])
@@ -255,10 +314,13 @@ def add_new_record(table_name):
     table = TABLE_MAP[table_name]
     # model = table.__name__
     data = request.get_json()
-    # print('insert into model', table, data)
+    print('insert into model', table, data)
 
     data = modules.utils.validate_and_process_data(table, data)
-    print('cleaned data', data)
+    # print('cleaned data', data)
+    # If the cleaned data only has a product id, throw a form error
+    if list(data.keys()) == ["prod_id"]:
+        return jsonify({'error': 'Form data missing: only product id provided.'}), 400
 
     try:
         new_row = create_row(table, data)

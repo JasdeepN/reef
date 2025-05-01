@@ -42,6 +42,8 @@
                   <tr><td class='label'>Last Trigger:</td><td class='value'>${stat.last_trigger !== undefined && stat.last_trigger !== null ? stat.last_trigger : ''}</td><td class='unit'></td></tr>
                   <tr><td class='label'>Last Refill:</td><td class='value'>${stat.last_refill !== undefined && stat.last_refill !== null ? stat.last_refill : ''}</td><td class='unit'></td></tr>
                   <tr><td class='label'>Suspended:</td><td class='value'>${stat.suspended !== undefined && stat.suspended !== null ? (stat.suspended ? 'Yes' : 'No') : ''}</td><td class='unit'></td></tr>
+                  <tr><td class='label'>Mix Ratio / Concentration:</td><td class='value'>${stat.mix_ratio !== undefined && stat.mix_ratio !== null ? stat.mix_ratio : ''}</td><td class='unit'>g/ml</td></tr>
+                  <tr><td class='label'>Dry Volume per Dose:</td><td class='value'>${stat.dose_amount_g !== undefined && stat.dose_amount_g !== null ? stat.dose_amount_g : ''}</td><td class='unit'>g/dose</td></tr>
                 </table>
               </div>
             `;

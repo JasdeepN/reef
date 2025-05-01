@@ -1,35 +1,37 @@
-{% from 'bootstrap5/form.html' import render_form %}
-{% from "macros/fields.html" import render_form_field %}
+{% from "forms.html" import render_form_field %}
 {% extends 'base.html' %}
 
 
-{% block page_title %} NEW TEST {% endblock %}
+{% block page_title %}  {% endblock %}
 
 {% block content %} 
-    <div class="f-container">
-        <div class="title"><h1>ENTER NEW TEST RESULTS</h1></div>
-        
-        <form name="add_test" method="post" class="form">
-            <div class="form__container">
-                {{ form.hidden_tag() }}
-                {{ form.hidden_tag(form.po4_ppm) }}
+<div class="grid-container single-wide">
+    <div class="grid-item">
+            <div class="title"><h1>ENTER NEW TEST RESULTS</h1></div>
+            
+            <form name="add_test" method="post" class="form">
+                <div class="form__container">
+                    {{ form.hidden_tag() }}
+                    {{ form.hidden_tag(form.po4_ppm) }}
 
-                {{ render_form_field(form.test_date) }}
-                {{ render_form_field(form.test_time) }}
-                {{ render_form_field(form.alk) }}
-                {{ render_form_field(form.po4_ppb) }}
-                {{ render_form_field(form.no3_ppm) }}
-                {{ render_form_field(form.cal) }}
-                {{ render_form_field(form.mg) }}
-                {{ render_form_field(form.sg) }}
-        
-                <div class="button-row">
-                    {{ form.submit(class_="button button--form") }}
+                    {{ render_form_field(form.test_date) }}
+                    {{ render_form_field(form.test_time) }}
+                    {{ render_form_field(form.alk) }}
+                    {{ render_form_field(form.po4_ppb) }}
+                    {{ render_form_field(form.no3_ppm) }}
+                    {{ render_form_field(form.cal) }}
+                    {{ render_form_field(form.mg) }}
+                    {{ render_form_field(form.sg) }}
+            
+                    <div class="button-row">
+                        {{ form.submit(class="btn btn-custom-1", id="submit-test") }}
+
+                    </div>
                 </div>
-            </div>
-        </form>
+            </form>
+
+
     </div>
-
-
+</div>
 
 {% endblock %}

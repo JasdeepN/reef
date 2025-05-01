@@ -47,6 +47,8 @@
   /* Light Slate Gray */
   --table-header-hover-text-color: var(--outer-space);
   /* White */
+  --grey-out: rgba(216, 216, 216, 0.032);
+  /* Semi-transparent background */
   /* Form Colors */
   --form-background: var(--outer-space);
   --form-text-color: var(--alice-blue);
@@ -61,4 +63,5 @@
   --cool-gray: #8f91a2ff;
   --davys-gray: #505a5bff;
   --outer-space: #343f3eff;
-  --grey2: #56666B; }
+  --grey2: #56666B;
+  --shadow-blue: #6b7a8fff; }

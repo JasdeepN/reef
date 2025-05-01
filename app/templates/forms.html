@@ -3,26 +3,66 @@
     {% if title %}
       <h2>{{ title }}</h2>
     {% endif %}
-    <form method="POST" action="" enctype="multipart/form-data" id="form-{{ title }}">
-      {{ form.hidden_tag() }}
-      {% for field in form %}
-        {% if field.type != 'CSRFTokenField' and field.type != 'HiddenField' and field.name != 'csrf_token' and field.name != 'submit' %}
-          <div class="form-group mb-3" id="form-group-{{ title }}-{{ field.name }}">
-            {{ field.label(class="form-label", for=field.id ~ '-' ~ title) }}
-            {{ field(class="form-control", id=field.id ~ '-' ~ title) }}
-            {% for error in field.errors %}
-              <div class="text-danger">{{ error }}</div>
-            {% endfor %}
-          </div>
-        {% endif %}
-      {% endfor %}
-      <div class="form-group">
-        <!-- {{ form.submit(class="btn btn-custom-1", id="submit-{{ title }}") }} -->
-        <button type="button" class="btn btn-custom-1" id="{{ submit }}">Add Product</button>
-
-      </div>
-    </form>
+    {% for field in form %}
+      {% if field.type != 'CSRFTokenField' and field.type != 'HiddenField' and field.name != 'csrf_token' and field.name != 'submit' %}
+        <div class="form-group mb-3" id="form-group-{{ title }}-{{ field.name }}">
+          {{ field.label(class="form-label", for=field.id ~ '-' ~ title) }}
+          {{ field(class="form-control", id=field.id ~ '-' ~ title) }}
+          {% for error in field.errors %}
+            <div class="text-danger">{{ error }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endfor %}
+    {% if submit is not none %}
+    <div class="form-group">
+      {{ form.submit(class="btn btn-custom-1", id="submit-{{ title }}") }}
+    </div>
+    {% endif %}
   </div>
 {% endmacro %}
 
 
+{% macro add_product_form(form_id, submit_id) %}
+  <div class="card card-body form-background" id="{{ form_id }}">
+    <h4>Add a New Product</h4>
+    {{ render_wtf_form(p_form, "New Product", submit_id) }}
+  </div>
+{% endmacro %}
+
+
+
+{% macro render_form_field(field) %}
+<div class="form__group">
+  {{ field.label(class_="form__label") }}
+  
+  {% if field.type == 'DateField' %}
+    {{ field(type="date", class_="form__field") }}
+  {% elif field.type == 'TimeField' %}
+    {{ field(type="time", class_="form__field") }}
+  {% else %}
+    {{ field(class_="form__field")}}
+  {% endif %}
+
+    {%- for error in field.errors %}
+        <span class="form__error">{{ error }}</span>
+    {% endfor %}
+</div>
+{% endmacro %}
+
+
+{% macro combined_form(form) %}
+<form method="POST">
+  {{ form.hidden_tag() }}
+
+  <div id="dosing-section" data-types="recurring,single,intermittent">
+    {{ render_wtf_form(form.dosing, "Dosing", True) }}
+  </div>
+  <div id="schedule-section" data-types="recurring">
+    {{ render_wtf_form(form.schedule, "Schedule", True) }}
+  </div>
+  <div id="product-section" data-types="add_new_product" style="display:none;">
+    {{ render_wtf_form(form.product, "Product", True) }}
+  </div>
+</form>
+{% endmacro %}

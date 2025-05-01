@@ -52,51 +52,110 @@ def process_test_data(input):
 
 
 def process_dosing_data(input):
-    output = {} 
-
+    output = {}
+    allowed = {'_time', 'amount', 'id', 'prod_id'}
     for key, value in input.items():
-        if value == '':
-            # If value is empty string, set it to None
-            value = None
-        if key != 'added_on' and key != 'dosed_at' and key != 'oper' and key != 'id':
-            # Ignore these keys
-            if value is not None:
-                # Convert to float if it's a number
+        if key not in allowed:
+            continue
+        if value == '' or value is None:
+            output[key] = None
+            continue
+        if key == 'amount':
+            try:
                 output[key] = float(value)
-            else:
-                output[key] = value
-    output['id'] = input.get('id', None)
-    output['added_on'] = input['added_on'] if input['added_on'] else date.today().strftime("%Y-%m-%d")
-    output['dosed_at'] = input['dosed_at'] if input['dosed_at'] else datetime.now().strftime("%H:%M:%S")
-
+            except Exception:
+                output[key] = None
+        elif key in ['prod_id', 'id']:
+            try:
+                output[key] = int(value)
+            except Exception:
+                output[key] = None
+        elif key == '_time':
+            from datetime import datetime
+            try:
+                if isinstance(value, datetime):
+                    output[key] = value
+                else:
+                    output[key] = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                try:
+                    output[key] = datetime.strptime(value, "%Y-%m-%d")
+                except Exception:
+                    output[key] = None
     return output
 
 def process_product_data(input):
     output = {}
-
+    # Only allow fields that exist in Products (excluding computed/relationship fields)
+    allowed = {'name', 'dose_amt', 'total_volume', 'current_avail', 'dry_refill', 'last_refill'}
     for key, value in input.items():
-        if value == '':
-            # If value is empty string, set it to None
-            value = None
-        if key in ['total_volume', 'current_avail'] and value is None:
-            output[key] = 0
+        if key not in allowed:
             continue
-        if key != 'id':
-            # Ignore these keys
-            if value is not None:
-                # Convert to float if it's a number
-                try:
-                    output[key] = float(value)
-                except ValueError:
+        if value == '' or value is None:
+            output[key] = None
+            continue
+        if key in ['dose_amt', 'total_volume', 'current_avail', 'dry_refill']:
+            try:
+                output[key] = float(value)
+            except Exception:
+                output[key] = None
+        elif key == 'last_refill':
+            # Accept both date and datetime strings
+            try:
+                if isinstance(value, (datetime, date)):
                     output[key] = value
-            else:
-                output[key] = value
-    output['id'] = input.get('id', None)
+                else:
+                    # Try parsing as datetime first, then date
+                    try:
+                        output[key] = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+                    except Exception:
+                        output[key] = datetime.strptime(value, "%Y-%m-%d")
+            except Exception:
+                output[key] = None
+        else:
+            output[key] = value
+    return output
 
-    if 'used_amt' in output:
-        del output['used_amt']
-
-    
+def process_schedule_data(input):
+    output = {}
+    allowed = {'prod_id', 'amount', 'last_trigger', 'trigger_interval', 'suspended', 'last_refill'}
+    for key, value in input.items():
+        print(f"Key: {key}, Value: {value}")
+        if key not in allowed:
+            continue
+        if value == '' or value is None:
+            output[key] = None
+            continue
+        if key in ['amount']:
+            try:
+                output[key] = float(value)
+            except Exception:
+                output[key] = None
+        elif key in ['trigger_interval']:
+            try:
+                output[key] = int(value)
+            except Exception:
+                output[key] = None
+        elif key == 'prod_id':
+            try:
+                output[key] = int(value)
+            except Exception:
+                output[key] = None
+        elif key in ['last_trigger', 'last_refill']:
+            try:
+                if isinstance(value, datetime):
+                    output[key] = value
+                else:
+                    output[key] = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                try:
+                    output[key] = datetime.strptime(value, "%Y-%m-%d")
+                except Exception:
+                    output[key] = None
+        elif key == 'suspended':
+            output[key] = bool(value) if isinstance(value, bool) else value in ['1', 'true', 'True', 'yes', 'on']
+        else:
+            output[key] = value
     return output
 
 #####
@@ -166,10 +225,12 @@ def validate_and_process_data(model, data):
         print(f"Data: {data}")
         if model.__tablename__ == 'test_results':  
             return process_test_data(data)
-        elif model.__tablename__ == 'manual_dosing':  
+        elif model.__tablename__ == 'dosing':  
             return process_dosing_data(data)
         elif model.__tablename__ == 'products':
             return process_product_data(data)
+        elif model.__tablename__ == 'd_schedule':
+            return process_schedule_data(data)
         else:
             raise ValueError(f"No validation function defined for model: {model.__tablename__}")
     except Exception as e:
