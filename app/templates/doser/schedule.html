@@ -1,10 +1,10 @@
-{% extends 'datatables-template.html' %}
+{% extends 'base.html' %}
 
 {% block page_title %} {{ title }} {% endblock %}
 
 {% block content %}
-  {{ super() }}
-  <div class="container-fluid">
+
+  <div class="card-row-container">
     <div class="row" id="schedule-stats-cards-row">
       <!-- Cards will be populated by JS -->
     </div>
@@ -12,7 +12,6 @@
 {% endblock %}
 
 {% block page_scripts %}
-  {{ super() }}
 
   <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -23,9 +22,14 @@
           row.innerHTML = '';
           data.forEach((stat, idx) => {
             const card = document.createElement('div');
-            card.className = 'schedule-card col-12 col-sm-6 col-md-4 col-lg-3';
+            card.className = 'card-data-body col-12 col-sm-6 col-md-4 col-lg-3';
             card.innerHTML = `
-              <div class="card-header">${stat.product_name}</div>
+              <div class="card-header">
+                ${stat.name}
+                <div class="card-header-button">
+                  <button class="action-btn" data-schedule-id="${stat.schedule_id || stat.id}" title="Delete">&#128465;</button>
+                </div>
+              </div>
               <div class="card-body">
                 <table class='card-table'>
                   <tr><td class='label'>Trigger Interval (HH:mm):</td><td class='value'>${stat.trigger_interval}</td><td class='unit'></td></tr>
@@ -40,13 +44,32 @@
                   <tr><td class='label'>Days When Full:</td><td class='value'>${stat.days_when_full !== undefined && stat.days_when_full !== null ? stat.days_when_full.toFixed(2) : ''}</td><td class='unit'> days </td></tr>
                   <tr><td class='label'>% Remaining:</td><td class='value'>${stat.percent_remaining !== undefined && stat.percent_remaining !== null ? stat.percent_remaining.toFixed(2) : ''}</td><td class='unit'>%</td></tr>
                   <tr><td class='label'>Last Trigger:</td><td class='value'>${stat.last_trigger !== undefined && stat.last_trigger !== null ? stat.last_trigger : ''}</td><td class='unit'></td></tr>
+                  <tr><td class='label'>Next Trigger:</td><td class='value'>${stat.next_trigger !== undefined && stat.next_trigger !== null ? stat.next_trigger : ''}</td><td class='unit'></td></tr>
                   <tr><td class='label'>Last Refill:</td><td class='value'>${stat.last_refill !== undefined && stat.last_refill !== null ? stat.last_refill : ''}</td><td class='unit'></td></tr>
-                  <tr><td class='label'>Suspended:</td><td class='value'>${stat.suspended !== undefined && stat.suspended !== null ? (stat.suspended ? 'Yes' : 'No') : ''}</td><td class='unit'></td></tr>
+                  <tr><td class='label'>Suspended:</td><td class='value'>${stat.suspended ? 'Yes' : 'No'}</td><td class='unit'></td></tr>
                   <tr><td class='label'>Mix Ratio / Concentration:</td><td class='value'>${stat.mix_ratio !== undefined && stat.mix_ratio !== null ? stat.mix_ratio : ''}</td><td class='unit'>g/ml</td></tr>
                   <tr><td class='label'>Dry Volume per Dose:</td><td class='value'>${stat.dose_amount_g !== undefined && stat.dose_amount_g !== null ? stat.dose_amount_g : ''}</td><td class='unit'>g/dose</td></tr>
                 </table>
               </div>
             `;
+            card.querySelector('.action-btn').addEventListener('click', function() {
+              const scheduleId = this.getAttribute('data-schedule-id');
+              if (confirm('Are you sure you want to delete this schedule?')) {
+                fetch(`/api/scheduler/delete/${scheduleId}`, {
+                  method: 'DELETE'
+                })
+                .then(resp => resp.json())
+                .then(resp => {
+                  if (resp.success) {
+                    alert('Schedule deleted!');
+                    card.remove();
+                  } else {
+                    alert('Error: ' + (resp.error || resp.message));
+                  }
+                })
+                .catch(err => alert('Request failed: ' + err));
+              }
+            });
             row.appendChild(card);
           });
         });

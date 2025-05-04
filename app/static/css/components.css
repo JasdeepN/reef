@@ -158,9 +158,6 @@
   /* White text */
   border: none !important; }
 
-.card {
-  --bs-card-bg: var(--form-background); }
-
 .form-control:disabled,
 .grey-out {
   background-color: var(--grey-out);

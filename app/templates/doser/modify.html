@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 
 {% from "forms.html" import combined_form %}
+{% from "stripped-datatables.html" import dts_table %}
 
 {% block content %}
 <div class="grid-container single-wide">
@@ -9,77 +10,100 @@
   
     <div class="card card-body form-background" id="combined-form">
       <h4>Select the Dose Form</h4>
-      <form id="dynamic-create-form">
-        <div class="form__container">
-    
-          <div class="form__group">
-            <div class="form-group mb-3">
-              <label for="form-type-select">Form Type <span class="text-danger" title="Required">*</span></label>
-              <select id="form-type-select" name="form_type" class="form-control">
-                {% for value, label in selector %}
-                  <option value="{{ value }}">{{ label }}</option>
-                {% endfor %}
-              </select>
+      <!-- Action radio buttons -->
+      <div class="form-group mb-3 card card-body card-support">
+        <label class="form-label">Doser Action:</label>
+        <div>
+          <input type="radio" id="action_add" name="doser_action" value="add" checked>
+          <label for="action_add">Add New</label>
+          <input type="radio" id="action_modify" name="doser_action" value="modify">
+          <label for="action_modify">Modify Existing</label>
+          <input type="radio" id="action_delete" name="doser_action" value="delete">
+          <label for="action_delete">Delete</label>
+        </div>
+      </div>
+
+      <!-- Sections for each action -->
+      <div id="add-form-section" class="card card-body card-secondary">
+        <!-- Existing form type select and form code (now under Add New) -->
+        <form id="dynamic-create-form">
+          <div class="form__container">
+            <div class="form__group">
+              <div class="form-group mb-3">
+                <label class="form-label">Form Type <span class="text-danger" title="Required">*</span></label>
+                <div id="form-type-radio-group">
+                  {% for value, label in selector %}
+                    <input type="radio" id="form_type_{{ value }}" name="form_type" value="{{ value }}" {% if loop.first %}checked{% endif %}>
+                    <label for="form_type_{{ value }}">{{ label }}</label>
+                  {% endfor %}
+                </div>
+              </div>
             </div>
-          </div>
 
+            <!-- Dosing Fields -->
+            <div class="form-group" data-types="recurring,single,intermittent">
+              <label for="dosing_type">
+                Dosing Type <span class="text-danger" title="Required">*</span>
+              </label>
+              <select name="dosing_type" id="dosing_type" class="form-control grey-out" disabled>
+                <option value="recurring">Recurring</option>
+                <option value="single">Single</option>
+                <option value="intermittent">Intermittent</option>
+              </select>
+              <input type="hidden" name="dosing_type" id="dosing_type_hidden">
+            </div>
+            <div class="form-group" data-types="recurring,single,intermittent">
+              <label for="prod_id">
+                Product
+                <span class="text-danger" title="Required for recurring">*</span>
+              </label>
+              <select name="prod_id" id="prod_id" class="form-control">
+                <!-- Options will be populated dynamically -->
+                <option value="add_new_product">Add New Product</option>
+              </select>
+              <!-- Place the product form placeholder right here -->
+              <div id="product-form-placeholder" style="display:none;"></div>
+            </div>
+            <div class="form-group" data-types="recurring,single,intermittent">
+              <label for="amount">
+                Amount
+                <span class="text-danger" title="Required for recurring">*</span>
+              </label>
+              <input type="number" step="any" name="amount" id="amount" class="form-control">
+            </div>
+          
+            <div class="form-group" data-types="recurring,single,intermittent">
+              <label for="schedule_time">
+                Dose Time
+                <span class="text-danger" title="Required for recurring, single and intermittent">*</span>
+              </label>
+              <input type="datetime-local" name="schedule_time" id="schedule_time" class="form-control">
+            </div>
 
-          <!-- Dosing Fields -->
-          <div class="form-group" data-types="recurring,single,intermittent">
-            <label for="dosing_type">
-              Dosing Type <span class="text-danger" title="Required">*</span>
-            </label>
-            <select name="dosing_type" id="dosing_type" class="form-control grey-out" disabled>
-              <option value="recurring">Recurring</option>
-              <option value="single">Single</option>
-              <option value="intermittent">Intermittent</option>
-            </select>
-            <input type="hidden" name="dosing_type" id="dosing_type_hidden">
+            <div class="form-group" data-types="recurring">
+              <label for="trigger_interval">
+                Trigger Interval
+                <span class="text-danger" title="Required for recurring">*</span>
+              </label>
+              <input type="number" name="trigger_interval" id="trigger_interval" class="form-control">
+            </div>
+            
           </div>
-          <div class="form-group" data-types="recurring,single,intermittent">
-            <label for="prod_id">
-              Product
-              <span class="text-danger" title="Required for recurring">*</span>
-            </label>
-            <select name="prod_id" id="prod_id" class="form-control">
-              <!-- Options will be populated dynamically -->
-              <option value="add_new_product">Add New Product</option>
-            </select>
-            <!-- Place the product form placeholder right here -->
-            <div id="product-form-placeholder" style="display:none;"></div>
+          <div class="form-group">
+            <button type="submit" class="btn btn-custom-1">Lets goooo</button>
           </div>
-          <div class="form-group" data-types="recurring,single,intermittent">
-            <label for="amount">
-              Amount
-              <span class="text-danger" title="Required for recurring">*</span>
-            </label>
-            <input type="number" step="any" name="amount" id="amount" class="form-control">
-          </div>
-        
-          <div class="form-group" data-types="recurring,single,intermittent">
-            <label for="schedule_time">
-              Dose Time
-              <span class="text-danger" title="Required for recurring, single and intermittent">*</span>
-            </label>
-            <input type="datetime-local" name="schedule_time" id="schedule_time" class="form-control">
-          </div>
-
-          <div class="form-group" data-types="recurring">
-            <label for="trigger_interval">
-              Trigger Interval
-              <span class="text-danger" title="Required for recurring">*</span>
-            </label>
-            <input type="number" name="trigger_interval" id="trigger_interval" class="form-control">
-          </div>
-          <div class="form-group" data-types="single,intermittent">
-            <label for="reason">Reason</label>
-            <input type="text" name="reason" id="reason" class="form-control">
-          </div>
+        </form>
+      </div>
+      <div id="modify-form-section" style="display:none;">
+        <div class="card card-body card-secondary">
+          <h4>Edit Existing Dosing Schedules</h4>
+          {{ dts_table(d_schedule_table) }}
         </div>
-        <div class="form-group">
-          <button type="submit" class="btn btn-custom-1">Lets goooo</button>
-        </div>
-      </form>
+      </div>
+      <div id="delete-form-section" style="display:none;">
+        <!-- Placeholder for Delete form (to be implemented) -->
+        <div class="alert alert-warning">Delete form coming soon.</div>
+      </div>
     </div>
   </div>
 </div>
@@ -89,7 +113,38 @@
 {{ super() }}
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    const typeSelect = document.getElementById('form-type-select');
+    // Action radio logic
+    const actionRadios = document.getElementsByName('doser_action');
+    const addSection = document.getElementById('add-form-section');
+    const modifySection = document.getElementById('modify-form-section');
+    const deleteSection = document.getElementById('delete-form-section');
+
+    // Editable DSchedule Table for Modify Existing
+    function loadDScheduleTable() {
+      fetch('/api/get/d_schedule')
+        .then(resp => resp.json())
+        .then(data => {
+          
+        });
+    }
+
+    function updateActionForm() {
+      const selected = document.querySelector('input[name="doser_action"]:checked').value;
+      addSection.style.display = selected === 'add' ? '' : 'none';
+      modifySection.style.display = selected === 'modify' ? '' : 'none';
+      deleteSection.style.display = selected === 'delete' ? '' : 'none';
+      if (selected === 'modify') {
+        loadDScheduleTable();
+      }
+    }
+
+    actionRadios.forEach(radio => {
+      radio.addEventListener('change', updateActionForm);
+    });
+    updateActionForm();
+
+    // Populate product select from API
+    const typeRadios = document.querySelectorAll('input[name="form_type"]');
     const dosingType = document.getElementById('dosing_type');
     const dosingTypeHidden = document.getElementById('dosing_type_hidden');
     const prodSelect = document.getElementById('prod_id');
@@ -112,14 +167,17 @@
         <input type="number" step="any" name="current_avail" id="current_avail" class="form-control">
       </div>
       <div class="form-group">
-        <label for="dry_refill">Dry Refill</label>
+        <label for="dry_refill">Dry Refill (grams)</label>
         <input type="number" step="any" name="dry_refill" id="dry_refill" class="form-control">
       </div>
       </div>
-
     `;
 
-    // Populate product select from API
+    function getSelectedFormType() {
+      const checked = document.querySelector('input[name="form_type"]:checked');
+      return checked ? checked.value : null;
+    }
+
     function populateProductSelect() {
       fetch('/api/get/raw/products')
         .then(resp => resp.json())
@@ -145,7 +203,7 @@
     }
 
     function updateFormFields() {
-      const selectedType = typeSelect.value;
+      const selectedType = getSelectedFormType();
       document.querySelectorAll('#dynamic-create-form [data-types]').forEach(function(el) {
         const types = el.getAttribute('data-types').split(',');
         el.style.display = types.includes(selectedType) ? '' : 'none';
@@ -166,7 +224,10 @@
       }
     }
 
-    typeSelect.addEventListener('change', updateFormFields);
+    typeRadios.forEach(radio => {
+      radio.addEventListener('change', updateFormFields);
+    });
+
     prodSelect.addEventListener('change', updateFormFields);
 
     // Initial population and setup

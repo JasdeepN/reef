@@ -117,62 +117,41 @@
   z-index: 999; /* Ensure it appears below the modal */
 }
 
-.modal-container {
-  display: none; /* Hidden by default */
-  position: fixed;
-  // top: 0;
-  // left: 0;
-  // width: 100%;
-  // height: 100%;
+.modal-container,
+#modal-container-d_schedule,
+.sub-modal-container {
+  display: none;
+  position: fixed !important;
+  top: 0; left: 0; width: 20vw; height: 100vh;
   justify-content: center;
   align-items: center;
-  // background: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
-  z-index: 1000; /* Ensure it appears above other elements */
+  z-index: 1000;
 }
 
-.modal-container.show {
-  display: flex;
-  width: inherit;
-  height: 100%;
-  // align-items: flex-start; // Align modal to the top of the viewport
-  // justify-content: center;
-  // padding-top: 5vh;        // Optional: add some space from the top
-  // padding-bottom: 2vh;     // Optional: add some space at the bottom
-  // min-height: 100vh;       // Ensure container fills the viewport
+.modal-container.show,
+.sub-modal-container.show {
+  display: flex !important;
 }
 
-.modal {
+.modal,
+.sub-modal {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  z-index: 1100;
   background: var(--light-slate-gray);
   color: var(--text-color);
   padding: 20px;
   border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  max-width: 500px;
-  width: 100%;
-  position: relative;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  max-width: 90vw;
+  max-height: 80vh;
+  width: fit-content;
   height: fit-content;
-  max-height: 80vh;      // Limit modal height to 80% of viewport
-  overflow-y: auto;      // Add vertical scroll if content is too tall
   display: flex;
   flex-direction: column;
-
-  // scrollbar-width: thin;              // Firefox
-  // scrollbar-color: var(--outer-space) var(--powder-blue); // Firefox
-
-  // &::-webkit-scrollbar {
-  //   width: 10px;
-  //   background: var(--outer-space);
-  // }
-  // &::-webkit-scrollbar-thumb {
-  //   background: var(--accent-colour);
-  //   border-radius: 6px;
-  // }
-  // &::-webkit-scrollbar-thumb:hover {
-  //   background: var(--button-hover);
-  // }
-  // &::-webkit-scrollbar-corner {
-  //   background: var(--background-color);
-  // }
+  overflow-y: auto;
 }
 
 .modal-header {
@@ -242,3 +221,9 @@
   background-color: var(--button-background) !important; /* Current page background color */
   font-weight: bold;
 }
+
+ 
+ .sub-grid-item {
+   background-color: #5D737E;
+   color: white;
+ }

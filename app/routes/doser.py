@@ -4,7 +4,7 @@ from flask import jsonify, render_template, request, redirect, url_for
 from app import app
 from modules.models import *  # Import your models
 from modules.utils import *
-from app.routes.api import TABLE_MAP, db
+# import db
 import enum
 from flask_wtf import FlaskForm
 from wtforms import StringField, IntegerField, SubmitField
@@ -13,56 +13,6 @@ from wtforms.validators import DataRequired
 
 @app.route("/doser", methods=["GET"])
 def doser_joined():
-    # import json
-    # import urllib.parse
-    # from app.routes.api import advanced_join_query, TABLE_MAP, db
-
-    # # Prepare parameters for advanced_join_query
-    # print(request.args, 'request.args')
-    # # we know what tables went to join in this route
-    # table_names = ["products", "dosing"]
-    # join_type = "inner"
-    # join_conditions = [getattr(TABLE_MAP["products"], "id") == getattr(TABLE_MAP["dosing"], "prod_id")]
-
-    # # No filters, order_by, limit, or offset for this simple join
-    # data = advanced_join_query(
-    #     db=db,
-    #     TABLE_MAP=TABLE_MAP,
-    #     table_names=table_names,
-    #     join_type=join_type,
-    #     join_conditions=join_conditions,
-    #     filters=None,
-    #     order_by=None,
-    #     limit=None,
-    #     offset=None,
-    # )
-
-    # # print(data , 'data')
-    # tables = "products,dosing"
-    # conditions = json.dumps([["products.id", "dosing.prod_id"]])  # Proper JSON
-    # # Do NOT encode here, just send the raw JSON string for JS
-    # js_safe_url = f"/api/get/advanced_join?tables={tables}&join_type={join_type}&conditions={conditions}"
-
-    # cols = generate_columns(data[0].keys()) if data else []
-    # # print (data)
-    # return render_template(
-    #     'doser/doser.html',
-    #     tables=[{
-    #         "id": "products_dosing_join",
-    #         "api_url": js_safe_url,  # Pass the JS-safe URL
-    #         "title": "Products & Dosing Join",
-    #         "columns": cols,
-    #         "initial_data": data,
-    #         "datatable_options": {
-    #             "dom": "Bfrtip",
-    #             "buttons": [
-    #                 {"text": "Add", "action": "add"},
-    #                 {"text": "Edit", "action": "edit"},
-    #                 {"text": "Delete", "action": "delete"}
-    #             ]
-    #         }
-    #     }]
-    # )
     return jsonify({
         "success": True,
         "message": "This is a placeholder for the joined data."
@@ -72,7 +22,7 @@ def doser_joined():
 def db_doser():
     from sqlalchemy import text
     sql = """
-        select * from  d_schedule join products on d_schedule.prod_id=products.id;
+        select * from d_schedule join products on d_schedule.prod_id=products.id;
     """
     result = db.session.execute(text(sql)).mappings()
     rows = []
@@ -81,7 +31,10 @@ def db_doser():
         # Convert timedelta fields to string or seconds
         for k, v in row_dict.items():
             if isinstance(v, timedelta):
-                row_dict[k] = str(v)  # or v.total_seconds() if you want seconds as int/float
+                row_dict[k] = str(v)
+            # Convert boolean/int fields to "Yes"/"No" for booleans (including 0/1)
+            if k == "suspended":
+                row_dict[k] = "Yes" if bool(v) else "No"
         rows.append(row_dict)
 
     columns = generate_columns(rows[0].keys()) if rows else []
@@ -95,7 +48,7 @@ def db_doser():
             "initial_data": rows,
             "datatable_options": {
                 "dom": "Bfrtip",
-                  "buttons": [
+                "buttons": [
                     {"text": "Edit", "action": "edit"},
                     {"text": "Delete", "action": "delete"}
                 ],
@@ -109,38 +62,59 @@ def db_doser():
 
 @app.route("/doser/modify", methods=["GET", "POST"])
 def modify_doser():
+    # Define columns for d_schedule table
+    cols = ['id', 'prod_id',  'trigger_interval', 'suspended', 'last_refill']
+    columns = generate_columns(cols)
+    d_schedule_table = {
+        "id": "d_schedule",
+        "api_url": "/api/get/d_schedule",
+        "title": "Edit Dosing Schedules",
+        "columns": columns,
+        "datatable_options": {
+            "dom": "Bfrtip",
+            "buttons": [
+                {"text": "Edit", "action": "edit"},
+                {"text": "Delete", "action": "delete"}
+            ],
+            "serverSide": True,
+            "processing": True,
+        },
+    }
     form = CombinedDosingScheduleForm()
     return render_template(
         "doser/modify.html",
-        forms=form,  # CombinedDosingScheduleForm instance
-        selector=form.options(),  # For the dosing type dropdown
-        title="Modify Dosing"
+        forms=form,
+        selector=form.options(),
+        title="Modify Dosing",
+        d_schedule_table=d_schedule_table
     )
 
 @app.route("/doser/schedule", methods=["GET", "POST"])
 def run_schedule():
 
-    cols =  ['id', 'suspended', 'trigger_interval', 'amount', 'current_avail', 'total_volume', 'name']
+    # cols =  ['id', 'suspended', 'trigger_interval', 'amount', 'current_avail', 'total_volume', 'name']
 
-    named_cols = generate_columns(cols)
-    # print(named_cols, 'named_cols')
-    table=[
-        {  
-            "id": "schedule",
-            "api_url": '/api/get/schedule',
-            "title": "Schedule",
-            "columns": named_cols,
-            "datatable_options": {
-                "dom": "frtip", 
-                "buttons": [],
-                "serverSide": False,
-                "processing": False,
-            },
-        }
-    ]
+    # named_cols = generate_columns(cols)
+    # # print(named_cols, 'named_cols')
+    # table=[
+    #     {  
+    #         "id": "schedule",
+    #         "api_url": '/api/get/schedule',
+    #         "title": "Schedule",
+    #         "columns": named_cols,
+    #         "datatable_options": {
+    #             "dom": "frtip", 
+    #             "buttons": [],
+    #             "serverSide": False,
+    #             "processing": False,
+    #         },
+    #     }
+    # ]
     # packaged = datatables_response(result, None, 1)
     # print(packaged, 'packaged')
-    return render_template("doser/schedule.html", tables=table, title="Schedule Dosing")
+    # return render_template("doser/schedule.html", tables=table, title="Schedule Dosing")
+    return render_template("doser/schedule.html", title="Schedule Dosing")
+    
 
 from flask import request, jsonify
 import requests
@@ -154,7 +128,7 @@ def doser_submit():
 
     # --- Handle new product creation if needed ---
     if data.get("prod_id") == "add_new_product":
-        product_fields = {"name", "dose_amt", "total_volume", "current_avail", "dry_refill"}
+        product_fields = {"name", "total_volume", "current_avail", "dry_refill"}
         product_data = {k: v for k, v in data.items() if k in product_fields}
         from app import app as flask_app
         with flask_app.test_request_context():
@@ -189,7 +163,8 @@ def doser_submit():
                     "amount": data["amount"],
                     "prod_id": data["prod_id"],
                     "trigger_interval": data["trigger_interval"],
-                    "_time": data["_time"]
+                    "trigger_time": data["_time"],
+                    "suspended": data.get("suspended", False),
                 }
                 
                 sched_resp = client.post("/api/new/d_schedule", json=schedule_data)
@@ -207,3 +182,14 @@ def doser_submit():
                 return resp.get_data(), resp.status_code, resp.headers.items()
             else:
                 return jsonify({"success": False, "error": "Unknown form_type"}), 400
+            
+
+@app.route("/doser/products", methods=["GET"])
+def get_products():
+    urls = {
+        "GET": "/api/get/product_stats",
+        "DELETE": "/api/delete/products",
+        "POST": "/api/new/products",
+        "PUT": "/api/edit/products"
+    }
+    return render_template("doser/products.html", title="Products", api_urls=urls)

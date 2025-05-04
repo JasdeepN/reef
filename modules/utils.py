@@ -141,17 +141,14 @@ def process_schedule_data(input):
                 output[key] = int(value)
             except Exception:
                 output[key] = None
-        elif key in ['last_trigger', 'last_refill']:
+        elif key in ['trigger_time']:
             try:
                 if isinstance(value, datetime):
                     output[key] = value
                 else:
                     output[key] = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-            except Exception:
-                try:
-                    output[key] = datetime.strptime(value, "%Y-%m-%d")
-                except Exception:
-                    output[key] = None
+            except Exception:           
+                output[key] = None
         elif key == 'suspended':
             output[key] = bool(value) if isinstance(value, bool) else value in ['1', 'true', 'True', 'yes', 'on']
         else:

@@ -46,5 +46,8 @@ x_metrics.counter('home_requests_total', 'Total requests to the / endpoint')
 x_metrics.counter('metrics_requests_total', 'Total requests to the /metrics endpoint')
 x_metrics.counter('test_results_requests_total', 'Total requests to the /test_results endpoint')
 # Import and register routes
-from app.routes import home, metrics, test, doser, timeline, api
+from app.routes.api import api_bp
+app.register_blueprint(api_bp)
+from app.routes import home, metrics, test, doser, timeline
+
 import modules

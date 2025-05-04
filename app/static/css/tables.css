@@ -111,34 +111,42 @@
   z-index: 999;
   /* Ensure it appears below the modal */ }
 
-.modal-container {
+.modal-container,
+#modal-container-d_schedule,
+.sub-modal-container {
   display: none;
-  /* Hidden by default */
-  position: fixed;
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  width: 20vw;
+  height: 100vh;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
-  /* Ensure it appears above other elements */ }
+  z-index: 1000; }
 
-.modal-container.show {
-  display: flex;
-  width: inherit;
-  height: 100%; }
+.modal-container.show,
+.sub-modal-container.show {
+  display: flex !important; }
 
-.modal {
+.modal,
+.sub-modal {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  z-index: 1100;
   background: var(--light-slate-gray);
   color: var(--text-color);
   padding: 20px;
   border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  max-width: 500px;
-  width: 100%;
-  position: relative;
-  height: fit-content;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  max-width: 90vw;
   max-height: 80vh;
-  overflow-y: auto;
+  width: fit-content;
+  height: fit-content;
   display: flex;
-  flex-direction: column; }
+  flex-direction: column;
+  overflow-y: auto; }
 
 .modal-header {
   font-size: 1.5rem;
@@ -202,3 +210,7 @@
   background-color: var(--button-background) !important;
   /* Current page background color */
   font-weight: bold; }
+
+.sub-grid-item {
+  background-color: #5D737E;
+  color: white; }

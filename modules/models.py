@@ -118,24 +118,25 @@ class Dosing(db.Model):
     __tablename__ = 'dosing'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    _time = db.Column(db.DateTime)
+    trigger_time = db.Column(db.DateTime(3))
     amount = db.Column(db.Float, nullable=False)
-    reason = db.Column(db.Text)
     prod_id = db.Column(db.Integer, db.ForeignKey('products.id'))
+    sched_id = db.Column(db.Integer, db.ForeignKey('d_schedule.id'), nullable=True)
     product = db.relationship('Products', backref=db.backref('dosings', lazy=True))
+    schedule = db.relationship('DSchedule', backref=db.backref('dosings', lazy=True))
+
+
 
     def validate(self):
         if self.amount is not None and self.amount < 0:
             raise ValueError("Amount must be non-negative")
         if self.prod_id is None:
             raise ValueError("Product must be selected")
-        if self._time is None:
-            raise ValueError("Dosing time must be specified")
         if self.amount is None:
             raise ValueError("Amount must be specified")
         if self._type is None:
             raise ValueError("Dosing type must be specified")
-        if self._time is None:
+        if self.trigger_time is None:
             raise ValueError("Dosing time must be specified")
 
 
@@ -144,7 +145,6 @@ class DSchedule(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     prod_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
-    last_trigger = db.Column(db.DateTime, default=None)
     trigger_interval = db.Column(db.Integer, nullable=False)
     suspended = db.Column(db.Boolean, default=False)
     last_refill = db.Column(db.DateTime, default=None)
@@ -158,7 +158,6 @@ def get_d_schedule_dict(d_schedule):
     return {
         "id": d_schedule.id,
         "product_name": d_schedule.product.name if d_schedule.product else None,
-        "last_trigger": d_schedule.last_trigger.isoformat() if d_schedule.last_trigger else None,
         "trigger_interval": d_schedule.trigger_interval,
         "suspended": d_schedule.suspended,
         "last_refill": d_schedule.last_refill.isoformat() if d_schedule.last_refill else None,
