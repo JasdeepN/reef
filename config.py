@@ -1,11 +1,18 @@
 import os
 from dotenv import load_dotenv
+import tzlocal  # pip install tzlocal
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 # Load environment variables from .flaskenv
 dotenv_path = os.path.join(os.path.dirname(__file__), '.flaskenv')
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path)
+
+# Automatically determine system timezone
+try:
+    SYSTEM_TIMEZONE = tzlocal.get_localzone_name()
+except Exception:
+    SYSTEM_TIMEZONE = 'UTC'
 
 class Config(object):
 
@@ -40,4 +47,9 @@ class Config(object):
     GUNICORN_BIND = "0.0.0.0:5000"  # Bind address
     GUNICORN_WORKER_CLASS = "gevent"  # Use Gevent worker class
 
-    ENGINE_STRING='mysql+pymysql://{0}:{1}@{2}:{3}/{4}'.format(os.getenv("DB_USER"), os.getenv("DB_PASS"), os.getenv("DB_HOST_ADDRESS"), os.getenv("DB_HOST_PORT"), os.getenv("DB_NAME"))
+    ENGINE_STRING = 'mysql+pymysql://{0}:{1}@{2}:{3}/{4}'.format(
+        os.getenv("DB_USER"), os.getenv("DB_PASS"), os.getenv("DB_HOST_ADDRESS"), os.getenv("DB_HOST_PORT"), os.getenv("DB_NAME")
+    )
+
+    # Add timezone config
+    TIMEZONE = os.getenv("TIMEZONE", SYSTEM_TIMEZONE)

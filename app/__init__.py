@@ -6,6 +6,8 @@ from config import Config
 from sqlalchemy import create_engine
 from flask_session import Session
 from prometheus_flask_exporter import PrometheusMetrics
+import pytz
+from datetime import datetime
 
 UPLOAD_FOLDER = 'static/temp'
 ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
@@ -31,6 +33,11 @@ db = SQLAlchemy(app)
 app.config['DB_ENGINE'] = create_engine(engine_string)
 app.config["SESSION_COOKIE_NAME"] = "session"
 app.config.from_object(Config)
+
+# tzname = app.config.get('TIMEZONE', 'UTC')
+# tz = pytz.timezone(tzname)
+# print("Timezone:", tz)
+# print("Current time in timezone:", datetime.now(tz))
 
 Session(app)
 

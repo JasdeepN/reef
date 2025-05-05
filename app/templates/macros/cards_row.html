@@ -30,10 +30,9 @@
               <div class="card-body">
                 <table class='card-table'>
                   ${Object.entries(stat).filter(([k, v]) => Array.isArray(v) && v.length >= 2 && k !== 'product_id').map(([k, pair]) =>
-                    `<tr>
+                    `<tr class='card-row-data'>
                       <td class='label'>${pair[0]}</td>
-                      <td class='value'>${pair[1] !== null && pair[1] !== undefined ? pair[1] : ''}</td>
-                      <td class='unit'>${pair[2] ? pair[2] : ''}</td>
+                      <td class='value'>${pair[1] !== null && pair[1] !== undefined ? pair[1] : ''} ${pair[2] ? pair[2] : ''}</td>
                     </tr>`
                   ).join('')}
                 </table>

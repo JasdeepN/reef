@@ -33,7 +33,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
-  padding-top: 1rem;
+  padding-top: 0.25rem;
   width: 100%;
 }
 
@@ -90,19 +90,21 @@
 
 .card-data-body .card-body { 
     padding: 1rem;
-    font-size: 0.98rem;
+    font-size: 1rem;
+    
+    
     .label {
         font-weight: bold;
         color: var(--card-text-color-primary);
     }
     .value {
-        display: grid;
         justify-content: end;
     }
+    
 }
 
 .card-secondary {
-    margin: 1rem;
+    margin: 0;
 }
 
 .card-data-body .card-body table {
@@ -112,16 +114,16 @@
 
 .card-data-body .card-body tr {
    > td {
-    padding: 0.25rem 0.5rem;
+    padding: 0.25rem;
     border: none;
     }
 }
 
-.card-data-body .card-body tr {
-    border-bottom: 1px solid var(--card-border-color);
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-}
+// .card-data-body .card-body tr {
+//     border-bottom: 1px solid var(--card-border-color);
+//     display: grid;
+//     grid-template-columns: auto 1fr auto;
+// }
 
 .card-data-body .card-body tr:nth-child(odd) {
     background-color: var(--card-bg-secondary);  
@@ -136,6 +138,19 @@
     min-width: 0;
     table-layout: fixed;
     word-break: break-word;
+    > tbody  
+        tr:first-child {
+            border-top: 1px solid var(--card-border-color);
+        }
+        tr {
+        border-bottom: 1px solid var(--card-border-color);
+        display: flex;
+        justify-content: space-between;
+        td {
+            display: inherit;
+        }
+    }
+    
 }
 
 @media (min-width: 768px) {
@@ -143,7 +158,6 @@
         display: grid;
         grid-template-columns: repeat(4, 1fr);
         gap: 1.5rem;
-        padding-top: 1rem;
     }
     .card-data-body {
         max-width: 100%;
@@ -178,7 +192,7 @@
         word-break: break-all;
         white-space: pre-line;
         display: block;
-        max-width: 100px; // adjust as needed for your layout
+        max-width: 50%; // adjust as needed for your layout
         overflow-wrap: break-word;
     }
 }

@@ -1,7 +1,8 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, current_app
 from app import db
 from datetime import datetime, timedelta
 from sqlalchemy import text
+import pytz
 
 bp = Blueprint('product_api', __name__)
 
@@ -25,7 +26,6 @@ def get_product_stats():
     result = db.session.execute(text(sql))
     rows = result.fetchall()
     columns = result.keys()
-    # Define units for each field (add or adjust as needed)
     units = {
         'total_volume': 'ml',
         'used_amt': 'ml',
@@ -36,22 +36,34 @@ def get_product_stats():
         'suspended': '',
         'trigger_interval': 's',
         'amount': 'ml'
-        }
+    }
     stats = []
+    date_keys = {'last_refill', 'estimated_empty_datetime', 'trigger_time'}
+    # Get timezone from app config
+    tzname = current_app.config.get('TIMEZONE', 'UTC')
+    tz = pytz.timezone(tzname)
     for row in rows:
         row_dict = dict(zip(columns, row))
         stat = {}
-        # Always include product name for card title
         stat['card_title'] = ['Product Name', row_dict.get('name'), row_dict.get('id')]
         for key in columns:
             label = key.replace('_', ' ').title()
             value = row_dict.get(key)
             unit = units.get(key, '')
-            # Convert suspended to boolean for display
             if key == 'suspended' and value is not None:
                 value = bool(value)
+            if key in date_keys and value:
+                try:
+                    if isinstance(value, str):
+                        dt = datetime.fromisoformat(value)
+                    else:
+                        dt = value
+                    # Only convert if dt is naive and you know it's UTC
+                    # If your DB stores local time, do NOT convert
+                    value = dt.strftime('%b %d %Y %H:%M:%S %Z')
+                except Exception:
+                    pass
             stat[key] = [label, value, unit]
-        # If schedule_id exists, get related dosing data
         if row_dict.get('schedule_id'):
             dosing_sql = """
                 SELECT 
@@ -71,11 +83,22 @@ def get_product_stats():
             }
             if dosing_result:
                 for k, v in zip(dosing_columns, dosing_result):
+                    if k == 'trigger_time' and v:
+                        try:
+                            if isinstance(v, str):
+                                dt = datetime.fromisoformat(v)
+                            else:
+                                dt = v
+                            if dt.tzinfo is None:
+                                dt = pytz.utc.localize(dt)
+                            dt = dt.astimezone(tz)
+                            v = dt.strftime('%b %d %Y %H:%M:%S')
+                        except Exception:
+                            pass
                     stat[k] = [k.replace('_', ' ').title(), v, dosing_units.get(k, '')]
             else:
                 for k in dosing_columns:
                     stat[k] = [k.replace('_', ' ').title(), None, dosing_units.get(k, '')]
-        # Calculated fields
         try:
             percent_remaining = (
                 (row_dict['current_avail'] / row_dict['total_volume']) * 100
@@ -92,8 +115,14 @@ def get_product_stats():
                 stat['days_until_empty'] = ['Days Until Empty', days_until_empty, 'days']
                 estimated_empty_datetime = (
                     datetime.utcnow() + timedelta(days=days_until_empty)
-                ).isoformat()
-                stat['estimated_empty_datetime'] = ['Estimated Empty Date', estimated_empty_datetime, '']
+                )
+                # Localize and convert to configured timezone
+                # estimated_empty_datetime = pytz.utc.localize(estimated_empty_datetime).astimezone(tz)
+                stat['estimated_empty_datetime'] = [
+                    'Estimated Empty Date',
+                    estimated_empty_datetime.strftime('%b %d %Y %H:%M:%S'),
+                    ''
+                ]
             else:
                 stat['days_until_empty'] = ['Days Until Empty', None, 'days']
                 stat['estimated_empty_datetime'] = ['Estimated Empty Date', None, '']
@@ -102,7 +131,6 @@ def get_product_stats():
             stat['doses_remaining'] = ['Doses Remaining', None, 'doses']
             stat['days_until_empty'] = ['Days Until Empty', None, 'days']
             stat['estimated_empty_datetime'] = ['Estimated Empty Date', None, '']
-        
-        stat.pop('name', None)  # Remove name from the stat dictionary
+        stat.pop('name', None)
         stats.append(stat)
     return jsonify(stats)

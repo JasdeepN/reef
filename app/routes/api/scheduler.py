@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from app import db
 from modules.models import DSchedule, Products, Dosing
 from modules.utils import datatables_response
 from sqlalchemy import text
+import pytz
 
 bp = Blueprint('schedule_api', __name__)
 
@@ -45,25 +46,25 @@ def get_sched():
     response = datatables_response(data, params, draw)
     return jsonify(response)
 
-@bp.route('/scheduler/new/dose/<schedule_id>', methods=['POST'])
-def add_dosing_entry(schedule_id):
+# @bp.route('/scheduler/new/dose/<schedule_id>', methods=['POST'])
+# def add_dosing_entry(schedule_id):
    
-    if not schedule_id:
-        return jsonify({'error': 'schedule_id is required'}), 400
+#     if not schedule_id:
+#         return jsonify({'error': 'schedule_id is required'}), 400
     
-    # Get the product by ID
-    sched = DSchedule.query.get(schedule_id)
+#     # Get the product by ID
+#     sched = DSchedule.query.get(schedule_id)
 
-    # Create new dosing entry
-    new_dosing = Dosing(
-        prod_id=sched.prod_id,
-        sched_id=sched.id,
-        amount=sched.amount,
-        trigger_time=datetime.utcnow()
-    )
-    db.session.add(new_dosing)
-    db.session.commit()
-    return ({'success': True, 'added': new_dosing.id}), 201
+#     # Create new dosing entry
+#     new_dosing = Dosing(
+#         prod_id=sched.prod_id,
+#         sched_id=sched.id,
+#         amount=sched.amount,
+#         trigger_time=datetime.utcnow()
+#     )
+#     db.session.add(new_dosing)
+#     db.session.commit()
+#     return ({'success': True, 'added': new_dosing.id}), 201
 
 
 @bp.route('/scheduler/delete/<int:id>', methods=['DELETE'])
@@ -124,40 +125,83 @@ def get_schedule_stats():
     result = db.session.execute(text(sql))
     rows = result.fetchall()
     columns = result.keys()
+    units = {
+        'product_id': '',
+        'name': '',
+        'total_volume': 'ml',
+        'used_amt': 'ml',
+        'dry_refill': 'g|ml',
+        'current_avail': 'ml',
+        'schedule_id': '',
+        'set_amount': 'ml',
+        'last_refill': '',
+        'suspended': '',
+        'trigger_interval': 's',
+        'last_trigger': '',
+        'dosed_amount': 'ml',
+        'percent_remaining': '%',
+        'doses_remaining': 'doses',
+        'days_until_empty': 'days',
+        'estimated_empty_datetime': ''
+    }
+    date_keys = {'last_refill', 'last_trigger', 'estimated_empty_datetime'}
+    # Get timezone from app config
+    # tzname = current_app.config.get('TIMEZONE', 'UTC')
+    # tz = pytz.timezone(tzname)
     stats = []
     for row in rows:
-        stat = dict(zip(columns, row))
-        # --- Calculated fields ---
+        row_dict = dict(zip(columns, row))
+        stat = {}
+        stat['card_title'] = ['Product Name', row_dict.get('name'), row_dict.get('product_id')]
+        for key in columns:
+            label = key.replace('_', ' ').title()
+            value = row_dict.get(key)
+            unit = units.get(key, '')
+            if key == 'suspended' and value is not None:
+                value = bool(value)
+            if key in date_keys and value:
+                try:
+                    if isinstance(value, str):
+                        dt = datetime.fromisoformat(value)
+                    else:
+                        dt = value
+                    # Only convert if dt is naive and you know it's UTC
+                    # If your DB stores local time, do NOT convert
+                    value = dt.strftime('%b %d %Y %H:%M:%S %Z')
+                except Exception:
+                    pass
+            stat[key] = [label, value, unit]
         try:
-            # % Remaining
-            stat['percent_remaining'] = (
-                (stat['current_avail'] / stat['total_volume']) * 100
-                if stat['total_volume'] else None
+            percent_remaining = (
+                (row_dict['current_avail'] / row_dict['total_volume']) * 100
+                if row_dict['total_volume'] else None
             )
-            # Doses Remaining
-            stat['doses_remaining'] = (
-                stat['current_avail'] / stat['set_amount']
-                if stat['set_amount'] else None
+            stat['percent_remaining'] = ['% Remaining', percent_remaining, '%']
+            doses_remaining = (
+                row_dict['current_avail'] / row_dict['set_amount']
+                if row_dict['set_amount'] else None
             )
-            # Days Until Empty
-            if stat['used_amt'] and stat['used_amt'] > 0:
-                days_until_empty = stat['current_avail'] / stat['used_amt']
-                stat['days_until_empty'] = days_until_empty
-                # Estimated Empty Date
-                stat['estimated_empty_datetime'] = (
+            stat['doses_remaining'] = ['Doses Remaining', doses_remaining, 'doses']
+            if row_dict['used_amt'] and row_dict['used_amt'] > 0:
+                days_until_empty = row_dict['current_avail'] / row_dict['used_amt']
+                stat['days_until_empty'] = ['Days Until Empty', days_until_empty, 'days']
+                estimated_empty_datetime = (
                     datetime.utcnow() + timedelta(days=days_until_empty)
-                ).isoformat()
+                )
+                # estimated_empty_datetime = pytz.utc.localize(estimated_empty_datetime).astimezone(tz)
+                stat['estimated_empty_datetime'] = [
+                    'Estimated Empty Date',
+                    estimated_empty_datetime.strftime('%b %d %Y %H:%M:%S %Z'),
+                    ''
+                ]
             else:
-                stat['days_until_empty'] = None
-                stat['estimated_empty_datetime'] = None
-            
-        
+                stat['days_until_empty'] = ['Days Until Empty', None, 'days']
+                stat['estimated_empty_datetime'] = ['Estimated Empty Date', None, '']
         except Exception:
-            stat['percent_remaining'] = None
-            stat['doses_remaining'] = None
-            stat['days_until_empty'] = None
-            stat['estimated_empty_datetime'] = None
+            stat['percent_remaining'] = ['% Remaining', None, '%']
+            stat['doses_remaining'] = ['Doses Remaining', None, 'doses']
+            stat['days_until_empty'] = ['Days Until Empty', None, 'days']
+            stat['estimated_empty_datetime'] = ['Estimated Empty Date', None, '']
+        stat.pop('name', None)
         stats.append(stat)
-    # Return the stats as JSON
-    print(stats, 'stats')
     return jsonify(stats)

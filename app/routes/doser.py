@@ -92,28 +92,13 @@ def modify_doser():
 @app.route("/doser/schedule", methods=["GET", "POST"])
 def run_schedule():
 
-    # cols =  ['id', 'suspended', 'trigger_interval', 'amount', 'current_avail', 'total_volume', 'name']
-
-    # named_cols = generate_columns(cols)
-    # # print(named_cols, 'named_cols')
-    # table=[
-    #     {  
-    #         "id": "schedule",
-    #         "api_url": '/api/get/schedule',
-    #         "title": "Schedule",
-    #         "columns": named_cols,
-    #         "datatable_options": {
-    #             "dom": "frtip", 
-    #             "buttons": [],
-    #             "serverSide": False,
-    #             "processing": False,
-    #         },
-    #     }
-    # ]
-    # packaged = datatables_response(result, None, 1)
-    # print(packaged, 'packaged')
-    # return render_template("doser/schedule.html", tables=table, title="Schedule Dosing")
-    return render_template("doser/schedule.html", title="Schedule Dosing")
+    urls = {
+        "GET": "/api/get/schedule_stats",
+        "DELETE": "/api/delete/d_schedule",
+        "POST": "/api/new/d_schedule",
+        "PUT": "/api/edit/d_schedule"
+    }
+    return render_template("doser/schedule.html", title="Schedule", api_urls=urls)
     
 
 from flask import request, jsonify

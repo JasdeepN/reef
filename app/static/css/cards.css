@@ -28,7 +28,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
-  padding-top: 1rem;
+  padding-top: 0.25rem;
   width: 100%; }
 
 .card-data-body {
@@ -80,29 +80,23 @@
 
 .card-data-body .card-body {
   padding: 1rem;
-  font-size: 0.98rem; }
+  font-size: 1rem; }
   .card-data-body .card-body .label {
     font-weight: bold;
     color: var(--card-text-color-primary); }
   .card-data-body .card-body .value {
-    display: grid;
     justify-content: end; }
 
 .card-secondary {
-  margin: 1rem; }
+  margin: 0; }
 
 .card-data-body .card-body table {
   width: 100%;
   margin-bottom: 0; }
 
 .card-data-body .card-body tr > td {
-  padding: 0.25rem 0.5rem;
+  padding: 0.25rem;
   border: none; }
-
-.card-data-body .card-body tr {
-  border-bottom: 1px solid var(--card-border-color);
-  display: grid;
-  grid-template-columns: auto 1fr auto; }
 
 .card-data-body .card-body tr:nth-child(odd) {
   background-color: var(--card-bg-secondary); }
@@ -115,13 +109,21 @@
   min-width: 0;
   table-layout: fixed;
   word-break: break-word; }
+  .card-table > tbody
+  tr:first-child {
+    border-top: 1px solid var(--card-border-color); }
+  .card-table tr {
+    border-bottom: 1px solid var(--card-border-color);
+    display: flex;
+    justify-content: space-between; }
+    .card-table tr td {
+      display: inherit; }
 
 @media (min-width: 768px) {
   #schedule-stats-cards-row {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 1.5rem;
-    padding-top: 1rem; }
+    gap: 1.5rem; }
 
   .card-data-body {
     max-width: 100%;
@@ -149,5 +151,5 @@
     word-break: break-all;
     white-space: pre-line;
     display: block;
-    max-width: 100px;
+    max-width: 50%;
     overflow-wrap: break-word; } }
