@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import (
-    StringField, DecimalField, IntegerField, SelectField, TextAreaField, SubmitField, BooleanField, DateTimeField, FormField
+    StringField, DecimalField, IntegerField, SelectField, TextAreaField, SubmitField, BooleanField, DateTimeField, FormField, DateField, FileField
 )
 from wtforms.validators import DataRequired, Optional, Length
 import enum
@@ -58,3 +58,67 @@ class BaseForm(FlaskForm):
 
         # Add any default validation logic here if needed
         return True
+
+# --- Coral Form ---
+class CoralForm(FlaskForm):
+    coral_name = StringField("Coral Name / Species", validators=[Optional(), Length(max=128)])
+    coral_type = SelectField(
+        "Type",
+        choices=[
+            ('', 'Select type...'),
+            ('SPS', 'SPS'),
+            ('LPS', 'LPS'),
+            ('Soft', 'Soft'),
+            ('Zoanthid', 'Zoanthid'),
+            ('Mushroom', 'Mushroom'),
+            ('Other', 'Other')
+        ],
+        validators=[DataRequired()]
+    )
+    date_acquired = DateField("Date Acquired", validators=[DataRequired()])
+    source = StringField("Source", validators=[Optional(), Length(max=128)])
+    tank_location = StringField("Tank Location", validators=[Optional(), Length(max=128)])
+    lighting = SelectField(
+        "Lighting Requirement",
+        choices=[('', 'Select...'), ('Low', 'Low'), ('Medium', 'Medium'), ('High', 'High')],
+        validators=[Optional()]
+    )
+    par = IntegerField("PAR Value", validators=[Optional()])
+    flow = SelectField(
+        "Flow Requirement",
+        choices=[('', 'Select...'), ('Low', 'Low'), ('Medium', 'Medium'), ('High', 'High')],
+        validators=[Optional()]
+    )
+    feeding = StringField("Feeding Requirement", validators=[Optional(), Length(max=128)])
+    placement = StringField("Placement", validators=[Optional(), Length(max=128)])
+    current_size = StringField("Current Size", validators=[Optional(), Length(max=64)])
+    color_morph = StringField("Color Morph", validators=[Optional(), Length(max=64)])
+    health_status = SelectField(
+        "Health Status",
+        choices=[
+            ('', 'Select...'),
+            ('Healthy', 'Healthy'),
+            ('Recovering', 'Recovering'),
+            ('New', 'New'),
+            ('Stressed', 'Stressed'),
+            ('Other', 'Other'),
+            ('Dead', 'Dead'),
+            ('Dying', 'Dying')
+        ],
+        validators=[Optional()]
+    )
+    frag_colony = SelectField(
+        "Frag or Colony",
+        choices=[('', 'Select...'), ('Frag', 'Frag'), ('Colony', 'Colony')],
+        validators=[Optional()]
+    )
+    growth_rate = StringField("Growth Rate", validators=[Optional(), Length(max=64)])
+    last_fragged = DateField("Last Fragged Date", validators=[Optional()])
+    unique_id = StringField("Unique ID/Tag", validators=[Optional(), Length(max=64)])
+    origin = StringField("Origin (region/ocean)", validators=[Optional(), Length(max=128)])
+    compatibility = StringField("Compatibility Notes", validators=[Optional(), Length(max=255)])
+    photo = FileField("Photo", validators=[Optional()])
+    notes = TextAreaField("Notes", validators=[Optional()])
+    test_id = IntegerField("Test Results ID", validators=[Optional()])
+    submit = SubmitField("Add Coral")
+

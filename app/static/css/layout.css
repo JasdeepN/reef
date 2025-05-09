@@ -37,6 +37,132 @@ li > a.dropdown-item {
     background-color: var(--light-slate-gray);
     color: var(--text-color) !important; }
 
+.par-slider-container {
+  height: 90px;
+  position: relative; }
+
+.par-slider-wrapper {
+  position: relative;
+  height: 40px; }
+
+.par-icon {
+  position: absolute;
+  right: 0.5em;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.5em;
+  display: flex;
+  align-items: center;
+  z-index: 3;
+  pointer-events: none; }
+
+.par-brightness-icon {
+  position: absolute;
+  left: 50%;
+  top: -32px;
+  transform: translateX(-50%);
+  font-size: 2em;
+  z-index: 4;
+  transition: color 0.2s; }
+
+.par-slider {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  z-index: 2;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: #e9ecef;
+  border-radius: 3px;
+  outline: none; }
+  .par-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--thumb-svg, url("data:image/svg+xml;utf8,<svg fill='gold' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='7' fill='gold'/><g stroke='gold' stroke-width='2'><line x1='12' y1='2' x2='12' y2='5'/><line x1='12' y1='19' x2='12' y2='22'/><line x1='2' y1='12' x2='5' y2='12'/><line x1='19' y1='12' x2='22' y2='12'/><line x1='4.22' y1='4.22' x2='6.34' y2='6.34'/><line x1='17.66' y1='17.66' x2='19.78' y2='19.78'/><line x1='4.22' y1='19.78' x2='6.34' y2='17.66'/><line x1='17.66' y1='6.34' x2='19.78' y2='4.22'/></g></svg>"));
+    background-size: 80% 80%;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: #fff;
+    box-shadow: 0 0 2px #aaa;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    transition: background 0.2s; }
+  .par-slider::-moz-range-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--thumb-svg, url("data:image/svg+xml;utf8,<svg fill='gold' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='7' fill='gold'/><g stroke='gold' stroke-width='2'><line x1='12' y1='2' x2='12' y2='5'/><line x1='12' y1='19' x2='12' y2='22'/><line x1='2' y1='12' x2='5' y2='12'/><line x1='19' y1='12' x2='22' y2='12'/><line x1='4.22' y1='4.22' x2='6.34' y2='6.34'/><line x1='17.66' y1='17.66' x2='19.78' y2='19.78'/><line x1='4.22' y1='19.78' x2='6.34' y2='17.66'/><line x1='17.66' y1='6.34' x2='19.78' y2='4.22'/></g></svg>"));
+    background-size: 80% 80%;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: #fff;
+    box-shadow: 0 0 2px #aaa;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    transition: background 0.2s; }
+  .par-slider::-ms-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--thumb-svg, url("data:image/svg+xml;utf8,<svg fill='gold' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='7' fill='gold'/><g stroke='gold' stroke-width='2'><line x1='12' y1='2' x2='12' y2='5'/><line x1='12' y1='19' x2='12' y2='22'/><line x1='2' y1='12' x2='5' y2='12'/><line x1='19' y1='12' x2='22' y2='12'/><line x1='4.22' y1='4.22' x2='6.34' y2='6.34'/><line x1='17.66' y1='17.66' x2='19.78' y2='19.78'/><line x1='4.22' y1='19.78' x2='6.34' y2='17.66'/><line x1='17.66' y1='6.34' x2='19.78' y2='4.22'/></g></svg>"));
+    background-size: 80% 80%;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: #fff;
+    box-shadow: 0 0 2px #aaa;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    transition: background 0.2s; }
+
+.par-bargraph-slider-wrapper {
+  position: relative;
+  width: 100%;
+  height: 28px;
+  margin-bottom: 0.5rem;
+  box-sizing: border-box;
+  padding: 0; }
+
+.par-bargraph {
+  width: 100%;
+  height: 40px;
+  border-radius: 2px 2px 0 0;
+  background: #e0e0e0;
+  transition: background 0.2s;
+  overflow: hidden;
+  clip-path: polygon(0% 100%, 100% 0%, 100% 100%); }
+
+.par-bargraph-bar {
+  flex: none;
+  margin: 0 0.25px;
+  width: 2px;
+  min-width: 2px;
+  max-width: 2px;
+  background: #ccc;
+  border-radius: 2px 2px 0 0;
+  transition: background 0.2s, height 0.2s; }
+
+.par-bargraph-bar.passed {
+  background: #0d6efd; }
+
+.par-bargraph-slider {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 40px;
+  z-index: 2;
+  background: transparent;
+  pointer-events: auto;
+  opacity: 0;
+  box-sizing: border-box;
+  padding: 0; }
+
 /* Default styles (for larger screens) are already defined above */
 /* Small devices (phones, less than 576px) */
 @media (max-width: 575.98px) {

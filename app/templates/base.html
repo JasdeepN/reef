@@ -54,11 +54,13 @@
           </li>
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              Timeline
+              Corals
             </a>
             <ul class="dropdown-menu">
-              <li><a class="dropdown-item" href="/timeline">blehj</a></li>
-              <li><a class="dropdown-item" href="/timeline/upload">New</a></li>
+              <li><a class="dropdown-item" href="/coral/add">New</a></li>
+              <li><a class="dropdown-item" href="/coral/update">Update</a></li>
+              <li><a class="dropdown-item" href="/coral/view">View</a></li>
+              <li><a class="dropdown-item" href="/coral/timeline">Add Snaphot</a></li>
             </ul>
           </li>  
           <li class="nav-item dropdown">
@@ -134,6 +136,9 @@
   {% endblock %}
 
   <div class="app-container">
+    {% if title %}
+      <h1>{{ title }}</h1>
+    {% endif %}
   {% block content %} {% endblock %}
   </div>
 

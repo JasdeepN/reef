@@ -70,3 +70,5 @@ setup/
 
 **/*/*.nosync # my personal ignore
 todo.nosync
+
+app/user/**

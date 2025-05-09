@@ -55,6 +55,6 @@ x_metrics.counter('test_results_requests_total', 'Total requests to the /test_re
 # Import and register routes
 from app.routes.api import api_bp
 app.register_blueprint(api_bp)
-from app.routes import home, metrics, test, doser, timeline
+from app.routes import corals, home, metrics, test, doser
 
 import modules

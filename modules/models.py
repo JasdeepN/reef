@@ -12,6 +12,9 @@ import datetime as dt
 
 from modules.forms import *
 
+from flask_sqlalchemy import SQLAlchemy
+
+
 class TestResults(db.Model):
     __tablename__ = 'test_results'
     id = db.Column(db.Integer, primary_key=True)
@@ -27,6 +30,20 @@ class TestResults(db.Model):
 
     def __getattribute__(self, name):
         return super().__getattribute__(name)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "test_date": self.test_date.isoformat() if self.test_date else None,
+            "test_time": self.test_time.strftime('%H:%M:%S') if self.test_time else None,
+            "alk": self.alk,
+            "po4_ppm": self.po4_ppm,
+            "po4_ppb": self.po4_ppb,
+            "no3_ppm": self.no3_ppm,
+            "cal": self.cal,
+            "mg": self.mg,
+            "sg": self.sg,
+        }
     
 
 class test_result_form(FlaskForm):
@@ -163,5 +180,77 @@ def get_d_schedule_dict(d_schedule):
         "last_refill": d_schedule.last_refill.isoformat() if d_schedule.last_refill else None,
         "amount": d_schedule.amount
     }
+
+class Coral(db.Model):
+    __tablename__ = 'corals'
+
+    id = db.Column(db.Integer, primary_key=True)
+    coral_name = db.Column(db.String(128), nullable=False)
+    coral_type = db.Column(db.Enum('SPS', 'LPS', 'Soft', 'Zoanthid', 'Mushroom', 'Other'), nullable=False)
+    date_acquired = db.Column(db.Date, nullable=False)
+    source = db.Column(db.String(128))
+    tank_id = db.Column(db.Integer, db.ForeignKey('tanks.id'), nullable=False)
+    lighting = db.Column(db.Enum('Low', 'Medium', 'High'))
+    par = db.Column(db.Integer)
+    flow = db.Column(db.Enum('Low', 'Medium', 'High'))
+    feeding = db.Column(db.String(128))
+    placement = db.Column(db.String(128))
+    current_size = db.Column(db.String(64))
+    color_morph = db.Column(db.String(64))
+    health_status = db.Column(db.Enum(
+        'Healthy', 'Recovering', 'New', 'Stressed', 'Other', 'Dead', 'Dying'
+    ))
+    frag_colony = db.Column(db.Enum('Frag', 'Colony'))
+    growth_rate = db.Column(db.String(64))
+    last_fragged = db.Column(db.Date)
+    unique_id = db.Column(db.String(64))
+    origin = db.Column(db.String(128))
+    compatibility = db.Column(db.String(255))
+    photo = db.Column(db.String(255))
+    notes = db.Column(db.Text)
+    test_id = db.Column(db.Integer, db.ForeignKey('test_results.id'))
+    taxonomy_id = db.Column(db.Integer, db.ForeignKey('taxonomy.id'), nullable=True)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
+
+    # Relationships
+    test_result = db.relationship('TestResults', backref='corals', lazy=True)
+    tank = db.relationship('Tank', backref='corals', lazy=True)
+
+    
+
+class Tank(db.Model):
+    __tablename__ = 'tanks'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    gross_water_vol = db.Column(db.Float)
+    net_water_vol = db.Column(db.Float)
+    live_rock_lbs = db.Column(db.Float)
+
+    def __repr__(self):
+        return f"<Tank {self.name}>"
+
+class Taxonomy(db.Model):
+    __tablename__ = 'taxonomy'
+    id = db.Column(db.Integer, primary_key=True)
+    common_name = db.Column(db.String(128), nullable=False)
+    type = db.Column(db.String(32), nullable=False)
+    species = db.Column(db.String(128), nullable=False)
+    genus = db.Column(db.String(128), nullable=False)
+    family = db.Column(db.String(128), nullable=False)
+    picture_uri = db.Column(db.String(255))
+
+    def __repr__(self):
+        return f"<Taxonomy {self.common_name} ({self.species})>"
+
+class TaxonomyForm(FlaskForm):
+    common_name = StringField("Common Name", validators=[DataRequired(), Length(max=128)])
+    type = StringField("Type", validators=[DataRequired(), Length(max=32)])
+    species = StringField("Species", validators=[DataRequired(), Length(max=128)])
+    genus = StringField("Genus", validators=[DataRequired(), Length(max=128)])
+    family = StringField("Family", validators=[DataRequired(), Length(max=128)])
+    picture_uri = StringField("Picture URI", validators=[Optional(), Length(max=255)])
+    submit = SubmitField("Submit")
+
 
 

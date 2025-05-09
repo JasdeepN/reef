@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %} 
+<div id="camera-section" style="display:none;">
+    <h2>Camera Detected</h2>
+    <p>We need access to your camera to continue.</p>
+    <button id="start-camera-btn">Enable Camera</button>
+    <div id="camera-preview" style="margin-top:1em;"></div>
+    <input type="file" id="mobile-capture" accept="image/*" capture="environment" style="display:none;">
+    <button id="mobile-capture-btn" style="display:none;">Take Photo</button>
+</div>
+<div id="upload-section" style="display:none;">
+    <h2>No Camera Detected</h2>
+    <p>Please upload a file instead:</p>
+    <form id="upload-form" enctype="multipart/form-data" method="post" action="/api/timeline/upload">
+        <input type="file" name="file" required>
+        <button type="submit">Upload</button>
+    </form>
+    <div id="camera-error-msg" style="color:red; margin-top:1em; display:none;"></div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+let forceCameraAttempted = false;
+
+function isMobile() {
+    return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+async function checkDevice(forceCamera = false) {
+    let hasCamera = false;
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        hasCamera = devices.some(device => device.kind === 'videoinput');
+    }
+
+    // On mobile, always try the mobile capture logic first
+    if (isMobile()) {
+        document.getElementById('camera-section').style.display = '';
+        document.getElementById('upload-section').style.display = 'none';
+        document.getElementById('start-camera-btn').style.display = 'none';
+        document.getElementById('mobile-capture-btn').style.display = '';
+        // No need for force/am-i-wrong logic, just always show mobile capture
+        return;
+    }
+
+    // Desktop fallback: use camera detection logic
+    if (hasCamera || forceCamera) {
+        document.getElementById('camera-section').style.display = '';
+        document.getElementById('upload-section').style.display = 'none';
+        if (forceCamera) {
+            const startBtn = document.getElementById('start-camera-btn');
+            if (startBtn) startBtn.click();
+        }
+    } else {
+        document.getElementById('camera-section').style.display = 'none';
+        document.getElementById('upload-section').style.display = '';
+        if (forceCameraAttempted) {
+            document.getElementById('camera-error-msg').textContent = "Still couldn't detect a camera on your device.";
+            document.getElementById('camera-error-msg').style.display = '';
+        } else {
+            document.getElementById('camera-error-msg').style.display = 'none';
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    checkDevice();
+
+    // Camera permission and preview for desktop
+    const startBtn = document.getElementById('start-camera-btn');
+    if (startBtn) {
+        startBtn.addEventListener('click', async function() {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    const video = document.createElement('video');
+                    video.srcObject = stream;
+                    video.autoplay = true;
+                    video.style.maxWidth = '100%';
+                    document.getElementById('camera-preview').innerHTML = '';
+                    document.getElementById('camera-preview').appendChild(video);
+                } catch (err) {
+                    alert('Camera access denied or not available.');
+                }
+            }
+        });
+    }
+
+    // Mobile capture upload (now always primary on mobile)
+    if (isMobile()) {
+        document.getElementById('mobile-capture-btn').addEventListener('click', function() {
+            document.getElementById('mobile-capture').click();
+        });
+        document.getElementById('mobile-capture').addEventListener('change', function(e) {
+            const fileInput = e.target;
+            if (fileInput.files && fileInput.files[0]) {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                fetch('/api/timeline/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert('Upload successful!');
+                    // Optionally, handle UI update or redirect here
+                })
+                .catch(err => {
+                    alert('Upload failed: ' + err);
+                });
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
