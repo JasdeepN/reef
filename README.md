@@ -34,7 +34,6 @@ ReefDB (subject to change) is a web application for managing corals and aquarium
 ### Upgrade Notes
 ***Planned upgrades may change based on project needs and what I feel like is needed (and feel like working on). 
 Features listed here are not guaranteed.***
-s
 
 ## Setup
 
