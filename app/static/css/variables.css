@@ -49,6 +49,8 @@
   /* Light Slate Gray */
   --table-header-hover-text-color: var(--outer-space);
   /* White */
+  --text-primary: var(--light-gray);
+  --text-secondary: var(--light-slate-gray);
   --grey-out: rgba(216, 216, 216, 0.032);
   /* Semi-transparent background */
   /* Form Colors */

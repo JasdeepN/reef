@@ -109,8 +109,7 @@
   min-width: 0;
   table-layout: fixed;
   word-break: break-word; }
-  .card-table > tbody
-  tr:first-child {
+  .card-table > tbody tr:first-child {
     border-top: 1px solid var(--card-border-color); }
   .card-table tr {
     border-bottom: 1px solid var(--card-border-color);

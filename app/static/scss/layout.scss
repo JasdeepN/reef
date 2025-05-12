@@ -195,6 +195,21 @@ li > a.dropdown-item {
   padding: 0;
 }
 
+.select-highlight {
+  border: 2px solid #dc3545 !important;
+  box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
+}
+
+.select-wrapper {
+  position: relative;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.select-wrapper select:disabled {
+  pointer-events: none;
+  background-color: var(--grey-out, #e9ecef);
+}
+
 /* Default styles (for larger screens) are already defined above */
 
 /* Small devices (phones, less than 576px) */
@@ -262,4 +277,19 @@ li > a.dropdown-item {
   .form {
     max-width: 50%; /* Keep form width at 50% */
   }
+}
+
+// You can use a more specific selector if needed
+#formErrorModal .modal-dialog.modal-fullscreen {
+  max-width: 70vw;
+  width: 100vw;
+  margin: auto;
+
+}
+
+.modal-content{
+  background-color: var(--light-slate-gray);
+  color: var(--text-color);
+  border-radius: 0;
+  border: none;
 }

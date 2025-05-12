@@ -1,6 +1,4 @@
-*,
-*::before,
-*::after {
+*, *::before, *::after {
   box-sizing: border-box !important;
   font-family: var(--font-body); }
 
@@ -9,28 +7,22 @@ body {
   color: var(--text-color);
   width: 100%;
   height: 100%; }
+  body::-webkit-scrollbar {
+    width: 12px; }
+  body::-webkit-scrollbar-track {
+    background: var(--powder-blue); }
+  body::-webkit-scrollbar-thumb {
+    background-color: var(--outer-space);
+    border-radius: 20px;
+    border: 3px solid var(--powder-blue); }
 
-/* Works on Firefox */
 * {
   scrollbar-width: auto;
   scrollbar-color: var(--outer-space) var(--powder-blue); }
 
-/* Works on Chrome, Edge, and Safari */
-body::-webkit-scrollbar {
-  width: 12px;
-  /* width of the entire scrollbar */ }
-
-body::-webkit-scrollbar-track {
-  background: var(--powder-blue);
-  /* color of the tracking area */ }
-
-body::-webkit-scrollbar-thumb {
-  background-color: var(--outer-space);
-  /* color of the scroll thumb */
-  border-radius: 20px;
-  /* roundness of the scroll thumb */
-  border: 3px solid var(--powder-blue);
-  /* creates padding around scroll thumb */ }
+body, html, .form, .form__group, .form__label, .form__field, .form__error, .form__flash, .btn, .form-select, .form-control {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale; }
 
 h1, h2, h3 {
   color: var(--text-accent); }
@@ -38,43 +30,36 @@ h1, h2, h3 {
 a {
   color: var(--link-color);
   text-decoration: none; }
-
-a:hover {
-  color: var(--link-hover); }
+  a:hover {
+    color: var(--link-hover); }
 
 .title {
   font-family: monospace;
   font-size: large;
   font-style: var(--font-title);
   padding: 1.5rem 0rem 0.5rem 0;
-  flex: 0.2; }
+  flex: 0.2;
+  width: 100%;
+  text-align: center;
+  margin-bottom: 2rem; }
 
 .site {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  /* Full height of the viewport */
   background-color: var(--background-color); }
 
 .app-container {
   flex: 1;
-  /* Allow the content to grow and fill the available space */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  /* Align content to the top */
   padding: 1rem;
   box-sizing: border-box; }
 
-.title {
-  width: 100%;
-  text-align: center;
-  margin-bottom: 2rem; }
-
 .content {
   flex: 1;
-  /* Allow the content to grow and fill the remaining space */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -84,3 +69,9 @@ a:hover {
   background-color: var(--background-accent);
   text-align: center;
   padding: 1rem; }
+
+.text-primary {
+  color: var(--text-primary) !important; }
+
+.text-secondary {
+  color: var(--text-primary) !important; }

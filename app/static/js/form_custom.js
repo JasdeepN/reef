@@ -61,74 +61,372 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(update, 0);
     }
 
-    // Test radio logic
-    fetch('/api/tests/get/latest')
+    // Populate tank dropdown
+    fetch('/api/get/raw/tanks')
         .then(response => response.json())
         .then(data => {
-            const label = document.getElementById('test_id_current_label');
-            const radio = document.getElementById('test_id_current');
-            if (label && radio) {
-                if (data && data.result) {
-                    const test = data.result;
-                    let text = test.test_date && test.test_time
-                        ? `${test.test_date} ${test.test_time}`
-                        : 'Test #' + test.id;
-                    label.textContent = text;
-                    radio.value = test.id;
-                } else {
-                    label.textContent = 'No tests found';
-                    radio.value = '';
+            const tankSelect = document.getElementById('tank_id');
+            if (!tankSelect) return;
+            // Use the correct array from the API response
+            const tanks = data.data || [];
+            tankSelect.options.length = 1;
+            if (Array.isArray(tanks) && tanks.length > 0) {
+                tanks.forEach(tank => {
+                    const opt = document.createElement('option');
+                    opt.value = tank.id;
+                    opt.textContent = tank.name;
+                    tankSelect.appendChild(opt);
+                });
+                if (tanks.length === 1) {
+                    tankSelect.value = tanks[0].id;
+                    // tankSelect.disabled = true;
                 }
-            }
-        })
-        .catch(() => {
-            const label = document.getElementById('test_id_current_label');
-            const radio = document.getElementById('test_id_current');
-            if (label && radio) {
-                label.textContent = 'No tests found';
-                radio.value = '';
             }
         });
 
-    // Taxonomy species dropdown logic (filter by coral_type, not species)
-    const typeSelect = document.getElementById('coral_type');
-    const speciesSelect = document.getElementById('coral_species');
+    // Auto-select tank if only one option
+    const tankSelect = document.getElementById('tank_id');
+    if (tankSelect && tankSelect.dataset.singleTank) {
+        tankSelect.value = tankSelect.dataset.singleTank;
+        // Do NOT disable the select, so it gets submitted!
+    }
 
-    typeSelect.addEventListener('change', function() {
-        const selectedType = this.value;
-        if (!selectedType) {
-            speciesSelect.innerHTML = '<option value="">Select type first...</option>';
-            speciesSelect.disabled = true;
-            return;
+    // Populate test results dropdown as before
+    fetch('/api/tests/get/latest')
+        .then(response => response.json())
+        .then(data => {
+            const currentLabel = document.getElementById('test_id_current_label');
+            if (data && data.result) {
+                const test = data.result;
+                let label = test.test_date && test.test_time
+                    ? `${test.test_date} ${test.test_time}`
+                    : 'Test #' + test.id;
+                currentLabel.textContent = label;
+                document.getElementById('test_id_current').value = test.id;
+            } else {
+                currentLabel.textContent = 'No tests found';
+            }
+        })
+        .catch(() => {
+            const currentLabel = document.getElementById('test_id_current_label');
+            currentLabel.textContent = 'No tests found';
+        });
+
+    // Cache all genus data for filtering
+    let allGenus = [];
+
+    // Fetch all genus with type info
+    fetch('/api/taxonomy/genus/all')
+        .then(response => response.json())
+        .then(data => {
+            allGenus = Array.isArray(data) ? data : [];
+            // Do NOT call populateGenus() here!
+            // Only call it after a type is selected
+        });
+
+    // Populate vendors dropdown without removing the "None" option
+    fetch('/api/get/raw/vendors')
+        .then(response => response.json())
+        .then(data => {
+            const vendorsSelect = document.getElementById('vendors_id');
+            if (!vendorsSelect) return;
+            // Preserve the "None" option
+            const noneOption = vendorsSelect.querySelector('option[value=""]');
+            vendorsSelect.innerHTML = '';
+            if (noneOption) {
+                vendorsSelect.appendChild(noneOption);
+            } else {
+                // Fallback in case "None" is missing
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = 'None';
+                vendorsSelect.appendChild(opt);
+            }
+            // Use the correct array from the API response
+            const vendors = data.data || [];
+            if (Array.isArray(vendors) && vendors.length > 0) {
+                vendors.forEach(vendor => {
+                    const opt = document.createElement('option');
+                    opt.value = vendor.id;
+                    opt.textContent = vendor.name;
+                    vendorsSelect.appendChild(opt);
+                });
+            }
+        });
+
+    // Populate genus dropdown based on selected type
+    function populateGenus() {
+        const genusSelect = document.getElementById('genus_id');
+        const typeSelect = document.getElementById('type');
+        if (!genusSelect || !typeSelect) return;
+        const selectedType = typeSelect.value;
+        genusSelect.innerHTML = '<option value="">Select genus...</option>';
+        let filtered = allGenus;
+        if (selectedType) {
+            filtered = allGenus.filter(g => g.type === selectedType);
         }
-        speciesSelect.innerHTML = '<option value="">Loading...</option>';
-        speciesSelect.disabled = true;
-        fetch(`/api/taxonomy/by_type?type=${encodeURIComponent(selectedType)}`)
-            .then(res => res.json())
-            .then(data => {
-                if (!data.length) {
-                    speciesSelect.innerHTML = '<option value="">No species found for this type</option>';
-                    speciesSelect.disabled = true;
-                    return;
-                }
-                speciesSelect.innerHTML = '<option value="">Select species...</option>' +
-                    data.map(t => `<option value="${t.id}">${t.common_name} (${t.species})</option>`).join('');
-                speciesSelect.disabled = false;
+        filtered.forEach(genus => {
+            const opt = document.createElement('option');
+            opt.value = genus.genus;
+            opt.textContent = genus.genus;
+            genusSelect.appendChild(opt);
+        });
+        genusSelect.disabled = filtered.length === 0;
+        // Reset species dropdown
+        const speciesSelect = document.getElementById('species_id');
+        if (speciesSelect) {
+            speciesSelect.innerHTML = '<option value="">Select genus first...</option>';
+            speciesSelect.disabled = true;
+        }
+    }
+
+    // Re-filter genus when type changes
+    const typeSelect = document.getElementById('type');
+    const genusSelect = document.getElementById('genus_id');
+
+    // Disable genus until a type is selected
+    if (genusSelect) {
+        genusSelect.disabled = true;
+        genusSelect.innerHTML = '<option value="">Select type first...</option>';
+    }
+    console.log(`genusSelect: ${genusSelect.val}, typeSelect: ${typeSelect.val}`);
+    
+    // When type changes, enable and populate genus
+    if (typeSelect) {
+        typeSelect.addEventListener('change', function() {
+            const selectedType = typeSelect.value;
+            if (!selectedType) {
+                genusSelect.disabled = true;
+                genusSelect.innerHTML = '<option value="">Select type first...</option>';
+            } else {
+                populateGenus();
+                genusSelect.disabled = false;
+            }
+        });
+    }
+
+    // Populate genus dropdown
+    const speciesSelect = document.getElementById('species_id');
+    const colorMorphsSelect = document.getElementById('color_morphs_id');
+
+    // Store all species and color morphs for the selected genus
+    let allSpecies = [];
+    let allColorMorphs = [];
+
+    // Disable color morphs by default
+    if (colorMorphsSelect) {
+        colorMorphsSelect.disabled = true;
+        colorMorphsSelect.innerHTML = '<option value="">Select genus first...</option>';
+    }
+
+    if (genusSelect && speciesSelect && colorMorphsSelect) {
+        genusSelect.addEventListener('change', function() {
+            const genus = this.value;
+            speciesSelect.innerHTML = '<option value="">Loading...</option>';
+            speciesSelect.disabled = true;
+            colorMorphsSelect.innerHTML = '<option value="">Loading...</option>';
+            colorMorphsSelect.disabled = true;
+
+            if (!genus) {
+                speciesSelect.innerHTML = '<option value="">Select genus first...</option>';
+                speciesSelect.disabled = true;
+                colorMorphsSelect.innerHTML = '<option value="">Select genus first...</option>';
+                colorMorphsSelect.disabled = true;
+                allSpecies = [];
+                allColorMorphs = [];
+                return;
+            }
+
+            // Combined request for both species and color morphs
+            fetch(`/api/taxonomy/genus/details?genus=${encodeURIComponent(genus)}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Save all species and color morphs for later filtering
+                    allSpecies = Array.isArray(data.species) ? data.species : [];
+                    allColorMorphs = Array.isArray(data.color_morphs) ? data.color_morphs : [];
+
+                    // Populate species
+                    speciesSelect.innerHTML = '<option value="">Select species...</option>';
+                    allSpecies.forEach(species => {
+                        const opt = document.createElement('option');
+                        opt.value = species.id; // taxonomy.id
+                        opt.textContent = species.species ? species.species : 'N/A';
+                        speciesSelect.appendChild(opt);
+                    });
+                    speciesSelect.disabled = allSpecies.length === 0;
+
+                    // Populate color morphs
+                    colorMorphsSelect.innerHTML = '<option value="">Select color morph...</option>';
+                    allColorMorphs.forEach(morph => {
+                        const opt = document.createElement('option');
+                        opt.value = morph.id;
+                        opt.textContent = morph.name;
+                        colorMorphsSelect.appendChild(opt);
+                    });
+                    colorMorphsSelect.disabled = allColorMorphs.length === 0;
+                });
+        });
+
+        // When species is selected, filter color morphs to only those for that species
+        speciesSelect.addEventListener('change', function() {
+            const selectedSpeciesId = this.value;
+            if (!selectedSpeciesId) {
+                // Show all morphs for the genus if no species selected
+                colorMorphsSelect.innerHTML = '<option value="">Select color morph...</option>';
+                allColorMorphs.forEach(morph => {
+                    const opt = document.createElement('option');
+                    opt.value = morph.id;
+                    opt.textContent = morph.name;
+                    colorMorphsSelect.appendChild(opt);
+                });
+                colorMorphsSelect.disabled = allColorMorphs.length === 0;
+                return;
+            }
+            // Filter morphs by selected species
+            colorMorphsSelect.innerHTML = '<option value="">Select color morph...</option>';
+            const filteredMorphs = allColorMorphs.filter(morph => String(morph.taxonomy_id) === String(selectedSpeciesId));
+            filteredMorphs.forEach(morph => {
+                const opt = document.createElement('option');
+                opt.value = morph.id;
+                opt.textContent = morph.name;
+                colorMorphsSelect.appendChild(opt);
             });
+            colorMorphsSelect.disabled = filteredMorphs.length === 0;
+        });
+
+        // When color morph is selected, set the species dropdown to the correct species
+        colorMorphsSelect.addEventListener('change', function() {
+            const selectedMorphId = this.value;
+            if (!selectedMorphId) return;
+            const morph = allColorMorphs.find(m => String(m.id) === String(selectedMorphId));
+            if (morph && morph.taxonomy_id) {
+                // Only set the species, do not trigger change or repopulate morphs
+                speciesSelect.value = String(morph.taxonomy_id);
+            }
+        });
+    }
+
+    // Helper to highlight a select for a moment
+    function highlightSelect(selector) {
+        const el = document.querySelector(selector);
+        if (el) {
+            el.classList.add('select-highlight');
+            setTimeout(() => el.classList.remove('select-highlight'), 1500);
+            el.focus();
+        }
+    }
+
+    // Always highlight #type if genus, species, or color morph is clicked and type is not selected
+    ['#genus_id', '#species_id', '#color_morphs_id'].forEach(sel => {
+        const select = document.querySelector(sel);
+        if (!select) return;
+        // Always highlight #type if not selected
+        function maybeHighlightType(e) {
+            const typeSelect = document.querySelector('#type');
+            if (!typeSelect || !typeSelect.value) {
+                e.preventDefault();
+                highlightSelect('#type');
+            }
+        }
+        // On select itself (when enabled)
+        select.addEventListener('click', maybeHighlightType);
+        // On wrapper (for disabled or enabled)
+        const wrapper = select.closest('.select-wrapper');
+        if (wrapper) {
+            wrapper.addEventListener('click', maybeHighlightType);
+        }
     });
 
-    // Populate origin dropdown from DB
-    const originSelect = document.getElementById('origin');
-    if (originSelect) {
-        fetch('/api/taxonomy/origins/all')
-            .then(res => res.json())
-            .then(data => {
-                if (!data.length) {
-                    originSelect.innerHTML = '<option value="">No origins found</option>';
-                    return;
+    // Existing logic for wrappers of disabled selects
+    [
+        { wrapper: '.select-wrapper', select: '#color_morphs_id', required: '#genus_id' },
+        { wrapper: '.select-wrapper', select: '#species_id', required: '#genus_id' }
+    ].forEach(pair => {
+        const select = document.querySelector(pair.select);
+        const wrapper = select ? select.closest(pair.wrapper) : null;
+        if (select && wrapper) {
+            wrapper.addEventListener('click', function (e) {
+                if (select.disabled) {
+                    e.preventDefault();
+                    highlightSelect(pair.required);
                 }
-                originSelect.innerHTML = '<option value="">Select origin...</option>' +
-                    data.map(o => `<option value="${o}">${o}</option>`).join('');
             });
+        }
+    });
+
+    // Coral type defaults logic
+    const coralDefaults = {
+        'SPS': {
+            lighting: 'High',
+            par: 300,
+            flow: 'High',
+            feeding: 'Minimal',
+            placement: 'Top'
+        },
+        'LPS': {
+            lighting: 'Medium',
+            par: 150,
+            flow: 'Medium',
+            feeding: 'Occasional',
+            placement: 'Middle'
+        },
+        'Soft': {
+            lighting: 'Low',
+            par: 80,
+            flow: 'Low',
+            feeding: 'Optional',
+            placement: 'Bottom'
+        },
+        'Zoanthid': {
+            lighting: 'Low',
+            par: 80,
+            flow: 'Low',
+            feeding: 'Optional',
+            placement: 'Bottom'
+        },
+        'Mushroom': {
+            lighting: 'Low',
+            par: 60,
+            flow: 'Low',
+            feeding: 'Optional',
+            placement: 'Bottom'
+        },
+        'Other': {
+            lighting: '',
+            par: '',
+            flow: '',
+            feeding: '',
+            placement: ''
+        }
+    };
+
+    const coralType = document.getElementById('coral_type');
+    if (coralType) {
+        coralType.addEventListener('change', function() {
+            const type = this.value;
+            const defaults = coralDefaults[type];
+            if (defaults) {
+                if (defaults.lighting !== undefined && document.getElementById('lighting'))
+                    document.getElementById('lighting').value = defaults.lighting;
+                if (defaults.par !== undefined && document.getElementById('par')) {
+                    document.getElementById('par').value = defaults.par;
+                    document.getElementById('par_value').textContent = defaults.par;
+                    document.getElementById('par').dispatchEvent(new Event('input'));
+                }
+                if (defaults.flow !== undefined && document.getElementById('flow'))
+                    document.getElementById('flow').value = defaults.flow;
+                if (defaults.feeding !== undefined && document.getElementById('feeding'))
+                    document.getElementById('feeding').value = defaults.feeding;
+                if (defaults.placement !== undefined && document.getElementById('placement'))
+                    document.getElementById('placement').value = defaults.placement;
+            }
+        });
     }
+
+    // Enable Bootstrap popovers
+    const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+    popoverTriggerList.forEach(function (popoverTriggerEl) {
+        new bootstrap.Popover(popoverTriggerEl);
+    });
+
 });

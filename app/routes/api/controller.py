@@ -10,24 +10,25 @@ bp = Blueprint('controller_api', __name__)
 def create_dosing():
     data = request.get_json()
     sched_id = data.get('sched_id')
+    tank_id = data.get('tanks_id')
 
     if not sched_id:
         return jsonify({'success': False, 'error': 'Missing schedule ID'}), 400
 
     sql = """
         SELECT 
-            d_schedule.prod_id,
+            d_schedule.products_id,
             d_schedule.amount,
             products.current_avail
         FROM d_schedule
-        JOIN products ON d_schedule.prod_id = products.id
+        JOIN products ON d_schedule.products_id = products.id
         WHERE d_schedule.id = :sched_id
     """
     result = db.session.execute(text(sql), {'sched_id': sched_id}).fetchone()
     if not result:
         return jsonify({'success': False, 'error': 'Schedule or product not found'}), 404
 
-    prod_id, amount, current_avail = result
+    products_id, amount, current_avail = result
     try:
         amount_float = float(amount)
     except Exception:
@@ -36,23 +37,25 @@ def create_dosing():
     if current_avail is None or current_avail < amount_float:
         return jsonify({'success': False, 'error': 'Not enough available product'}), 400
 
-    update_sql = "UPDATE products SET current_avail = current_avail - :amount WHERE id = :prod_id"
+    update_sql = "UPDATE products SET current_avail = current_avail - :amount WHERE id = :products_id"
     insert_sql = """
-        INSERT INTO dosing (prod_id, sched_id, amount, trigger_time)
-        VALUES (:prod_id, :sched_id, :amount, :trigger_time)
+        INSERT INTO dosing (products_id, sched_id, tanks_id, amount, trigger_time)
+        VALUES (:products_id, :sched_id, :tanks_id, :amount, :trigger_time)
     """
     # Use datetime(3) precision for trigger_time in configured timezone
     tzname = current_app.config.get('TIMEZONE', 'UTC')
     tz = pytz.timezone(tzname)
 
-    trigger_time = datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+    trigger_time = datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S.%f')
+    # print(f"Trigger time: {trigger_time}")
     try:
-        db.session.execute(text(update_sql), {'amount': amount_float, 'prod_id': prod_id})
+        db.session.execute(text(update_sql), {'amount': amount_float, 'products_id': products_id})
         db.session.execute(
             text(insert_sql),
             {
-                'prod_id': prod_id,
+                'products_id': products_id,
                 'sched_id': sched_id,
+                'tanks_id': tank_id,
                 'amount': amount_float,
                 'trigger_time': trigger_time
             }

@@ -73,14 +73,12 @@ class Products(db.Model):
     __tablename__ = 'products'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String(30), nullable=False)
-    total_volume = db.Column(db.Float, nullable=True)
-    current_avail = db.Column(db.Float, nullable=True)
-    dry_refill = db.Column(db.Float, nullable=True, default=None)
-    used_amt = db.Column(
-        db.Float,
-        Computed("total_volume - current_avail", persisted=True)  # Generated column
-    )
+    name = db.Column(db.String(30))
+    total_volume = db.Column(db.Float)
+    current_avail = db.Column(db.Float)
+    used_amt = db.Column(db.Float)  # This is a generated column in MySQL, not directly supported in SQLAlchemy
+    dry_refill = db.Column(db.Float)
+    last_update = db.Column(db.TIMESTAMP, server_default=None, onupdate=db.func.current_timestamp())
 
     def __repr__(self):
         return f"<Product {self.name}>"
@@ -161,14 +159,19 @@ class DSchedule(db.Model):
     __tablename__ = 'd_schedule'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    prod_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     trigger_interval = db.Column(db.Integer, nullable=False)
     suspended = db.Column(db.Boolean, default=False)
     last_refill = db.Column(db.DateTime, default=None)
-    amount = db.Column(db.Float, default=None, nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    tanks_id = db.Column(db.Integer, db.ForeignKey('tanks.id'), nullable=False, index=True)
+    products_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
 
-    # Relationship to Products
+    # Relationships
+    tank = db.relationship('Tank', backref=db.backref('schedules', lazy=True))
     product = db.relationship('Products', backref=db.backref('schedules', lazy=True))
+
+    def __repr__(self):
+        return f"<DSchedule {self.id} (Tank {self.tanks_id}, Product {self.products_id})>"
 
 def get_d_schedule_dict(d_schedule):
     """Helper to serialize DSchedule model to dict."""
@@ -184,47 +187,46 @@ def get_d_schedule_dict(d_schedule):
 class Coral(db.Model):
     __tablename__ = 'corals'
 
-    id = db.Column(db.Integer, primary_key=True)
-    coral_name = db.Column(db.String(128), nullable=False)
-    coral_type = db.Column(db.Enum('SPS', 'LPS', 'Soft', 'Zoanthid', 'Mushroom', 'Other'), nullable=False)
-    date_acquired = db.Column(db.Date, nullable=False)
-    source = db.Column(db.String(128))
-    tank_id = db.Column(db.Integer, db.ForeignKey('tanks.id'), nullable=False)
-    lighting = db.Column(db.Enum('Low', 'Medium', 'High'))
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    coral_name = db.Column(db.String(128), nullable=False, index=True)
+    date_acquired = db.Column(db.Date, nullable=False, index=True)
     par = db.Column(db.Integer)
     flow = db.Column(db.Enum('Low', 'Medium', 'High'))
-    feeding = db.Column(db.String(128))
-    placement = db.Column(db.String(128))
     current_size = db.Column(db.String(64))
-    color_morph = db.Column(db.String(64))
     health_status = db.Column(db.Enum(
-        'Healthy', 'Recovering', 'New', 'Stressed', 'Other', 'Dead', 'Dying'
+        'Healthy', 'Recovering', 'New', 'Stressed', 'Dying', 'Dead', 'Other'
     ))
     frag_colony = db.Column(db.Enum('Frag', 'Colony'))
-    growth_rate = db.Column(db.String(64))
     last_fragged = db.Column(db.Date)
     unique_id = db.Column(db.String(64))
-    origin = db.Column(db.String(128))
-    compatibility = db.Column(db.String(255))
     photo = db.Column(db.String(255))
     notes = db.Column(db.Text)
     test_id = db.Column(db.Integer, db.ForeignKey('test_results.id'))
-    taxonomy_id = db.Column(db.Integer, db.ForeignKey('taxonomy.id'), nullable=True)
-    created_at = db.Column(db.DateTime, server_default=db.func.now())
-    updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
+    created_at = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
+    updated_at = db.Column(
+        db.TIMESTAMP,
+        server_default=db.func.current_timestamp(),
+        onupdate=db.func.current_timestamp()
+    )
+
+    taxonomy_id = db.Column(db.Integer, db.ForeignKey('taxonomy.id'), nullable=False, index=True)
+    tank_id = db.Column(db.Integer, db.ForeignKey('tanks.id'), nullable=False, index=True)
+    vendors_id = db.Column(db.Integer, db.ForeignKey('vendors.id'), nullable=True, index=True)
+    color_morphs_id = db.Column(db.Integer, db.ForeignKey('color_morphs.id'), nullable=True, index=True)
 
     # Relationships
     test_result = db.relationship('TestResults', backref='corals', lazy=True)
     tank = db.relationship('Tank', backref='corals', lazy=True)
-
-    
+    taxonomy = db.relationship('Taxonomy', backref='corals', lazy=True)
+    vendor = db.relationship('Vendors', backref='corals', lazy=True)
+    color_morph = db.relationship('ColorMorphs', backref='corals', lazy=True)
 
 class Tank(db.Model):
     __tablename__ = 'tanks'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(255), nullable=False)
-    gross_water_vol = db.Column(db.Float)
-    net_water_vol = db.Column(db.Float)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String(45), nullable=False)
+    gross_water_vol = db.Column(db.Integer)
+    net_water_vol = db.Column(db.Integer)
     live_rock_lbs = db.Column(db.Float)
 
     def __repr__(self):
@@ -232,16 +234,60 @@ class Tank(db.Model):
 
 class Taxonomy(db.Model):
     __tablename__ = 'taxonomy'
-    id = db.Column(db.Integer, primary_key=True)
-    common_name = db.Column(db.String(128), nullable=False)
-    type = db.Column(db.String(32), nullable=False)
-    species = db.Column(db.String(128), nullable=False)
-    genus = db.Column(db.String(128), nullable=False)
-    family = db.Column(db.String(128), nullable=False)
-    picture_uri = db.Column(db.String(255))
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    genus = db.Column(db.String(100), nullable=False)
+    species = db.Column(db.String(100))
+    family = db.Column(db.String(255))
+    type = db.Column(db.Enum('SPS', 'LPS', 'Soft', 'Mushroom', 'Zoanthid'), nullable=False)
+    picture_uri = db.Column(db.String(2083))
+    common_name = db.Column(db.String(255))
+    __table_args__ = (
+        db.UniqueConstraint('genus', 'species', name='genus'),
+    )
 
     def __repr__(self):
-        return f"<Taxonomy {self.common_name} ({self.species})>"
+        return f"<Taxonomy {self.common_name} ({self.genus} {self.species})>"
+
+class Vendors(db.Model):
+    __tablename__ = 'vendors'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    tag = db.Column(db.String(8), nullable=False)
+    name = db.Column(db.String(128), nullable=False)
+
+    def __repr__(self):
+        return f"<Vendor {self.name}>"
+
+class ColorMorphs(db.Model):
+    __tablename__ = 'color_morphs'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    taxonomy_id = db.Column(db.Integer, db.ForeignKey('taxonomy.id'), nullable=False, index=True)
+    morph_name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    rarity = db.Column(db.Enum('Common', 'Uncommon', 'Rare', 'Ultra'))
+    source = db.Column(db.String(100))
+    image_url = db.Column(db.Text)
+
+    taxonomy = db.relationship('Taxonomy', backref=db.backref('color_morphs', lazy=True))
+
+    def __repr__(self):
+        return f"<ColorMorph {self.morph_name}>"
+
+class CareReqs(db.Model):
+    __tablename__ = 'care_reqs'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    genus = db.Column(db.String(100), nullable=False, unique=True)
+    temperature = db.Column(db.Numeric(4,2))
+    salinity = db.Column(db.Numeric(5,3))
+    pH = db.Column('pH', db.Numeric(3,2))
+    alkalinity = db.Column(db.Numeric(4,2))
+    calcium = db.Column(db.Integer)
+    magnesium = db.Column(db.Integer)
+    par = db.Column(db.Integer)
+    flow = db.Column(db.Enum('Low', 'Moderate', 'High'))
+    notes = db.Column(db.Text)
+
+    def __repr__(self):
+        return f"<CareReqs {self.genus}>"
 
 class TaxonomyForm(FlaskForm):
     common_name = StringField("Common Name", validators=[DataRequired(), Length(max=128)])

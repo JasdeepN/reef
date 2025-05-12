@@ -162,3 +162,14 @@
 .grey-out {
   background-color: var(--grey-out);
   color: var(--text-muted); }
+
+.form-select:disabled,
+.grey-out {
+  background-color: var(--grey-out);
+  color: var(--text-muted); }
+
+.popover > h3 {
+  color: var(--outer-space); }
+
+.col-md-4, .mb-3 > label {
+  color: var(--text-color); }

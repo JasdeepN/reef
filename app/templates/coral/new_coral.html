@@ -1,239 +1,237 @@
-{% extends 'base.html' %}
-
-
-{% block content %}
-<div class="container mt-4">
-    {% if not tanks %}
-        <div class="alert alert-warning">Please add a tank before you add a coral.</div>
-    {% else %}
-        <div class="card doser-card shadow-sm">
-            <div class="card-header bg-primary text-white">
-                <h2 class="mb-0">Add New Coral</h2>
+{% extends 'base.html' %} {% block content %}
+<div class="grid-container single-wide">
+    <div class="grid-item">
+        <div class="container mt-4">
+            {% if not tanks %}
+            <div class="alert alert-warning">
+                Please add a tank before you add a coral.
             </div>
-            <div class="card-body">
+            {% else %}
+
+            <h2 class="mb-0">Add New Coral</h2>
+            <div class="form-body">
                 <form method="post" enctype="multipart/form-data" id="coral-form">
                     {{ form.hidden_tag() }}
                     <fieldset class="border rounded p-3 mb-4">
-                        <legend class="float-none w-auto px-2" style="font-size:1.1em;">
+                        <legend class="float-none w-auto px-2" style="font-size: 1.1em">
                             <span class="text-primary">Required Information</span>
                         </legend>
                         <div class="row">
-                            <!-- <div class="col-md-4 mb-3">
-                                {{ form.coral_name.label }}<span class="text-danger">*</span>
-                                {{ form.coral_name(class="form-control") }}
-                            </div> -->
                             <div class="col-md-4 mb-3">
-                                {{ form.coral_type.label }}<span class="text-danger">*</span>
-                                {{ form.coral_type(class="form-control", id="coral_type") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <span>{{form.coral_name.label}}</span><span class="text-danger">*</span>
-                                <select class="form-select" id="coral_species" name="coral_species" disabled>
-                                    <option value="">Select type first...</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.date_acquired.label }}<span class="text-danger">*</span>
-                                <input type="date"
-                                       class="form-control"
-                                       id="date_acquired"
-                                       name="date_acquired"
-                                       value="{{ form.date_acquired.data or now().strftime('%Y-%m-%d') }}">
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="tank_id" class="form-label">Tank</label><span class="text-danger">*</span>
-                                <select class="form-select" id="tank_id" name="tank_id" required>
+                                <label class="form-label" for="tank_id">
+                                    {{ form.tank_id.label }}<span class="text-danger">*</span>
+                                </label>
+                                <select id="tank_id" name="tank_id" class="form-select" required
+                                    {% if tanks|length == 1 %} data-single-tank="{{ tanks[0].id }}" {% endif %}>
+                                    <option value="">Select...</option>
                                     {% for tank in tanks %}
-                                        <option value="{{ tank.id }}">{{ tank.name }}</option>
+                                        <option value="{{ tank.id }}"
+                                            {% if tanks|length == 1 and tank.id == tanks[0].id %}selected{% endif %}>
+                                            {{ tank.name }}
+                                        </option>
                                     {% endfor %}
                                 </select>
                             </div>
-                        </div>
-                    </fieldset>
-                    <fieldset class="border rounded p-3 mb-4">
-                        <legend class="float-none w-auto px-2" style="font-size:1.1em;">
-                            <span class="text-secondary">Optional Details</span>
-                        </legend>
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                {{ form.source.label }} {{ form.source(class="form-control") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.lighting.label }} {{ form.lighting(class="form-control", id="lighting") }}
-                            </div>
-                            <div class="col-md-4 mb-3 position-relative">
-                                {{ form.par.label }}
-                                <span id="par_value">0</span>
-
-                                <div class="par-bargraph-slider-wrapper">
-                                    <div id="par-bargraph" class="par-bargraph"></div>
-                                    <input type="range" min="0" max="750" step="1" id="par" name="par" class="form-range par-bargraph-slider" value="0">
                             
-                                </div>
-                            </div>
                             <div class="col-md-4 mb-3">
-                                {{ form.flow.label }} {{ form.flow(class="form-control", id="flow") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.feeding.label }} {{ form.feeding(class="form-control", id="feeding") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.placement.label }} {{ form.placement(class="form-control", id="placement") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.current_size.label }} {{ form.current_size(class="form-control") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.color_morph.label }} {{ form.color_morph(class="form-control") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.health_status.label }} {{ form.health_status(class="form-control") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.frag_colony.label }} {{ form.frag_colony(class="form-control") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.growth_rate.label }} {{ form.growth_rate(class="form-control") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.last_fragged.label }}
-                                <input type="date" class="form-control" id="last_fragged" name="last_fragged" value="{{ form.last_fragged.data|default('', true) }}">
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.unique_id.label }} {{ form.unique_id(class="form-control") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.origin.label }}
-                                <select class="form-select" id="origin" name="origin">
-                                    <option value="">Loading...</option>
+                                <label for="type" class="form-label">Type<span class="text-danger">*</span></label>
+                                <select id="type" name="type" class="form-select" required>
+                                    <option value="">Select type...</option>
+                                    <option value="SPS">SPS</option>
+                                    <option value="LPS">LPS</option>
+                                    <option value="Mushroom">Mushroom</option>
+                                    <option value="Zoanthid">Zoanthid</option>
+                                    <option value="Soft">Soft</option>
                                 </select>
                             </div>
                             <div class="col-md-4 mb-3">
-                                {{ form.compatibility.label }} {{ form.compatibility(class="form-control") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.photo.label }} {{ form.photo(class="form-control") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.notes.label }} {{ form.notes(class="form-control") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label d-block">Test Results</label>
-                                <div id="test_radio_group">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="test_id" id="test_id_current" value="" checked>
-                                        <label class="form-check-label" for="test_id_current" id="test_id_current_label">Loading tests...</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="test_id" id="test_id_new" value="new">
-                                        <label class="form-check-label" for="test_id_new">New Test</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="test_id" id="test_id_none" value="none">
-                                        <label class="form-check-label" for="test_id_none">No Test</label>
-                                    </div>
+                                <div class="select-wrapper">
+                                    <label for="genus_id" class="form-label">Genus<span class="text-danger">*</span></label>
+                                    <select id="genus_id" name="genus_id" class="form-select" required>
+                                        <option value="">Select genus...</option>
+                                        <!-- JS will populate options -->
+                                    </select>
                                 </div>
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <div class="select-wrapper">
+                                    <label for="color_morphs_id" class="form-label">Color Morph<span class="text-danger">*</span></label>
+                                    <select id="color_morphs_id" name="color_morphs_id" class="form-select" required disabled>
+                                        <option value="">Select genus first...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="select-wrapper">
+                                    <label for="species_id" class="form-label">Species<span class="text-danger">*</span></label>
+                                    <select id="species_id" name="species_id" class="form-select" required disabled>
+                                        <option value="">Select genus first...</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label for="vendors_id" class="form-label">
+                                    Vendor
+                                    <button type="button" tabindex="0" class="text-info ms-1 btn btn-link p-0 align-baseline"
+                                        data-bs-toggle="popover"
+                                        data-bs-trigger="click" title="Vendor Info"
+                                        data-bs-content="Select the vendor you purchased this coral from. If unknown, leave as None."
+                                        onkeydown="if(event.key==='Enter'||event.key===' '){this.click();}">
+                                        <span style="text-decoration: underline; cursor: pointer">&#x3f;</span>
+                                    </button>
+                                </label>
+                                <select id="vendors_id" name="vendors_id" class="form-select">
+                                    <option value="">None</option>
+                                    <!-- JS will populate options -->
+                                </select>
+                            </div>
+
+                            <!-- DATE ACQUIRED -->
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label" for="date_acquired">
+                                    {{ form.date_acquired.label }}<span class="text-danger">*</span>
+                                </label>
+                                {{ form.date_acquired(class="form-control", id="date_acquired", required=True, type="date") }}
+                            </div>
+
+                            
+
+                            <input type="hidden" id="taxonomy_id" name="taxonomy_id" value="" />
+                        </div>
+                    </fieldset>
+                    <fieldset class="border rounded p-3 mb-4">
+                        <legend class="float-none w-auto px-2" style="font-size: 1.1em">
+                            <span class="text-secondary">Optional Details</span>
+                        </legend>
+                        <div class="row">
+                            <div class="col-md-4 mb-3 position-relative">
+                                <label class="form-label" for="par"> {{ form.par.label }} </label>
+                                <span id="par_value">0</span>
+                                <div class="par-bargraph-slider-wrapper">
+                                    <div id="par-bargraph" class="par-bargraph"></div>
+                                    <input type="range" min="0" max="750" step="1" id="par" name="par"
+                                        class="form-range par-bargraph-slider form-control" value="0" />
+                                </div>
+                            </div>
+
+                            <!-- FLOW DROPDOWN -->
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label" for="flow">{{ form.flow.label }}</label>
+                                {{ form.flow(class="form-select", id="flow") }}
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label" for="current_size"> {{ form.current_size.label }}</label>
+                                {{ form.current_size(class="form-control", id="current_size") }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label" for="health_status">
+                                    {{ form.health_status.label }}</label>
+                                {{ form.health_status(class="form-select", id="health_status") }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label d-block">{{ form.frag_colony.label }}</label>
+                                {% for subfield in form.frag_colony %}
+                                    <div class="form-check form-check-inline">
+                                        {{ subfield(class="form-check-input", id=subfield.id) }}
+                                        <label class="form-check-label" for="{{ subfield.id }}">{{ subfield.label.text }}</label>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label" for="last_fragged"> {{ form.last_fragged.label }}</label>
+                                {{ form.last_fragged(class="form-control", type="date", id="last_fragged") }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label" for="unique_id"> {{ form.unique_id.label }}</label> {{
+                                form.unique_id(class="form-control", id="unique_id") }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label" for="photo"> {{ form.photo.label }}</label> {{
+                                form.photo(class="form-control", id="photo") }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label" for="notes"> {{ form.notes.label }}</label> {{
+                                form.notes(class="form-control", id="notes") }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <fieldset>
+                                    <legend class="form-label d-block" style="font-size:1em;">Test Results</legend>
+                                    <div id="test_radio_group">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="test_id" id="test_id_current"
+                                                value="" checked />
+                                            <label class="form-check-label" for="test_id_current"
+                                                id="test_id_current_label">Loading tests...</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="test_id" id="test_id_new"
+                                                value="new" />
+                                            <label class="form-check-label" for="test_id_new">New Test</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="test_id" id="test_id_none"
+                                                value="none" />
+                                            <label class="form-check-label" for="test_id_none">No Test</label>
+                                        </div>
+                                    </div>
+                                </fieldset>
                             </div>
                         </div>
                     </fieldset>
-                    <div class="text-end">
-                        {{ form.submit(class="btn btn-primary") }}
-                    </div>
+                    <div class="text-end">{{ form.submit(class="btn btn-primary") }}</div>
                 </form>
             </div>
+            {% endif %}
         </div>
-    {% endif %}
+    </div>
 </div>
-{% endblock %}
 
-{% block page_scripts %}
+<!-- Modal for form errors -->
+<div class="modal fade" id="formErrorModal" tabindex="-1" aria-labelledby="formErrorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="formErrorModalLabel">Form Errors</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul>
+                    {% for field, errors in form_errors.items() %}
+                    <li>
+                        <strong>{{ form[field].label.text | e }}:</strong>
+                        <ul>
+                            {% for error in errors %}
+                            <li>{{ error | e }}</li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %} {% block page_scripts %}
+
 <script src="{{ url_for('static', filename='js/form_custom.js') }}"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Populate test results dropdown as before
-    fetch('/api/tests/get/latest')
-        .then(response => response.json())
-        .then(data => {
-            const currentLabel = document.getElementById('test_id_current_label');
-            if (data && data.result) {
-                const test = data.result;
-                let label = test.test_date && test.test_time
-                    ? `${test.test_date} ${test.test_time}`
-                    : 'Test #' + test.id;
-                currentLabel.textContent = label;
-                document.getElementById('test_id_current').value = test.id;
-            } else {
-                currentLabel.textContent = 'No tests found';
-            }
-        })
-        .catch(() => {
-            const currentLabel = document.getElementById('test_id_current_label');
-            currentLabel.textContent = 'No tests found';
-        });
-
-    // Coral type defaults logic
-    const coralDefaults = {
-        'SPS': {
-            lighting: 'High',
-            par: 300,
-            flow: 'High',
-            feeding: 'Minimal',
-            placement: 'Top'
-        },
-        'LPS': {
-            lighting: 'Medium',
-            par: 150,
-            flow: 'Medium',
-            feeding: 'Occasional',
-            placement: 'Middle'
-        },
-        'Soft': {
-            lighting: 'Low',
-            par: 80,
-            flow: 'Low',
-            feeding: 'Optional',
-            placement: 'Bottom'
-        },
-        'Zoanthid': {
-            lighting: 'Low',
-            par: 80,
-            flow: 'Low',
-            feeding: 'Optional',
-            placement: 'Bottom'
-        },
-        'Mushroom': {
-            lighting: 'Low',
-            par: 60,
-            flow: 'Low',
-            feeding: 'Optional',
-            placement: 'Bottom'
-        },
-        'Other': {
-            lighting: '',
-            par: '',
-            flow: '',
-            feeding: '',
-            placement: ''
-        }
-    };
-
-    document.getElementById('coral_type').addEventListener('change', function() {
-        const type = this.value;
-        const defaults = coralDefaults[type];
-        if (defaults) {
-            if (defaults.lighting !== undefined) document.getElementById('lighting').value = defaults.lighting;
-            if (defaults.par !== undefined) {
-                document.getElementById('par').value = defaults.par;
-                document.getElementById('par_value').textContent = defaults.par;
-                document.getElementById('par').dispatchEvent(new Event('input'));
-            }
-            if (defaults.flow !== undefined) document.getElementById('flow').value = defaults.flow;
-            if (defaults.feeding !== undefined) document.getElementById('feeding').value = defaults.feeding;
-            if (defaults.placement !== undefined) document.getElementById('placement').value = defaults.placement;
+    {% set form_errors = form_errors | default({}) %}
+    document.addEventListener('DOMContentLoaded', function () {
+        var showFormErrors = {{ 'true' if form_errors else 'false' }};
+        if (showFormErrors) {
+            var errorModal = new bootstrap.Modal(document.getElementById('formErrorModal'));
+            errorModal.show();
         }
     });
-});
 </script>
+
 {% endblock %}
-
-
