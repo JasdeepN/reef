@@ -429,4 +429,17 @@ document.addEventListener('DOMContentLoaded', function() {
         new bootstrap.Popover(popoverTriggerEl);
     });
 
+    const modal = document.getElementById('formErrorModal');
+    if (modal) {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+        // Remove backdrop if present
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) backdrop.parentNode.removeChild(backdrop);
+    }
+
+    // If using jQuery/Bootstrap:
+    $('#formErrorModal').modal('hide');
 });

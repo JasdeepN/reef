@@ -247,3 +247,17 @@ li > a.dropdown-item {
   color: var(--text-color);
   border-radius: 0;
   border: none; }
+
+/* Example CSS for hiding */
+.modal {
+    display: none;
+}
+.modal.show {
+    display: block;
+}
+
+#formErrorModal:not(.show),
+.modal-backdrop:not(.show) {
+    display: none !important;
+    pointer-events: none !important;
+}
