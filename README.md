@@ -46,7 +46,7 @@ ReefDB (subject to change) is a web application for managing corals and aquarium
 - ICP test result tracking
 - Reminders for testing
 - Alerts when dosing containers are empty
-- Trend analysis + Recomended Dosing Changes to keep stability 
+- Trend analysis + Recommended Dosing Changes to keep stability 
 
 
 ### Upgrade Notes
