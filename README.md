@@ -25,7 +25,7 @@ ReefDB (subject to change) is a web application for managing corals and aquarium
     - Alkalinity (KH)
     - Phosphate (PO₄³⁻ ppm)
     - Phosphate (PO₄³⁻ ppb)
-    - Ntrate (NO₃⁻ ppm)
+    - Nitrate (NO₃⁻ ppm)
     - Calcium (Ca²⁺ ppm)
     - Magnesium (Mg²⁺ ppm)
     - pH (tracked through probe every 15 seconds)
