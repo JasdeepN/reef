@@ -99,6 +99,7 @@
                             
 
                             <input type="hidden" id="taxonomy_id" name="taxonomy_id" value="" />
+
                         </div>
                     </fieldset>
                     <fieldset class="border rounded p-3 mb-4">
@@ -232,6 +233,10 @@
             var errorModal = new bootstrap.Modal(document.getElementById('formErrorModal'));
             errorModal.show();
         }
+    });
+
+    document.querySelector('form').addEventListener('submit', function() {
+        console.log('Submitting genus_id:', document.getElementById('genus_id').value);
     });
 </script>
 

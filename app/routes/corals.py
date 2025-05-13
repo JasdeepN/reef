@@ -1,9 +1,10 @@
+import pprint
 from flask import jsonify, render_template, request, redirect, flash, url_for
 from werkzeug.utils import secure_filename
 from app import app, db
 from modules import utils
 from modules.forms import CoralForm
-from modules.models import Coral, Tank, Taxonomy  # Add Taxonomy import
+from modules.models import Coral, Tank, Taxonomy, ColorMorphs # Add Taxonomy and ColorMorph import
 import os
 import datetime
 from modules.utils import generate_columns
@@ -19,41 +20,42 @@ def get_field(form, field):
     return val.data if val and val.data not in ("", None) else None
 
 
-def build_coral(form, taxonomy=None):
-    # Set coral name according to your rules
-    if taxonomy:
-        if taxonomy.common_name and form.color_morph.data:
-            coral_name = f"{taxonomy.common_name} {form.color_morph.data}"
+def build_coral(form, taxonomy=None, color_morph=None):
+    # Build coral_name using taxonomy and color morph objects
+    if taxonomy and color_morph:
+        if taxonomy.common_name and color_morph.morph_name:
+            coral_name = f"{taxonomy.common_name} {color_morph.morph_name}"
         elif taxonomy.common_name:
             coral_name = taxonomy.common_name
-        elif form.color_morph.data:
-            coral_name = form.color_morph.data
+        elif color_morph.morph_name:
+            coral_name = color_morph.morph_name
         else:
-            coral_name = taxonomy.species_name if hasattr(taxonomy, "species_name") else None
+            coral_name = f"{taxonomy.genus} {taxonomy.species}" if taxonomy else None
+    elif taxonomy:
+        coral_name = taxonomy.common_name or f"{taxonomy.genus} {taxonomy.species}"
+    elif color_morph:
+        coral_name = color_morph.morph_name
     else:
         coral_name = form.coral_name.data if hasattr(form, "coral_name") else None
 
     return Coral(
         coral_name=coral_name,
-        coral_type=get_field(form, "coral_type"),
         date_acquired=get_field(form, "date_acquired"),
-        source=get_field(form, "source"),
-        tank_id=request.form.get("tank_id") or None,
+        tank_id=request.form.get("tank_id") or form.tank_id.data,
         taxonomy_id=taxonomy.id if taxonomy else None,
-        lighting=get_field(form, "lighting"),
+        color_morphs_id=color_morph.id if color_morph else None,
+        vendors_id=request.form.get("vendors_id") or form.vendors_id.data,
         par=get_field(form, "par"),
         flow=get_field(form, "flow"),
-        feeding=get_field(form, "feeding"),
-        placement=get_field(form, "placement"),
+        # placement=get_field(form, "placement"),
         current_size=get_field(form, "current_size"),
-        color_morph=get_field(form, "color_morph"),
         health_status=get_field(form, "health_status"),
         frag_colony=get_field(form, "frag_colony"),
-        growth_rate=get_field(form, "growth_rate"),
+        # growth_rate=get_field(form, "growth_rate"),
         last_fragged=get_field(form, "last_fragged"),
         unique_id=get_field(form, "unique_id"),
-        origin=get_field(form, "origin"),
-        compatibility=get_field(form, "compatibility"),
+        # origin=get_field(form, "origin"),
+        # compatibility=get_field(form, "compatibility"),
         photo=form.photo.data.filename if form.photo.data else None,
         notes=get_field(form, "notes"),
         test_id=get_field(form, "test_id")
@@ -67,21 +69,12 @@ def new_coral():
     if request.method == "POST":
         print(form.data)
         # Get submitted IDs from the form
-        genus_id = form.genus_id.data
-        taxonomy_id = form.taxonomy_id.data
+        morph_id = request.form.get("color_morphs_id") or form.color_morphs_id.data
+        color_morph = ColorMorphs.query.get(morph_id) if morph_id else None
+        taxonomy = color_morph.taxonomy if color_morph else None
 
-        # Try to find taxonomy by color morph first, then by genus
-        taxonomy = None
-        if taxonomy_id:
-            taxonomy = Taxonomy.query.filter_by(taxonomy_id=taxonomy_id).first()
-        if not taxonomy and genus_id:
-            taxonomy = Taxonomy.query.filter_by(genus_id=genus_id).first()
-
-        # Now set taxonomy_id for the coral
-        if taxonomy:
-            form.taxonomy_id.data = taxonomy.id
-        else:
-            form.taxonomy_id.data = None  # Or handle as error
+        print("Selected taxonomy:", taxonomy)
+        print("Selected color morph:", color_morph)
 
         if not form.validate_on_submit():
             errors = form.errors
@@ -94,11 +87,12 @@ def new_coral():
                 form_errors=errors
             )
 
-        coral = build_coral(form, taxonomy)
+        coral = build_coral(form, taxonomy=taxonomy, color_morph=color_morph)
         db.session.add(coral)
         db.session.commit()
         print("Coral object created:", coral)
-        return jsonify({"status": "success", "message": "Coral added successfully!"})
+        # return jsonify({"status": "success", "message": "Coral added successfully!"})
+        return redirect(url_for("coral_db"))
 
     return render_template(
         "coral/new_coral.html",
@@ -120,4 +114,5 @@ def coral_db():
         "PUT": "/api/edit/corals"
     }
     return render_template('coral/gallery.html', title="Corals", api_urls=urls)
+
 

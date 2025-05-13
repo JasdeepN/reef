@@ -165,18 +165,20 @@ document.addEventListener('DOMContentLoaded', function() {
         if (selectedType) {
             filtered = allGenus.filter(g => g.type === selectedType);
         }
+        // Debug: check filtered genus
+        console.log('Filtered genus:', filtered);
         filtered.forEach(genus => {
             const opt = document.createElement('option');
-            opt.value = genus.genus;
+            opt.value = genus.genus; 
             opt.textContent = genus.genus;
             genusSelect.appendChild(opt);
         });
         genusSelect.disabled = filtered.length === 0;
-        // Reset species dropdown
-        const speciesSelect = document.getElementById('species_id');
-        if (speciesSelect) {
-            speciesSelect.innerHTML = '<option value="">Select genus first...</option>';
-            speciesSelect.disabled = true;
+
+        // Auto-select if only one genus is available
+        if (filtered.length === 1) {
+            genusSelect.value = filtered[0].id;
+            genusSelect.dispatchEvent(new Event('change'));
         }
     }
 
@@ -189,7 +191,6 @@ document.addEventListener('DOMContentLoaded', function() {
         genusSelect.disabled = true;
         genusSelect.innerHTML = '<option value="">Select type first...</option>';
     }
-    console.log(`genusSelect: ${genusSelect.val}, typeSelect: ${typeSelect.val}`);
     
     // When type changes, enable and populate genus
     if (typeSelect) {
@@ -221,6 +222,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (genusSelect && speciesSelect && colorMorphsSelect) {
         genusSelect.addEventListener('change', function() {
+            console.log('Genus changed:', this.value);
             const genus = this.value;
             speciesSelect.innerHTML = '<option value="">Loading...</option>';
             speciesSelect.disabled = true;
@@ -238,9 +240,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             // Combined request for both species and color morphs
-            fetch(`/api/taxonomy/genus/details?genus=${encodeURIComponent(genus)}`)
+  
+            fetch(`/api/taxonomy/genus/details/${encodeURIComponent(genus)}`)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Genus details:', data);
                     // Save all species and color morphs for later filtering
                     allSpecies = Array.isArray(data.species) ? data.species : [];
                     allColorMorphs = Array.isArray(data.color_morphs) ? data.color_morphs : [];

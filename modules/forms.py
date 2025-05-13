@@ -63,7 +63,6 @@ class BaseForm(FlaskForm):
 # --- Coral Form ---
 class CoralForm(FlaskForm):
     # coral_name = SelectField("Coral Name / Species", validators=[])
-    genus_id = IntegerField("Genus", validators=[DataRequired()])
     date_acquired = DateField("Date Acquired", default=date.today, format='%Y-%m-%d', validators=[DataRequired()])
     par = IntegerField("PAR Value", validators=[Optional()])
     flow = SelectField(
@@ -97,7 +96,6 @@ class CoralForm(FlaskForm):
     photo = FileField("Photo", validators=[Optional()])
     notes = TextAreaField("Notes", validators=[Optional()])
     test_id = IntegerField("Test Results ID", validators=[Optional()])
-    taxonomy_id = IntegerField("Taxonomy", validators=[])
     tank_id = IntegerField("Tank", validators=[DataRequired()])
     vendors_id = IntegerField("Vendor", validators=[Optional()])
     color_morphs_id = IntegerField("Color Morph", validators=[DataRequired()])

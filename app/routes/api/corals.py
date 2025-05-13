@@ -20,7 +20,7 @@ def get_coral_stats():
     for coral, tank, taxonomy in corals:
         stat = {}
         stat['card_title'] = ['Coral Name', coral.coral_name, coral.id]
-        stat['coral_type'] = ['Type', coral.coral_type, '']
+        # stat['coral_type'] = ['Type', coral.coral_type, '']
         stat['species'] = ['Species', taxonomy.species if taxonomy else '', '']
         stat['common_name'] = ['Common Name', taxonomy.common_name if taxonomy else '', '']
         stat['date_acquired'] = [
@@ -29,29 +29,29 @@ def get_coral_stats():
             ''
         ]
         stat['tank'] = ['Tank', tank.name if tank else '', '']
-        stat['lighting'] = ['Lighting', coral.lighting, '']
+        # stat['lighting'] = ['Lighting', coral.lighting, '']
         stat['par'] = ['PAR', coral.par, '']
         stat['flow'] = ['Flow', coral.flow, '']
-        stat['feeding'] = ['Feeding', coral.feeding, '']
-        stat['placement'] = ['Placement', coral.placement, '']
+        # stat['feeding'] = ['Feeding', coral.feeding, '']
+        # stat['placement'] = ['Placement', coral.placement, '']
         stat['current_size'] = ['Current Size', coral.current_size, '']
-        stat['color_morph'] = ['Color Morph', coral.color_morph, '']
+        stat['color_morph'] = ['Color Morph', coral.color_morph.morph_name, '']
         stat['health_status'] = ['Health Status', coral.health_status, '']
         stat['frag_colony'] = ['Frag/Colony', coral.frag_colony, '']
-        stat['growth_rate'] = ['Growth Rate', coral.growth_rate, '']
+        # stat['growth_rate'] = ['Growth Rate', coral.growth_rate, '']
         stat['last_fragged'] = [
             'Last Fragged',
             coral.last_fragged.strftime('%b %d %Y') if coral.last_fragged else None,
             ''
         ]
-        stat['origin'] = ['Origin', coral.origin, '']
-        stat['compatibility'] = ['Compatibility', coral.compatibility, '']
+        # stat['origin'] = ['Origin', coral.origin, '']
+        # stat['compatibility'] = ['Compatibility', coral.compatibility, '']
         stat['notes'] = ['Notes', coral.notes, '']
-        stat['created_at'] = [
-            'Created',
-            coral.created_at.astimezone(tz).strftime('%b %d %Y %H:%M:%S') if coral.created_at else None,
-            ''
-        ]
+        # stat['created_at'] = [
+        #     'Created',
+        #     coral.created_at.astimezone(tz).strftime('%b %d %Y %H:%M:%S') if coral.created_at else None,
+        #     ''
+        # ]
         stat['updated_at'] = [
             'Updated',
             coral.updated_at.astimezone(tz).strftime('%b %d %Y %H:%M:%S') if coral.updated_at else None,

@@ -241,6 +241,7 @@ class Taxonomy(db.Model):
     type = db.Column(db.Enum('SPS', 'LPS', 'Soft', 'Mushroom', 'Zoanthid'), nullable=False)
     picture_uri = db.Column(db.String(2083))
     common_name = db.Column(db.String(255))
+    color_morphs = db.relationship('ColorMorphs', back_populates='taxonomy')
     __table_args__ = (
         db.UniqueConstraint('genus', 'species', name='genus'),
     )
@@ -261,13 +262,12 @@ class ColorMorphs(db.Model):
     __tablename__ = 'color_morphs'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     taxonomy_id = db.Column(db.Integer, db.ForeignKey('taxonomy.id'), nullable=False, index=True)
-    morph_name = db.Column(db.String(255), nullable=False)
+    morph_name = db.Column(db.String(64))
     description = db.Column(db.Text)
     rarity = db.Column(db.Enum('Common', 'Uncommon', 'Rare', 'Ultra'))
     source = db.Column(db.String(100))
     image_url = db.Column(db.Text)
-
-    taxonomy = db.relationship('Taxonomy', backref=db.backref('color_morphs', lazy=True))
+    taxonomy = db.relationship('Taxonomy', back_populates='color_morphs')
 
     def __repr__(self):
         return f"<ColorMorph {self.morph_name}>"

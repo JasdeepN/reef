@@ -12,14 +12,18 @@ DEFAULT_ORIGINS = [
 
 @bp.route('/genus/all', methods=['GET'])
 def get_all_genus():
-    # Return all unique genus names and their type
+    # Return all unique genus names, their type, and the lowest taxonomy.id for each genus
     genus_list = (
-        db.session.query(Taxonomy.genus, Taxonomy.type)
-        .distinct()
+        db.session.query(
+            Taxonomy.genus,
+            Taxonomy.type,
+            db.func.min(Taxonomy.id).label('id')
+        )
+        .group_by(Taxonomy.genus, Taxonomy.type)
         .order_by(Taxonomy.genus)
         .all()
     )
-    return jsonify([{'genus': g[0], 'type': g[1]} for g in genus_list])
+    return jsonify([{'genus': g[0], 'type': g[1], 'id': g[2]} for g in genus_list])
 
 @bp.route('/species/by_genus', methods=['GET'])
 def get_species_by_genus():
@@ -72,9 +76,9 @@ def get_color_morphs_by_genus():
         for cm in color_morphs
     ])
 
-@bp.route('/genus/details', methods=['GET'])
-def get_genus_details():
-    genus = request.args.get('genus')
+@bp.route('/genus/details/<genus>', methods=['GET'])
+def get_genus_details(genus):
+    print('get_genus_details', genus)
     if not genus:
         return jsonify({'species': [], 'color_morphs': []})
 
