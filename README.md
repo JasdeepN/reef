@@ -17,6 +17,18 @@ ReefDB (subject to change) is a web application for managing corals and aquarium
 - Health, PAR, and placement tracking
 - Prometheus metrics integration for monitoring
 - Responsive Bootstrap UI
+- Display and management of water parameter test results (Test Results page)
+- Comprehensive searchable/filterable coral database (Database page)
+- Export of test history in a format compatible with Grafana for advanced visualization and analysis
+- Tracking for all common Reef parameters 
+    - Salinity (SG)
+    - Alkalinity (KH)
+    - Phosphate (PO₄³⁻ ppm)
+    - Phosphate (PO₄³⁻ ppb)
+    - Nitrate (NO₃⁻ ppm)
+    - Calcium (Ca²⁺ ppm)
+    - Magnesium (Mg²⁺ ppm)
+    - pH (tracked through probe every 15 seconds)
 
 ## Planned Upgrades
 
@@ -30,6 +42,12 @@ ReefDB (subject to change) is a web application for managing corals and aquarium
 - Integrate Environmental Monitoring around tank (CO&#x2082; can affect KH)
 - Scale app using gunicorn workers with nginx or some other loadbalancer (*if i decide to host this somewhere for users*)
     - register, login, accounts etc.
+ Link test results with coral health
+- ICP test result tracking
+- Reminders for testing
+- Alerts when dosing containers are empty
+- Trend analysis + Recommended Dosing Changes to keep stability 
+
 
 ### Upgrade Notes
 ***Planned upgrades may change based on project needs and what I feel like is needed (and feel like working on). 
