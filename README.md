@@ -42,11 +42,12 @@ ReefDB (subject to change) is a web application for managing corals and aquarium
 - Integrate Environmental Monitoring around tank (CO&#x2082; can affect KH)
 - Scale app using gunicorn workers with nginx or some other loadbalancer (*if i decide to host this somewhere for users*)
     - register, login, accounts etc.
-- Link test results with coral health
+ Link test results with coral health
 - ICP test result tracking
 - Reminders for testing
 - Alerts when dosing containers are empty
 - Trend analysis + Recomended Dosing Changes to keep stability 
+
 
 ### Upgrade Notes
 ***Planned upgrades may change based on project needs and what I feel like is needed (and feel like working on). 
@@ -80,7 +81,6 @@ Features listed here are not guaranteed.***
 
 6. **Access the app**  
    Open your browser and go to [http://localhost:5000](http://localhost:5000)
-
 
 ## License
 
