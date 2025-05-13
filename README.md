@@ -20,7 +20,7 @@ ReefDB (subject to change) is a web application for managing corals and aquarium
 - Display and management of water parameter test results (Test Results page)
 - Comprehensive searchable/filterable coral database (Database page)
 - Export of test history in a format compatible with Grafana for advanced visualization and analysis
-- Tracking for all common Reef paramaters 
+- Tracking for all common Reef parameters 
     - Salinity (SG)
     - Alkalinity (KH)
     - Phosphate (PO₄³⁻ ppm)
