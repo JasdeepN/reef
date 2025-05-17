@@ -1,13 +1,84 @@
 {% extends 'base.html' %}
-{% from "macros/cards_row.html" import cards_row %}
 
 {% block page_title %} {{ title }} {% endblock %}
 
 {% block content %}
 <div class="grid-container single-wide">
   <div class="grid-item">
-
-    {{ cards_row(api_urls) }}
+    <div class="title"><h2>Corals for Tank {{ tank_id }}</h2></div>
+    <div class="content table-container">
+      <table id="corals_table" class="display" style="width:100%">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Date Acquired</th>
+            <th>PAR</th>
+            <th>Flow</th>
+            <th>Placement</th>
+            <th>Current Size</th>
+            <th>Health Status</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+      </table>
+    </div>
   </div>
-</div>      
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+$(document).ready(function () {
+  $('#corals_table').DataTable({
+    serverSide: true,
+    processing: true,
+    ajax: {
+      url: '/web/fn/get/corals',
+      type: 'GET',
+      data: function (d) {
+        return {
+          draw: d.draw,
+          page: (d.start / d.length) + 1,
+          rows: d.length,
+          sidx: d.columns[d.order[0].column].data,
+          sord: d.order[0].dir,
+          search: d.search.value
+        };
+      }
+    },
+    columns: [
+      { data: 'id' },
+      { data: 'coral_name' },
+      { data: 'date_acquired' },
+      { data: 'par' },
+      { data: 'flow' },
+      { data: 'placement' },
+      { data: 'current_size' },
+      { data: 'health_status' },
+      { data: 'notes' }
+    ],
+    paging: true,
+    searching: true,
+    ordering: true,
+    order: [[0, 'desc']],
+    responsive: true,
+    lengthMenu: [10, 25, 50, 100],
+    language: {
+      loadingRecords: "Loading...",
+      emptyTable: "No corals to display",
+    },
+    select: true,
+    dom: 'Bfrtip',
+    buttons: [
+      // Add, Edit, Delete buttons can be added here if needed
+    ]
+  });
+});
+</script>
 {% endblock %}

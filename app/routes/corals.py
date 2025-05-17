@@ -113,12 +113,75 @@ def coral_view():
 
 @app.route("/coral/view", methods=['GET'])
 def coral_db():
+    tank_id = get_current_tank_id()
     urls = {
-        "GET": "/web/fn/get/coral_stats",
+        "GET": "/web/fn/get/corals",
         "DELETE": "/web/fn/delete/corals",
         "POST": "/web/fn/new/corals",
         "PUT": "/web/fn/edit/corals"
     }
-    return render_template('coral/gallery.html', title="Corals", api_urls=urls)
+    return render_template('coral/gallery.html', title="Corals", api_urls=urls, tank_id=tank_id)
+
+
+# DataTables-compatible endpoint for corals filtered by tank context
+from flask import Blueprint, jsonify, request
+from modules.models import Coral
+from modules.tank_context import get_current_tank_id
+import enum
+from datetime import date, time
+
+@app.route("/web/fn/get/corals", methods=["GET"])
+def get_corals_for_tank():
+    try:
+        tank_id = get_current_tank_id()
+        if not tank_id:
+            return jsonify({
+                "draw": int(request.args.get('draw', 1)),
+                "recordsTotal": 0,
+                "recordsFiltered": 0,
+                "data": [],
+                "error": "No tank selected."
+            })
+        draw = int(request.args.get('draw', 1))
+        params = {
+            'search': request.args.get('search', ''),
+            'sidx': request.args.get('sidx', ''),
+            'sord': request.args.get('sord', 'asc'),
+            'page': request.args.get('page', 1),
+            'rows': request.args.get('rows', 10)
+        }
+        base_query = Coral.query.filter_by(tank_id=tank_id)
+        all_results = base_query.all()
+        data = []
+        for row in all_results:
+            row_data = {}
+            for column in Coral.__table__.columns:
+                value = getattr(row, column.name)
+                if isinstance(value, enum.Enum):
+                    row_data[column.name] = value.value
+                elif isinstance(value, date):
+                    row_data[column.name] = value.strftime("%Y-%m-%d")
+                elif isinstance(value, time):
+                    row_data[column.name] = value.strftime("%H:%M:%S")
+                else:
+                    row_data[column.name] = value
+            data.append(row_data)
+        from modules.utils.helper import apply_datatables_query_params_to_dicts
+        filtered_data, total_filtered = apply_datatables_query_params_to_dicts(data, params)
+        response = {
+            "draw": draw,
+            "recordsTotal": len(data),
+            "recordsFiltered": total_filtered,
+            "data": filtered_data,
+        }
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({
+            "draw": int(request.args.get('draw', 1)),
+            "recordsTotal": 0,
+            "recordsFiltered": 0,
+            "data": [],
+            "error": str(e)
+        })
 
 
