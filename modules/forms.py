@@ -25,7 +25,7 @@ class DosingTypeEnum(enum.Enum):
 class DosingForm(FlaskForm):
     csrf = False
     time = DateTimeField("Dosing Time", format='%Y-%m-%d %H:%M:%S', validators=[Optional()])
-    prod_id = SelectField("Product", coerce=int, validators=[Optional()])
+    product_id = SelectField("Product", coerce=int, validators=[Optional()])
     amount = DecimalField("Amount", validators=[Optional()])
     submit = SubmitField("Submit Dosing")
 

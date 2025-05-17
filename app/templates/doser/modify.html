@@ -38,6 +38,18 @@
               </div>
             </div>
 
+            <!-- Hidden tank_id field for tank context -->
+            <input type="hidden" name="tank_id" id="tank_id_hidden" value="{{ tank_id }}">
+            {% if not tank_id %}
+            <div class="alert alert-warning mt-2">No tank selected. Please select a tank before adding a dosing schedule.</div>
+            <script>
+              document.addEventListener('DOMContentLoaded', function() {
+                var submitBtn = document.querySelector('#dynamic-create-form button[type="submit"]');
+                if (submitBtn) submitBtn.disabled = true;
+              });
+            </script>
+            {% endif %}
+
             <!-- Dosing Fields -->
             <div class="form-group" data-types="recurring,single,intermittent">
               <label for="dosing_type">
@@ -249,6 +261,12 @@
         } else {
           data.prod_id = selectedProdId; // keep as string for add_new_product
         }
+      }
+
+      // Ensure tank_id is included in the payload
+      const tankIdInput = document.getElementById('tank_id_hidden');
+      if (tankIdInput && tankIdInput.value) {
+        data.tank_id = tankIdInput.value;
       }
 
       // Extra validation for recurring

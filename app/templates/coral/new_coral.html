@@ -12,6 +12,17 @@
             <div class="form-body">
                 <form method="post" enctype="multipart/form-data" id="coral-form">
                     {{ form.hidden_tag() }}
+                    <!-- Hidden tank_id field for tank context -->
+                    <input type="hidden" name="tank_id" id="tank_id_hidden" value="{{ tank_id }}">
+                    {% if not tank_id %}
+                    <div class="alert alert-warning mt-2">No tank selected. Please select a tank before adding a coral.</div>
+                    <script>
+                      document.addEventListener('DOMContentLoaded', function() {
+                        var submitBtn = document.querySelector('#coral-form button[type="submit"], #coral-form input[type="submit"]');
+                        if (submitBtn) submitBtn.disabled = true;
+                      });
+                    </script>
+                    {% endif %}
                     <fieldset class="border rounded p-3 mb-4">
                         <legend class="float-none w-auto px-2" style="font-size: 1.1em">
                             <span class="text-primary">Required Information</span>
@@ -223,17 +234,17 @@
 
 {% endblock %} {% block page_scripts %}
 
+{% set show_form_errors = form_errors|default({})|length > 0 %}
+<div id="showFormErrors" data-show="{{ 1 if show_form_errors else 0 }}" style="display:none;"></div>
 <script src="{{ url_for('static', filename='js/form_custom.js') }}"></script>
 <script>
-    {% set form_errors = form_errors | default({}) %}
     document.addEventListener('DOMContentLoaded', function () {
-        var showFormErrors = {{ 'true' if form_errors else 'false' }};
+        var showFormErrors = document.getElementById('showFormErrors').dataset.show === '1';
         if (showFormErrors) {
             var errorModal = new bootstrap.Modal(document.getElementById('formErrorModal'));
             errorModal.show();
         }
     });
-
     document.querySelector('form').addEventListener('submit', function() {
         console.log('Submitting genus_id:', document.getElementById('genus_id').value);
     });

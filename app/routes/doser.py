@@ -78,8 +78,11 @@ def db_doser():
 @app.route("/doser/modify", methods=["GET", "POST"])
 def modify_doser():
     tank_id = get_current_tank_id()
+    if not tank_id:
+        flash("No tank selected.", "warning")
+        return redirect(url_for('index'))
     # Define columns for d_schedule table using the actual model fields
-    cols = ['id', 'tank_id', 'products_id', 'trigger_interval', 'suspended', 'last_refill', 'amount']
+    cols = ['id', 'tank_id', 'product_id', 'trigger_interval', 'suspended', 'last_refill', 'amount']
     columns = generate_columns(cols)
     # Only show schedules for the current tank context
     schedules = DSchedule.query.filter_by(tank_id=tank_id).all()
@@ -129,6 +132,9 @@ import requests
 
 @app.route("/doser/submit", methods=["POST"])
 def doser_submit():
+    tank_id = get_current_tank_id()
+    if not tank_id:
+        return jsonify({"success": False, "error": "No tank selected"}), 400
     data = request.get_json()
     form_type = data.get("form_type")
     if not form_type:
@@ -154,6 +160,9 @@ def doser_submit():
         data["_time"] = data["schedule_time"]
         data.pop("schedule_time", None)
 
+    # Always set tank_id in the data dict for downstream API calls
+    data["tank_id"] = tank_id
+
     from app import app as flask_app
     with flask_app.test_request_context():
         with flask_app.test_client() as client:
@@ -169,12 +178,11 @@ def doser_submit():
                 # Insert only into d_schedule (not dosing)
                 schedule_data = {
                     "amount": data["amount"],
-                    "prod_id": data["prod_id"],
+                    "product_id": data["prod_id"],
                     "trigger_interval": data["trigger_interval"],
-                    "trigger_time": data["_time"],
                     "suspended": data.get("suspended", False),
+                    "tank_id": data["tank_id"]
                 }
-                
                 sched_resp = client.post("/web/fn/new/d_schedule", json=schedule_data)
                 return sched_resp.get_data(), sched_resp.status_code, sched_resp.headers.items()
             elif form_type in ("single", "intermittent"):
@@ -186,7 +194,13 @@ def doser_submit():
                         "error": f"Missing required fields for {form_type}: {', '.join(missing)}"
                     }), 400
                 api_url = "/web/fn/new/dosing"
-                resp = client.post(api_url, json={k: data[k] for k in ["amount", "prod_id", "_time"]})
+                dosing_data = {
+                    "amount": data["amount"],
+                    "product_id": data["prod_id"],
+                    "trigger_time": data["_time"],
+                    "tank_id": data["tank_id"]
+                }
+                resp = client.post(api_url, json=dosing_data)
                 return resp.get_data(), resp.status_code, resp.headers.items()
             else:
                 return jsonify({"success": False, "error": "Unknown form_type"}), 400

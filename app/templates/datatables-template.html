@@ -80,30 +80,26 @@
       {% for table in tables %}
         counter++;
         // Initialize DataTable for each table
-        var url = '{{ table.api_url | default("") | safe }}';
+        var url = '/web/fn/get/{{ table.id }}';
         var options = {{ table.datatable_options | default({}) | tojson | safe }};
         var initialData = {{ table.initial_data | default([]) | tojson | safe }};
         const table_{{ loop.index }} = $('#{{ table.id }}').DataTable({
-          {% if table.api_url %}
-            serverSide: true,
-            processing: true,
-            ajax: {
-              url: url,
-              type: 'GET',
-              data: function (d) {
-                return {
-                  draw: d.draw,
-                  page: (d.start / d.length) + 1,
-                  rows: d.length,
-                  sidx: d.columns[d.order[0].column].data,
-                  sord: d.order[0].dir,
-                  search: d.search.value
-                };
-              }
-            },
-          {% else %}
-            data: initialData,
-          {% endif %}
+          serverSide: true,
+          processing: true,
+          ajax: {
+            url: url,
+            type: 'GET',
+            data: function (d) {
+              return {
+                draw: d.draw,
+                page: (d.start / d.length) + 1,
+                rows: d.length,
+                sidx: d.columns[d.order[0].column].data,
+                sord: d.order[0].dir,
+                search: d.search.value
+              };
+            }
+          },
           columns: [
             {% for column in table.columns %}
               { data: '{{ column.data }}' },
@@ -210,7 +206,7 @@
               obj[item.name] = item.value;
               return obj;
             }, {});
-            const url = isEdit ? `/api/edit/${tableId}` : `/api/new/${tableId}`;
+            const url = isEdit ? `/web/fn/edit/${tableId}` : `/web/fn/new/${tableId}`;
             const method = isEdit ? 'PUT' : 'POST';
             if (isEdit) {
               formData.id = data.id; // Include the ID of the row if editing

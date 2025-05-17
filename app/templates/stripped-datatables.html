@@ -45,30 +45,26 @@
   <script src="https://cdn.datatables.net/select/1.6.2/js/dataTables.select.min.js"></script>
   <script>
     $(document).ready(function () {
-      var url = '{{ table.api_url | default("") | safe }}';
+      var url = '/web/fn/get/{{ table.id }}';
       var options = {{ table.datatable_options | default({}) | tojson | safe }};
       var initialData = {{ table.initial_data | default([]) | tojson | safe }};
       const dt = $('#{{ table.id }}').DataTable({
-        {% if table.api_url %}
-          serverSide: true,
-          processing: true,
-          ajax: {
-            url: url,
-            type: 'GET',
-            data: function (d) {
-              return {
-                draw: d.draw,
-                page: (d.start / d.length) + 1,
-                rows: d.length,
-                sidx: d.columns[d.order[0].column].data,
-                sord: d.order[0].dir,
-                search: d.search.value
-              };
-            }
-          },
-        {% else %}
-          data: initialData,
-        {% endif %}
+        serverSide: true,
+        processing: true,
+        ajax: {
+          url: url,
+          type: 'GET',
+          data: function (d) {
+            return {
+              draw: d.draw,
+              page: (d.start / d.length) + 1,
+              rows: d.length,
+              sidx: d.columns[d.order[0].column].data,
+              sord: d.order[0].dir,
+              search: d.search.value
+            };
+          }
+        },
         columns: [
           {% for column in table.columns %}
             { data: '{{ column.data }}' },
@@ -120,7 +116,7 @@
                       data: JSON.stringify({ id: selectedData.id }),
                       success: function (response) {
                         alert('Record deleted successfully.');
-                        this.ajax.reload();
+                        dt.ajax.reload();
                       },
                       error: function (xhr) {
                         alert('Error deleting record: ' + xhr.responseText);
@@ -134,6 +130,31 @@
             }
           }
         })
+      });
+
+      $(`#editForm-{{ table.id }}`).off('submit').on('submit', function (e) {
+        e.preventDefault();
+        const formData = $(this).serializeArray().reduce((obj, item) => {
+          obj[item.name] = item.value;
+          return obj;
+        }, {});
+        const isEdit = !!formData.id;
+        const url = isEdit ? `/web/fn/edit/{{ table.id }}` : `/web/fn/new/{{ table.id }}`;
+        const method = isEdit ? 'PUT' : 'POST';
+        $.ajax({
+          url: url,
+          type: method,
+          contentType: 'application/json',
+          data: JSON.stringify(formData),
+          success: function (response) {
+            alert(`${isEdit ? 'Record updated' : 'Record added'} successfully.`);
+            closeModal('{{ table.id }}');
+            dt.ajax.reload();
+          },
+          error: function (xhr) {
+            alert('Error saving record: ' + xhr.responseText);
+          }
+        });
       });
     });
 

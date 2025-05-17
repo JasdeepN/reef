@@ -8,7 +8,7 @@ from modules.models import Coral, Tank, Taxonomy, ColorMorphs, get_current_tank_
 from modules.tank_context import get_current_tank_id
 import os
 import datetime
-from modules.utils.helper import generate_columns
+from modules.utils.helper import generate_columns, validate_and_process_data
 
 
 @app.route("/timeline")
@@ -183,5 +183,45 @@ def get_corals_for_tank():
             "data": [],
             "error": str(e)
         })
+
+@app.route("/web/fn/new/corals", methods=["POST"])
+def new_coral_api():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "No data provided"}), 400
+        # Required fields check (customize as needed)
+        required = ["coral_name", "tank_id"]
+        missing = [f for f in required if not data.get(f)]
+        if missing:
+            return jsonify({"success": False, "error": f"Missing required fields: {', '.join(missing)}"}), 400
+        # Use validate_and_process_data if needed
+        processed = validate_and_process_data(Coral, data) if 'validate_and_process_data' in globals() else data
+        coral = Coral(**{k: v for k, v in processed.items() if hasattr(Coral, k)})
+        db.session.add(coral)
+        db.session.commit()
+        return jsonify({"success": True, "id": coral.id, "message": "Coral added successfully"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/web/fn/edit/corals", methods=["POST", "PUT"])
+def edit_coral_api():
+    try:
+        data = request.get_json()
+        if not data or not data.get("id"):
+            return jsonify({"success": False, "error": "No data or missing coral ID"}), 400
+        coral = Coral.query.get(data["id"])
+        if not coral:
+            return jsonify({"success": False, "error": "Coral not found"}), 404
+        processed = validate_and_process_data(Coral, data) if 'validate_and_process_data' in globals() else data
+        for k, v in processed.items():
+            if k != "id" and hasattr(coral, k):
+                setattr(coral, k, v)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Coral updated successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 

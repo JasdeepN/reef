@@ -32,6 +32,9 @@ async def add_test():
 @app.route("/test/db", methods=['GET'])
 def test_modify():
     tank_id = get_current_tank_id()
+    if not tank_id:
+        flash("No tank selected.", "warning")
+        return redirect(url_for('index'))
     from modules.utils.helper import get_table_columns, generate_columns
 
     test_col_names = get_table_columns(TestResults)
