@@ -5,6 +5,9 @@ import os
 from dotenv import load_dotenv
 import tzlocal  # pip install tzlocal
 
+import logging
+logging.basicConfig(level=logging.INFO)
+
 basedir = os.path.abspath(os.path.dirname(__file__))
 # Load environment variables from .flaskenv
 dotenv_path = os.path.join(os.path.dirname(__file__), '.flaskenv')

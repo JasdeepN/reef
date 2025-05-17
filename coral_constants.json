@@ -1,0 +1,137 @@
+{
+    "alkalinity": {
+        "1_dKH_to_meq_per_L": 0.357,
+        "1_meq_per_L_to_dKH": 2.8,
+        "1_dKH_to_mg_per_L_CaCO3": 17.86,
+        "1_meq_per_L_to_mg_per_L_CaCO3": 50.0,
+        "adverse_effects": "Low alkalinity can cause coral tissue loss, poor skeletal growth, and pH instability. High alkalinity can lead to precipitation of calcium carbonate and reduced calcium availability.",
+        "overdose_effects": "Excessive alkalinity can cause precipitation of calcium and magnesium, cloudy water, and scaling on equipment.",
+        "low_level_signs": "Burnt tips on SPS corals, slow coral growth, and unstable pH."
+    },
+    "calcium": {
+        "1_dKH_consumed_uses_mg_per_L_Ca": 7.14,
+        "1_meq_per_L_consumed_uses_mg_per_L_Ca": 20.0,
+        "ideal_range_mg_per_L": [380, 450],
+        "adverse_effects": "Low calcium impairs coral skeleton formation and growth. High calcium can cause precipitation of alkalinity and magnesium.",
+        "overdose_effects": "Cloudy water, precipitation of alkalinity, and possible reduction in magnesium levels.",
+        "low_level_signs": "Slow coral growth, weak skeletons, and poor coralline algae development."
+    },
+    "magnesium": {
+        "ideal_range_mg_per_L": [1250, 1350],
+        "adverse_effects": "Magnesium helps stabilize calcium and alkalinity. Low magnesium can cause calcium and alkalinity to drop rapidly. High magnesium can stress invertebrates.",
+        "overdose_effects": "Lethargy in snails and other inverts, possible negative effects on coral health if extremely high.",
+        "low_level_signs": "Difficulty maintaining calcium and alkalinity, increased precipitation, and poor coral growth."
+    },
+    "salinity": {
+        "sg_reef_range": [1.025, 1.027],
+        "ppt_reef_range": [33, 35],
+        "adverse_effects": "Low salinity stresses corals and inverts, can cause tissue loss. High salinity can dehydrate organisms and cause osmotic stress.",
+        "overdose_effects": "Dehydration of corals and inverts, increased risk of precipitation of minerals.",
+        "low_level_signs": "Shriveled corals, lethargic fish, and invertebrate deaths."
+    },
+    "nitrate": {
+        "ideal_range_mg_per_L": [1, 10],
+        "adverse_effects": "Low nitrate can starve corals and zooxanthellae, causing pale colors and poor growth. High nitrate can cause algae blooms, brown corals, and tissue loss.",
+        "overdose_effects": "Algae blooms, brown corals, tissue necrosis, and possible fish stress.",
+        "low_level_signs": "Pale corals, poor growth, reduced polyp extension."
+    },
+    "phosphate": {
+        "ideal_range_mg_per_L": [0.01, 0.1],
+        "adverse_effects": "Low phosphate can starve corals, causing pale colors and slow growth. High phosphate inhibits calcification, causes algae blooms, and browning of corals.",
+        "overdose_effects": "Algae blooms, inhibited coral growth, brown corals.",
+        "low_level_signs": "Pale corals, poor growth, weak skeletons."
+    },
+    "iron": {
+        "adverse_effects": "Low iron limits macroalgae and zooxanthellae growth. High iron can cause nuisance algae blooms and be toxic to inverts.",
+        "overdose_effects": "Algae blooms, toxicity to invertebrates at high levels.",
+        "low_level_signs": "Poor macroalgae growth, pale zooxanthellae."
+    },
+    "iodine": {
+        "adverse_effects": "Low iodine causes poor soft coral and macroalgae growth, faded colors. High iodine is toxic to inverts and can cause tissue loss.",
+        "overdose_effects": "Toxic to inverts, polyp retraction, tissue loss.",
+        "low_level_signs": "Faded soft corals, poor macroalgae growth."
+    },
+    "strontium": {
+        "adverse_effects": "Low strontium impairs skeletal growth in stony corals. High strontium can be toxic at extreme levels.",
+        "overdose_effects": "Possible toxicity to corals and inverts if extremely high.",
+        "low_level_signs": "Weak coral skeletons, slow growth."
+    },
+    "potassium": {
+        "adverse_effects": "Low potassium causes faded colors, especially in SPS corals. High potassium can cause tissue necrosis.",
+        "overdose_effects": "Tissue necrosis in corals, possible invertebrate stress.",
+        "low_level_signs": "Faded SPS colors, poor polyp extension."
+    },
+    "manganese": {
+        "adverse_effects": "Essential in trace amounts for biological processes. High levels are toxic to inverts and corals.",
+        "overdose_effects": "Toxic to inverts and corals.",
+        "low_level_signs": "Rarely deficient in aquariums."
+    },
+    "zinc": {
+        "adverse_effects": "Required in trace amounts. High levels are toxic to inverts and corals.",
+        "overdose_effects": "Toxic to inverts and corals.",
+        "low_level_signs": "Rarely deficient in aquariums."
+    },
+    "copper": {
+        "adverse_effects": "Required in trace amounts for biological processes. High levels are extremely toxic to inverts and corals.",
+        "overdose_effects": "Rapid invertebrate and coral death, fish stress.",
+        "low_level_signs": "Not typically deficient in aquariums."
+    },
+    "molybdenum": {
+        "adverse_effects": "Required in trace amounts. High levels may be toxic to inverts and corals.",
+        "overdose_effects": "Possible toxicity to inverts and corals.",
+        "low_level_signs": "Rarely deficient in aquariums."
+    },
+    "boron": {
+        "adverse_effects": "Low boron may affect coral calcification. High boron can be toxic.",
+        "overdose_effects": "Toxic at high levels.",
+        "low_level_signs": "Possible reduced calcification."
+    },
+    "fluoride": {
+        "adverse_effects": "Low fluoride may affect coral health and calcification. High fluoride is toxic.",
+        "overdose_effects": "Toxic at high levels.",
+        "low_level_signs": "Possible reduced calcification."
+    },
+    "other": {
+        "1_dKH_to_mg_per_L_HCO3": 21.8,
+        "1_dKH_to_mg_per_L_CO3": 10.7
+    },
+    "notes": "Calcium and magnesium are linked: magnesium helps keep calcium and alkalinity in solution. If magnesium is low, it is difficult to maintain stable calcium and alkalinity. Overdosing any supplement can cause imbalances and precipitation. Always adjust magnesium first if all three (Mg, Ca, Alk) are low. Monitor for signs of stress in corals and inverts when adjusting parameters.",
+    "recommended_ranges": {
+        "alkalinity": {
+            "coral_reef": [7.5, 9.5],
+            "fowlr": [7, 11],
+            "mangrove_lagoon": [7, 12],
+            "brackish": [5, 10]
+        },
+        "calcium": {
+            "coral_reef": [400, 450],
+            "fowlr": [350, 450],
+            "mangrove_lagoon": [350, 450],
+            "brackish": [200, 400]
+        },
+        "magnesium": {
+            "coral_reef": [1250, 1350],
+            "fowlr": [1200, 1350],
+            "mangrove_lagoon": [1200, 1400],
+            "brackish": [800, 1200]
+        },
+        "salinity": {
+            "coral_reef": [1.025, 1.027],
+            "fowlr": [1.020, 1.025],
+            "mangrove_lagoon": [1.018, 1.025],
+            "brackish": [1.005, 1.018]
+        },
+        "nitrate": {
+            "coral_reef": [1, 10],
+            "fowlr": [5, 40],
+            "mangrove_lagoon": [5, 50],
+            "brackish": [10, 50]
+        },
+        "phosphate": {
+            "coral_reef": [0.01, 0.1],
+            "fowlr": [0.01, 0.5],
+            "mangrove_lagoon": [0.01, 1.0],
+            "brackish": [0.01, 1.0]
+        }
+    }
+}

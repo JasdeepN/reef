@@ -30,6 +30,10 @@
     {% endif %}
   {% endwith %}
 
+  {% if tanks is not defined %}
+    {% set tanks = [] %}
+  {% endif %}
+
   <nav class="navbar navbar-expand-lg navbar-custom">
     <div class="container-fluid">
       <a class="navbar-brand" href="#">Reef DB</a>
@@ -76,6 +80,21 @@
               <li><a class="dropdown-item" href="/doser/db">View</a></li>
             </ul>
           </li>
+          </li>
+           <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              Models
+            </a>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="/models/view">View</a></li>
+              <li><a class="dropdown-item" href="/models/tuning/alkalinity">Alkalinity Model</a></li>
+              <li><a class="dropdown-item" href="/models/tuning/nitrate">Nitrate Model</a></li>
+              <li><a class="dropdown-item" href="/models/tuning/phosphate">Phosphate Model</a></li>
+              <li><a class="dropdown-item" href="/models/tuning/calcium">Calcium Model</a></li>
+              <li><a class="dropdown-item" href="/models/tuning/Magnesium">Magnesium Model</a></li>
+
+            </ul>
+          </li>
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
               X
@@ -88,7 +107,7 @@
           </li>
           <li class="nav-item">
             <a class="nav-link" href="#">Link</a>
-          </li>
+          
           <!-- <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
               Dropdown
@@ -104,10 +123,15 @@
             <a class="nav-link disabled" aria-disabled="true">Disabled</a>
           </li> -->
         </ul>
-        <!-- <form class="d-flex" role="search">
-          <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">
-          <button class="btn btn-outline-success" type="submit">Search</button>
-        </form> -->
+        <div class="d-flex align-items-center ms-auto">
+          <form id="tank-select-form" class="d-flex" method="post" action="/set_tank" style="margin-bottom:0;">
+            <select class="form-select" id="tank-select" name="tank_id" style="min-width: 180px;" onchange="this.form.submit()">
+              {% for tank in tanks %}
+                <option value="{{ tank.id }}" {% if tank.id == session.get('tank_id') or tank.id == tank_id %}selected{% endif %}>{{ tank.name }}</option>
+              {% endfor %}
+            </select>
+          </form>
+        </div>
       </div>
     </div>
   </nav>
@@ -131,7 +155,16 @@
       $(flash).parent().remove()
     }
 
-
+    // Centralized tank context change JS
+    document.addEventListener('DOMContentLoaded', function() {
+      var tankSelect = document.getElementById('tank-select');
+      if (tankSelect) {
+        tankSelect.addEventListener('change', function() {
+          // Optionally, you could add a loading spinner or disable the form here
+          this.form.submit();
+        });
+      }
+    });
   </script>
   {% endblock %}
 

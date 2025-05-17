@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block page_title %}Test Results{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Test Results for Tank: {{ tank_id }}</h2>
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Time</th>
+        <th>Alk</th>
+        <th>PO4 (ppm)</th>
+        <th>PO4 (ppb)</th>
+        <th>NO3 (ppm)</th>
+        <th>Ca</th>
+        <th>Mg</th>
+        <th>SG</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in tests %}
+      <tr>
+        <td>{{ t.test_date }}</td>
+        <td>{{ t.test_time }}</td>
+        <td>{{ t.alk }}</td>
+        <td>{{ t.po4_ppm }}</td>
+        <td>{{ t.po4_ppb }}</td>
+        <td>{{ t.no3_ppm }}</td>
+        <td>{{ t.cal }}</td>
+        <td>{{ t.mg }}</td>
+        <td>{{ t.sg }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if tests|length == 0 %}
+    <div class="alert alert-info">No test results for this tank.</div>
+  {% endif %}
+</div>
+{% endblock %}

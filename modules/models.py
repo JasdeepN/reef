@@ -14,6 +14,9 @@ from modules.forms import *
 
 from flask_sqlalchemy import SQLAlchemy
 
+import numpy as np
+from datetime import datetime
+from flask import session
 
 class TestResults(db.Model):
     __tablename__ = 'test_results'
@@ -27,6 +30,10 @@ class TestResults(db.Model):
     cal = db.Column(db.Integer)
     mg = db.Column(db.Float)
     sg = db.Column(db.Float)
+    tank_id = db.Column(db.Integer, db.ForeignKey('tanks.id'), nullable=False, index=True)
+    
+    # Relationships
+    tank = db.relationship('Tank', backref=db.backref('test_results', lazy=True))
 
     def __getattribute__(self, name):
         return super().__getattribute__(name)
@@ -43,6 +50,7 @@ class TestResults(db.Model):
             "cal": self.cal,
             "mg": self.mg,
             "sg": self.sg,
+            "tank_id": self.tank_id,
         }
     
 
@@ -56,32 +64,40 @@ class test_result_form(FlaskForm):
     cal = IntegerField("Calcium (Ca\u00b2\u207a PPM)", [Optional()])
     mg = IntegerField("Magneisum (Mg\u00b2\u207a PPM)", [Optional()])
     sg = DecimalField("Specific Gravity (SG)", [Optional()])
+    tank_id = IntegerField("Tank", validators=[DataRequired()])
     submit = SubmitField()
 
     # Custom validate method
     def validate(self, extra_validators=None):
-        if super().validate(extra_validators):
-            valid = False
-            for k in self.data:
-                if k not in ['test_date', 'test_time', 'csrf_token', 'submit'] and self.data[k] is not None:
+        print('start')
+        if not super().validate(extra_validators):
+            return False
+        print('validating')
+        valid = False
+        for k, v in self.data.items():
+            if k not in ['test_date', 'test_time', 'csrf_token', 'submit']:
+                if v not in (None, '', [], {}):
                     valid = True
-            return valid
-        return False
-
+        if hasattr(self, 'tank_id') and (self.tank_id.data in (None, '', 0)):
+            print('tank_id missing or invalid')
+            return False
+        return valid
+                
 
 class Products(db.Model):
     __tablename__ = 'products'
 
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String(30))
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(128), nullable=False)
+    uses = db.Column(db.String(32), nullable=True)  # e.g. '+Alk', '-NO3', etc.
     total_volume = db.Column(db.Float)
     current_avail = db.Column(db.Float)
-    used_amt = db.Column(db.Float)  # This is a generated column in MySQL, not directly supported in SQLAlchemy
+    # used_amt = db.Column(db.Float)  # This is a generated column in MySQL, not directly supported in SQLAlchemy
     dry_refill = db.Column(db.Float)
     last_update = db.Column(db.TIMESTAMP, server_default=None, onupdate=db.func.current_timestamp())
 
     def __repr__(self):
-        return f"<Product {self.name}>"
+        return f"<Products id={self.id} name={self.name} uses={self.uses}>"
 
     def validate(self):
         """Raise ValueError if any field is invalid."""
@@ -135,21 +151,19 @@ class Dosing(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     trigger_time = db.Column(db.DateTime(3))
     amount = db.Column(db.Float, nullable=False)
-    prod_id = db.Column(db.Integer, db.ForeignKey('products.id'))
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'))
     sched_id = db.Column(db.Integer, db.ForeignKey('d_schedule.id'), nullable=True)
     product = db.relationship('Products', backref=db.backref('dosings', lazy=True))
     schedule = db.relationship('DSchedule', backref=db.backref('dosings', lazy=True))
 
-
-
     def validate(self):
         if self.amount is not None and self.amount < 0:
             raise ValueError("Amount must be non-negative")
-        if self.prod_id is None:
+        if self.product_id is None:
             raise ValueError("Product must be selected")
         if self.amount is None:
             raise ValueError("Amount must be specified")
-        if self._type is None:
+        if hasattr(self, '_type') and self._type is None:
             raise ValueError("Dosing type must be specified")
         if self.trigger_time is None:
             raise ValueError("Dosing time must be specified")
@@ -163,15 +177,15 @@ class DSchedule(db.Model):
     suspended = db.Column(db.Boolean, default=False)
     last_refill = db.Column(db.DateTime, default=None)
     amount = db.Column(db.Float, nullable=False)
-    tanks_id = db.Column(db.Integer, db.ForeignKey('tanks.id'), nullable=False, index=True)
-    products_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
+    tank_id = db.Column(db.Integer, db.ForeignKey('tanks.id'), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
 
     # Relationships
     tank = db.relationship('Tank', backref=db.backref('schedules', lazy=True))
     product = db.relationship('Products', backref=db.backref('schedules', lazy=True))
 
     def __repr__(self):
-        return f"<DSchedule {self.id} (Tank {self.tanks_id}, Product {self.products_id})>"
+        return f"<DSchedule {self.id} (Tank {self.tank_id}, Product {self.product_id})>"
 
 def get_d_schedule_dict(d_schedule):
     """Helper to serialize DSchedule model to dict."""
@@ -192,6 +206,7 @@ class Coral(db.Model):
     date_acquired = db.Column(db.Date, nullable=False, index=True)
     par = db.Column(db.Integer)
     flow = db.Column(db.Enum('Low', 'Medium', 'High'))
+    placement = db.Column(db.Enum('Top', 'Middle', 'Bottom'))
     current_size = db.Column(db.String(64))
     health_status = db.Column(db.Enum(
         'Healthy', 'Recovering', 'New', 'Stressed', 'Dying', 'Dead', 'Other'
@@ -297,6 +312,101 @@ class TaxonomyForm(FlaskForm):
     family = StringField("Family", validators=[DataRequired(), Length(max=128)])
     picture_uri = StringField("Picture URI", validators=[Optional(), Length(max=255)])
     submit = SubmitField("Submit")
+
+class AlkalinityDoseModel(db.Model):
+    __tablename__ = 'alkalinity_dose_model'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    tank_id = db.Column(db.Integer, db.ForeignKey('tanks.id', ondelete='CASCADE'), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='SET NULL'), nullable=True, index=True)
+    slope = db.Column(db.Float, nullable=False)
+    intercept = db.Column(db.Float, nullable=False)
+    weight_decay = db.Column(db.Float, default=0.9)
+    last_trained = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    r2_score = db.Column(db.Float)
+    notes = db.Column(db.Text)
+
+    # Relationships
+    tank = db.relationship('Tank', backref=db.backref('alkalinity_dose_models', lazy=True, cascade='all, delete-orphan'))
+    product = db.relationship('Products', backref=db.backref('alkalinity_dose_models', lazy=True))
+
+    def __repr__(self):
+        return f"<AlkalinityDoseModel id={self.id} tank_id={self.tank_id} product_id={self.product_id}>"
+
+# --- AlkalinityDoseModel helpers ---
+
+def initialize_alkalinity_model(tank_id, product_id, slope=1.0, intercept=0.0, weight_decay=0.9, r2_score=None, notes=None):
+    """Create a new AlkalinityDoseModel entry with initial/default parameters."""
+    model = AlkalinityDoseModel(
+        tank_id=tank_id,
+        product_id=product_id,
+        slope=slope,
+        intercept=intercept,
+        weight_decay=weight_decay,
+        last_trained=datetime.utcnow(),
+        r2_score=r2_score,
+        notes=notes or "Initialized with default parameters."
+    )
+    db.session.add(model)
+    db.session.commit()
+    return model
+
+def get_alkalinity_model(tank_id, product_id):
+    """Fetch the most recent AlkalinityDoseModel for a tank and product."""
+    return AlkalinityDoseModel.query.filter_by(tank_id=tank_id, product_id=product_id).order_by(AlkalinityDoseModel.last_trained.desc()).first()
+
+def should_update_alkalinity_model(tank_id, product_id, retrain_interval_days=7):
+    """Return True if the model should be retrained (e.g., if last_trained is too old)."""
+    model = get_alkalinity_model(tank_id, product_id)
+    if not model:
+        return True
+    if (datetime.utcnow() - model.last_trained).days >= retrain_interval_days:
+        return True
+    return False
+
+def update_alkalinity_model(tank_id, product_id, dose_history, alk_history, weight_decay=0.9, notes=None):
+    """
+    Fit a weighted linear regression to dose_history and alk_history, update the model in DB.
+    dose_history: list/array of dose amounts (x)
+    alk_history: list/array of resulting alk values (y)
+    """
+    if len(dose_history) != len(alk_history) or len(dose_history) < 2:
+        raise ValueError("Need at least 2 matching dose and alk values.")
+    # Exponential weights: most recent = highest weight
+    weights = np.array([weight_decay ** (len(dose_history) - i - 1) for i in range(len(dose_history))])
+    X = np.array(dose_history).reshape(-1, 1)
+    y = np.array(alk_history)
+    # Weighted linear regression
+    from sklearn.linear_model import LinearRegression
+    model = LinearRegression()
+    model.fit(X, y, sample_weight=weights)
+    slope = float(model.coef_[0])
+    intercept = float(model.intercept_)
+    r2 = float(model.score(X, y, sample_weight=weights))
+    # Update or create model
+    alk_model = get_alkalinity_model(tank_id, product_id)
+    if not alk_model:
+        alk_model = initialize_alkalinity_model(tank_id, product_id, slope, intercept, weight_decay, r2, notes)
+    else:
+        alk_model.slope = slope
+        alk_model.intercept = intercept
+        alk_model.weight_decay = weight_decay
+        alk_model.last_trained = datetime.utcnow()
+        alk_model.r2_score = r2
+        alk_model.notes = notes or "Model updated."
+        db.session.commit()
+    return alk_model
+
+def predict_alkalinity_dose(tank_id, product_id, target_alk):
+    """Given a target alkalinity, return the required dose using the latest model."""
+    model = get_alkalinity_model(tank_id, product_id)
+    if not model or model.slope == 0:
+        raise ValueError("No valid model found or slope is zero.")
+    dose = (target_alk - model.intercept) / model.slope
+    return dose
+
+def get_current_tank_id():
+    return session.get('tank_id')
 
 
 

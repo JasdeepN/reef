@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Jasdeep Nijjar
 # All rights reserved.
 # Commercial use, copying, or redistribution of this software or any substantial portion of it is strictly prohibited without the express written permission of the copyright holder. For commercial licensing, please contact jasdeepn4@gmail.com.
-from flask import Flask
+from flask import Flask, session
 from flask_bootstrap import Bootstrap5
 import os
 from flask_sqlalchemy import SQLAlchemy
@@ -55,9 +55,21 @@ x_metrics.counter('api_requests_total', 'Total requests to the /api endpoint')
 x_metrics.counter('home_requests_total', 'Total requests to the / endpoint')
 x_metrics.counter('metrics_requests_total', 'Total requests to the /metrics endpoint')
 x_metrics.counter('test_results_requests_total', 'Total requests to the /test_results endpoint')
+
 # Import and register routes
 from app.routes.api import api_bp
+from app.routes.web import web_fn
 app.register_blueprint(api_bp)
-from app.routes import corals, home, metrics, test, doser
-
+app.register_blueprint(web_fn)
+from app.routes import corals, home, metrics, test, doser, models
 import modules
+
+# Move context processor registration here to avoid circular import
+from modules.models import Tank
+from modules.tank_context import get_current_tank_id
+
+@app.context_processor
+def inject_tank_context():
+    tanks = Tank.query.all()
+    tank_id = get_current_tank_id()
+    return dict(tanks=tanks, tank_id=tank_id)

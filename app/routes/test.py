@@ -1,17 +1,23 @@
-from flask import render_template, request, redirect, flash
+from flask import render_template, request, redirect, flash, url_for
 from sqlalchemy import desc
 from app import app
-from modules.models import TestResults, test_result_form
+from modules.models import TestResults, test_result_form, Tank
 from modules.db_functions import insert_test_row
+from modules.tank_context import get_current_tank_id
 
 
 @app.route("/test")
-def run_test():
-    result = TestResults.query.order_by(desc(TestResults.id))
-    return render_template("test/test_page.html", db_response=result)
+def test_results():
+    tank_id = get_current_tank_id()
+    if not tank_id:
+        flash("No tank selected.", "warning")
+        return redirect(url_for('index'))
+    tests = TestResults.query.filter_by(tank_id=tank_id).order_by(TestResults.test_date.desc(), TestResults.test_time.desc()).all()
+    return render_template("test/results.html", tests=tests)
 
 @app.route("/test/add", methods=['GET', 'POST'])
 async def add_test():
+    tank_id = get_current_tank_id()
     form = test_result_form()
     if form.validate_on_submit():
         result = await insert_test_row(TestResults, form)
@@ -23,15 +29,10 @@ async def add_test():
         flash("form error, no data added", "error")
         return redirect('/test/add')
 
-# @app.route("/test/modify", methods=['GET', 'POST'])
-# def test_modify():
-#     grid = TestResults.query.order_by(desc(TestResults.id))
-#     return render_template('test/modify_test.html', grid=grid)
-
-
 @app.route("/test/db", methods=['GET'])
 def test_modify():
-    from modules.utils import get_table_columns, generate_columns
+    tank_id = get_current_tank_id()
+    from modules.utils.helper import get_table_columns, generate_columns
 
     test_col_names = get_table_columns(TestResults)
     test_cols = generate_columns(test_col_names)
@@ -39,7 +40,7 @@ def test_modify():
     tables = [
         {
             "id": "test_results",
-            "api_url": "/api/get/test_results",
+            "api_url": "/web/fn/get/test_results",
             "title": "Test Results",
             "columns": test_cols,
             "datatable_options": {

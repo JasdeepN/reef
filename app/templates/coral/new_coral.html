@@ -21,15 +21,14 @@
                                 <label class="form-label" for="tank_id">
                                     {{ form.tank_id.label }}<span class="text-danger">*</span>
                                 </label>
-                                <select id="tank_id" name="tank_id" class="form-select" required
-                                    {% if tanks|length == 1 %} data-single-tank="{{ tanks[0].id }}" {% endif %}>
-                                    <option value="">Select...</option>
-                                    {% for tank in tanks %}
-                                        <option value="{{ tank.id }}"
-                                            {% if tanks|length == 1 and tank.id == tanks[0].id %}selected{% endif %}>
-                                            {{ tank.name }}
-                                        </option>
-                                    {% endfor %}
+                                <select id="tank_id" name="tank_id" class="form-select" required style="pointer-events: none; background: #e9ecef;">
+                                    {% if tanks|length == 1 %}
+                                        <option value="{{ tanks[0].id }}" selected>{{ tanks[0].name }}</option>
+                                    {% else %}
+                                        {% for tank in tanks %}
+                                            <option value="{{ tank.id }}" {% if tank.id == tank_id %}selected{% endif %}>{{ tank.name }}</option>
+                                        {% endfor %}
+                                    {% endif %}
                                 </select>
                             </div>
                             

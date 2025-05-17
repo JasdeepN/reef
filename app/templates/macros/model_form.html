@@ -1,0 +1,83 @@
+{% macro model_form(form, action='#', method='post', model_type=None) %}
+<form action="{{ action|replace('/api/', '/web/fn/') }}" method="{{ method }}">
+    {{ form.hidden_tag() }}
+    {% for field in form if field.type != 'SubmitField' and field.name != 'csrf_token' %}
+        <div class="mb-3">
+            {% if field.name == 'tank_id' %}
+                <label class="form-label" for="{{ field.id }}">{{ field.label }}</label>
+                <select id="tank_id" name="tank_id" class="form-control"></select>
+                <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    fetch('/web/fn/get/raw/tanks')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (!Array.isArray(data) && data.data && Array.isArray(data.data)) {
+                                data = data.data;
+                            }
+                            const select = document.getElementById('tank_id');
+                            select.innerHTML = '';
+                            data.forEach(tank => {
+                                const option = document.createElement('option');
+                                option.value = tank.id;
+                                option.textContent = tank.name || `Tank ${tank.id}`;
+                                select.appendChild(option);
+                            });
+                        });
+                });
+                </script>
+            {% elif field.name == 'product_id' and model_type %}
+                <label class="form-label" for="{{ field.id }}">{{ field.label }}</label>
+                <select id="product_id" name="product_id" class="form-control" data-model-type="{{ model_type }}"></select>
+                <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    var modelType = document.getElementById('product_id').getAttribute('data-model-type');
+                    fetch('/web/fn/get/products')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (!Array.isArray(data) && data.data && Array.isArray(data.data)) {
+                                data = data.data;
+                            }
+                            const select = document.getElementById('product_id');
+                            select.innerHTML = '';
+                            let filter = '';
+                            if (modelType === 'Alkalinity') filter = 'Alk';
+                            if (modelType === 'Nitrate') filter = 'NO3';
+                            if (modelType === 'Phosphate') filter = 'PO4';
+                            if (modelType === 'Calcium') filter = 'Ca';
+                            if (modelType === 'Magnesium') filter = 'Mg';
+                            data.filter(product => product.uses && product.uses.toLowerCase().includes(filter.toLowerCase())).forEach(product => {
+                                const option = document.createElement('option');
+                                option.value = product.id;
+                                option.textContent = product.name + (product.uses ? ` (${product.uses})` : '');
+                                select.appendChild(option);
+                            });
+                        });
+                });
+                </script>
+            {% elif field.name == 'test_time' %}
+                <label class="form-label" for="{{ field.id }}">{{ field.label }}</label>
+                <input type="datetime-local" id="{{ field.id }}" name="test_time" class="form-control" />
+                <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    var dt = new Date();
+                    var pad = n => n < 10 ? '0' + n : n;
+                    var local = dt.getFullYear() + '-' + pad(dt.getMonth()+1) + '-' + pad(dt.getDate()) + 'T' + pad(dt.getHours()) + ':' + pad(dt.getMinutes());
+                    document.getElementById('{{ field.id }}').value = local;
+                });
+                </script>
+            {% else %}
+                <label class="form-label" for="{{ field.id }}">{{ field.label }}</label>
+                {{ field(class="form-control") }}
+            {% endif %}
+            {% if field.errors %}
+                <div class="invalid-feedback" style="display:block">
+                {% for error in field.errors %}
+                    {{ error }}<br>
+                {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">Submit</button>
+</form>
+{% endmacro %}

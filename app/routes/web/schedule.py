@@ -2,13 +2,13 @@ from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request, current_app
 from app import db
 from modules.models import DSchedule, Products, Dosing
-from modules.utils import datatables_response
+from modules.utils.helper import datatables_response
 from sqlalchemy import text
 import pytz
 
-bp = Blueprint('schedule_api', __name__)
+bp = Blueprint('schedule_api', __name__, url_prefix='/schedule')
 
-@bp.route('/get/schedule', methods=['GET'])
+@bp.route('/view', methods=['GET'])
 def get_sched():
     params = {
         'search': request.args.get('search', ''),
@@ -67,7 +67,7 @@ def get_sched():
 #     return ({'success': True, 'added': new_dosing.id}), 201
 
 
-@bp.route('/scheduler/delete/<int:id>', methods=['DELETE'])
+@bp.route('/delete/<int:id>', methods=['DELETE'])
 def delete_schedule_entry(id):
     schedule = DSchedule.query.get(id)
     if not schedule:
@@ -81,7 +81,7 @@ def delete_schedule_entry(id):
     db.session.commit()
     return jsonify({'success': True, 'deleted_id': id}), 200
 
-@bp.route('/scheduler/get/<int:schedule_id>', methods=['GET'])
+@bp.route('/get/<int:schedule_id>', methods=['GET'])
 def get_doses_for_schedule(schedule_id):
     doses = Dosing.query.filter_by(sched_id=schedule_id).all()
     result = [

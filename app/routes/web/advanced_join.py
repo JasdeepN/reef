@@ -11,7 +11,7 @@ bp = Blueprint('advanced_join_api', __name__)
 def api_advanced_join():
     """
     Example usage:
-    /api/get/advanced_join?tables=products,dosing
+    /web/fn/get/advanced_join?tables=products,dosing
         &join_type=inner
         &conditions=%5B%5B%22products.id%22%2C%22dosing.prod_id%22%5D%5D
         &filters=%5B%5B%22products.name%22%2C%22like%22%2C%22Neo%25%22%5D%5D

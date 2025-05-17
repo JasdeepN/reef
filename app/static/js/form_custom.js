@@ -60,36 +60,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         setTimeout(update, 0);
     }
-
-    // Populate tank dropdown
-    fetch('/api/get/raw/tanks')
-        .then(response => response.json())
-        .then(data => {
-            const tankSelect = document.getElementById('tank_id');
-            if (!tankSelect) return;
-            // Use the correct array from the API response
-            const tanks = data.data || [];
-            tankSelect.options.length = 1;
-            if (Array.isArray(tanks) && tanks.length > 0) {
-                tanks.forEach(tank => {
-                    const opt = document.createElement('option');
-                    opt.value = tank.id;
-                    opt.textContent = tank.name;
-                    tankSelect.appendChild(opt);
-                });
-                if (tanks.length === 1) {
-                    tankSelect.value = tanks[0].id;
-                    // tankSelect.disabled = true;
-                }
-            }
-        });
-
-    // Auto-select tank if only one option
-    const tankSelect = document.getElementById('tank_id');
-    if (tankSelect && tankSelect.dataset.singleTank) {
-        tankSelect.value = tankSelect.dataset.singleTank;
-        // Do NOT disable the select, so it gets submitted!
-    }
+ 
 
     // Populate test results dropdown as before
     fetch('/api/tests/get/latest')

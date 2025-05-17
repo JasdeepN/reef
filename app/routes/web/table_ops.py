@@ -8,7 +8,7 @@ from modules.utils.table_map import TABLE_MAP
 import enum
 from datetime import date, time
 
-bp = Blueprint('table_ops_api', __name__)
+bp = Blueprint('table_ops_api', __name__, url_prefix='/tables')
 
 @bp.route('/get/<table_name>', methods=['GET'])
 def get_table_data(table_name):

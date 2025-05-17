@@ -114,7 +114,7 @@
                 if (selectedData) {
                   if (confirm('Are you sure you want to delete this record?')) {
                     $.ajax({
-                      url: `/api/delete/{{ table.id }}`,
+                      url: `/web/fn/delete/{{ table.id }}`,
                       type: 'DELETE',
                       contentType: 'application/json',
                       data: JSON.stringify({ id: selectedData.id }),

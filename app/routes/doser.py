@@ -1,15 +1,26 @@
 from datetime import timedelta
 import urllib.parse
-from flask import jsonify, render_template, request, redirect, url_for
+from flask import jsonify, render_template, request, redirect, url_for, session, flash
 from app import app
 from modules.models import *  # Import your models
-from modules.utils import *
+from modules.utils.helper import *
+from modules.models import get_current_tank_id
+from modules.tank_context import get_current_tank_id
 # import db
 import enum
 from flask_wtf import FlaskForm
 from wtforms import StringField, IntegerField, SubmitField
 from wtforms.validators import DataRequired
 
+
+@app.route("/doser")
+def doser_main():
+    tank_id = get_current_tank_id()
+    if not tank_id:
+        flash("No tank selected.", "warning")
+        return redirect(url_for('index'))
+    schedules = DSchedule.query.filter_by(tank_id=tank_id).all()
+    return render_template("doser/main.html", schedules=schedules)
 
 @app.route("/doser", methods=["GET"])
 def doser_joined():
@@ -21,10 +32,14 @@ def doser_joined():
 @app.route("/doser/db", methods=['GET'])
 def db_doser():
     from sqlalchemy import text
+    tank_id = get_current_tank_id()
     sql = """
-        select * from d_schedule join products on d_schedule.prod_id=products.id;
+        SELECT dosing.*, d_schedule.id AS schedule_id
+        FROM dosing
+        JOIN d_schedule ON dosing.schedule_id = d_schedule.id
+        WHERE d_schedule.tank_id = :tank_id;
     """
-    result = db.session.execute(text(sql)).mappings()
+    result = db.session.execute(text(sql), {'tank_id': tank_id}).mappings()
     rows = []
     for row in result:
         row_dict = dict(row)
@@ -62,12 +77,19 @@ def db_doser():
 
 @app.route("/doser/modify", methods=["GET", "POST"])
 def modify_doser():
-    # Define columns for d_schedule table
-    cols = ['id', 'prod_id',  'trigger_interval', 'suspended', 'last_refill']
+    tank_id = get_current_tank_id()
+    # Define columns for d_schedule table using the actual model fields
+    cols = ['id', 'tank_id', 'products_id', 'trigger_interval', 'suspended', 'last_refill', 'amount']
     columns = generate_columns(cols)
+    # Only show schedules for the current tank context
+    schedules = DSchedule.query.filter_by(tank_id=tank_id).all()
+    # Convert schedules to dicts for JSON serialization (if needed by frontend)
+    schedules_dicts = [s.__dict__.copy() for s in schedules]
+    for s in schedules_dicts:
+        s.pop('_sa_instance_state', None)
     d_schedule_table = {
         "id": "d_schedule",
-        "api_url": "/api/get/d_schedule",
+        "api_url": "/web/fn/get/d_schedule",
         "title": "Edit Dosing Schedules",
         "columns": columns,
         "datatable_options": {
@@ -79,6 +101,7 @@ def modify_doser():
             "serverSide": True,
             "processing": True,
         },
+        "initial_data": schedules_dicts,
     }
     form = CombinedDosingScheduleForm()
     return render_template(
@@ -91,12 +114,12 @@ def modify_doser():
 
 @app.route("/doser/schedule", methods=["GET", "POST"])
 def run_schedule():
-
+    tank_id = get_current_tank_id()
     urls = {
-        "GET": "/api/get/schedule_stats",
-        "DELETE": "/api/delete/d_schedule",
-        "POST": "/api/new/d_schedule",
-        "PUT": "/api/edit/d_schedule"
+        "GET": "/web/fn/get/schedule_stats",
+        "DELETE": "/web/fn/delete/d_schedule",
+        "POST": "/web/fn/new/d_schedule",
+        "PUT": "/web/fn/edit/d_schedule"
     }
     return render_template("doser/schedule.html", title="Schedule", api_urls=urls)
     
@@ -118,7 +141,7 @@ def doser_submit():
         from app import app as flask_app
         with flask_app.test_request_context():
             with flask_app.test_client() as client:
-                resp = client.post("/api/new/products", json=product_data)
+                resp = client.post("/web/fn/new/products", json=product_data)
                 prod_resp = resp.get_json()
                 if not prod_resp or not prod_resp.get("success") or not prod_resp.get("id"):
                     return jsonify({"success": False, "error": "Failed to create new product"}), 400
@@ -152,7 +175,7 @@ def doser_submit():
                     "suspended": data.get("suspended", False),
                 }
                 
-                sched_resp = client.post("/api/new/d_schedule", json=schedule_data)
+                sched_resp = client.post("/web/fn/new/d_schedule", json=schedule_data)
                 return sched_resp.get_data(), sched_resp.status_code, sched_resp.headers.items()
             elif form_type in ("single", "intermittent"):
                 required_fields = ["amount", "prod_id", "_time"]
@@ -162,7 +185,7 @@ def doser_submit():
                         "success": False,
                         "error": f"Missing required fields for {form_type}: {', '.join(missing)}"
                     }), 400
-                api_url = "/api/new/dosing"
+                api_url = "/web/fn/new/dosing"
                 resp = client.post(api_url, json={k: data[k] for k in ["amount", "prod_id", "_time"]})
                 return resp.get_data(), resp.status_code, resp.headers.items()
             else:
@@ -171,10 +194,11 @@ def doser_submit():
 
 @app.route("/doser/products", methods=["GET"])
 def get_products():
+    tank_id = get_current_tank_id()
     urls = {
-        "GET": "/api/get/product_stats",
-        "DELETE": "/api/delete/products",
-        "POST": "/api/new/products",
-        "PUT": "/api/edit/products"
+        "GET": "/web/fn/get/product_stats",
+        "DELETE": "/web/fn/delete/products",
+        "POST": "/web/fn/new/products",
+        "PUT": "/web/fn/edit/products"
     }
-    return render_template("doser/products.html", title="Products", api_urls=urls)
+    return render_template("doser/products.html", title="Products", api_urls=urls, tank_id=tank_id)
