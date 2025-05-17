@@ -112,7 +112,11 @@ def edit_table(table_name):
         row = table_model.query.get(input_data["id"])
         if not row:
             return jsonify({"error": f"Record with ID {input_data['id']} not found in '{table_name}'."}), 404
-        data = modules.utils.validate_and_process_data(table_model, input_data)
+        data = validate_and_process_data(table_model, input_data)
+        # Fix for legacy/prod_id -> product_id mapping
+        if table_name == 'corals':
+            if 'prod_id' in data:
+                data['product_id'] = data.pop('prod_id')
         for key, value in data.items():
             if key != "id" and hasattr(row, key):
                 setattr(row, key, value)
@@ -132,7 +136,19 @@ def add_new_record(table_name):
     data = request.get_json()
     print('insert into model', table, data)
 
-    data = modules.utils.validate_and_process_data(table, data)
+    data = validate_and_process_data(table, data)
+    # Fix for legacy/prod_id -> product_id mapping
+    if table_name == 'corals':
+        if 'prod_id' in data:
+            data['product_id'] = data.pop('prod_id')
+    # Ensure tank_id is set from request data if present and valid, else from context
+    if hasattr(table, 'tank_id') or 'tank_id' in table.__table__.columns:
+        tank_id = data.get('tank_id')
+        if not tank_id:
+            tank_id = get_current_tank_id()
+        if not tank_id:
+            return jsonify({'error': 'No tank selected. Please select a tank before adding records.'}), 400
+        data['tank_id'] = tank_id  # set only if not already present
     # If the cleaned data only has a product id, throw a form error
     if list(data.keys()) == ["prod_id"]:
         return jsonify({'error': 'Form data missing: only product id provided.'}), 400

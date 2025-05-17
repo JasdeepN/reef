@@ -53,7 +53,7 @@ def process_test_data(input):
 
 def process_dosing_data(input):
     output = {}
-    allowed = {'_time', 'amount', 'id', 'prod_id'}
+    allowed = {'_time', 'amount', 'id', 'product_id'}
     for key, value in input.items():
         if key not in allowed:
             continue
@@ -65,7 +65,7 @@ def process_dosing_data(input):
                 output[key] = float(value)
             except Exception:
                 output[key] = None
-        elif key in ['prod_id', 'id']:
+        elif key in ['product_id', 'id']:
             try:
                 output[key] = int(value)
             except Exception:
@@ -118,7 +118,7 @@ def process_product_data(input):
 
 def process_schedule_data(input):
     output = {}
-    allowed = {'prod_id', 'amount', 'last_trigger', 'trigger_interval', 'suspended', 'last_refill'}
+    allowed = {'product_id', 'amount', 'last_trigger', 'trigger_interval', 'suspended', 'last_refill', 'tank_id'}
     for key, value in input.items():
         print(f"Key: {key}, Value: {value}")
         if key not in allowed:
@@ -136,7 +136,7 @@ def process_schedule_data(input):
                 output[key] = int(value)
             except Exception:
                 output[key] = None
-        elif key == 'prod_id':
+        elif key == 'product_id':
             try:
                 output[key] = int(value)
             except Exception:
@@ -151,6 +151,11 @@ def process_schedule_data(input):
                 output[key] = None
         elif key == 'suspended':
             output[key] = bool(value) if isinstance(value, bool) else value in ['1', 'true', 'True', 'yes', 'on']
+        elif key == 'tank_id':
+            try:
+                output[key] = int(value)
+            except Exception:
+                output[key] = None
         else:
             output[key] = value
     return output
