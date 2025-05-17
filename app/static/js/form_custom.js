@@ -63,12 +63,13 @@ document.addEventListener('DOMContentLoaded', function() {
  
 
     // Populate test results dropdown as before
-    fetch('/api/tests/get/latest')
+    fetch('/web/fn/tests/tank/get/latest')
         .then(response => response.json())
         .then(data => {
+
             const currentLabel = document.getElementById('test_id_current_label');
-            if (data && data.result) {
-                const test = data.result;
+            if (data && data.results) {
+                const test = data.results;
                 let label = test.test_date && test.test_time
                     ? `${test.test_date} ${test.test_time}`
                     : 'Test #' + test.id;
@@ -87,7 +88,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let allGenus = [];
 
     // Fetch all genus with type info
-    fetch('/api/taxonomy/genus/all')
+    fetch('/web/fn/taxonomy/genus/all')
         .then(response => response.json())
         .then(data => {
             allGenus = Array.isArray(data) ? data : [];
@@ -96,7 +97,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
     // Populate vendors dropdown without removing the "None" option
-    fetch('/api/get/raw/vendors')
+    fetch('/web/fn/ops/get/raw/vendors')
         .then(response => response.json())
         .then(data => {
             const vendorsSelect = document.getElementById('vendors_id');
@@ -212,10 +213,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Combined request for both species and color morphs
   
-            fetch(`/api/taxonomy/genus/details/${encodeURIComponent(genus)}`)
+            fetch(`/web/fn/taxonomy/genus/details/${encodeURIComponent(genus)}`)
                 .then(response => response.json())
                 .then(data => {
-                    console.log('Genus details:', data);
+                    // console.log('Genus details:', data);
                     // Save all species and color morphs for later filtering
                     allSpecies = Array.isArray(data.species) ? data.species : [];
                     allColorMorphs = Array.isArray(data.color_morphs) ? data.color_morphs : [];

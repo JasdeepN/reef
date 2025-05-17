@@ -5,3 +5,7 @@ def get_current_tank_id():
     return session.get('tank_id')
 
 # Future: Add more tank context utilities here (e.g., set_tank_id, require_tank_context, etc.)
+def get_current_tank_id():
+    return session.get('tank_id')
+
+

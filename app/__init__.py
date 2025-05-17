@@ -25,15 +25,15 @@ UPLOAD_FOLDER = 'static/temp'
 
 bootstrap = Bootstrap5(app)
 
-engine_string = "mysql+pymysql://{0}:{1}@{2}:{3}/{4}".format(
-    os.getenv("DB_USER"), os.getenv("DB_PASS"), os.getenv("DB_HOST_ADDRESS"), os.getenv("DB_HOST_PORT"), os.getenv("DB_NAME")
-)
+# engine_string = "mysql+pymysql://{0}:{1}@{2}:{3}/{4}".format(
+#     os.getenv("DB_USER"), os.getenv("DB_PASS"), os.getenv("DB_HOST_ADDRESS"), os.getenv("DB_HOST_PORT"), os.getenv("DB_NAME")
+# )
 
-app.config['SQLALCHEMY_DATABASE_URI'] = engine_string
+app.config['SQLALCHEMY_DATABASE_URI'] = Config.ENGINE_STRING
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-app.config['DB_ENGINE'] = create_engine(engine_string)
+app.config['DB_ENGINE'] = create_engine(Config.ENGINE_STRING)
 app.config["SESSION_COOKIE_NAME"] = "session"
 app.config.from_object(Config)
 

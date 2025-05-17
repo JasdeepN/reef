@@ -1,9 +1,16 @@
-{% extends 'datatables-template.html' %}
+{% extends 'dt-base.html' %}
 
 {% block page_title %} {{ super() }} {% endblock %}
 
 {% block styles %}
   {{ super() }}
+{% endblock %}
+
+
+{% block content %}
+
+  {{ generate(table) }}
+
 {% endblock %}
 
 {% block page_scripts %}

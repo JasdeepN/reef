@@ -64,7 +64,7 @@
           current_avail: document.getElementById('current_avail').value,
           dry_refill: document.getElementById('dry_refill').value
         };
-        fetch('/api/new/products', {
+        fetch('/web/fn/ops/new/products', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)

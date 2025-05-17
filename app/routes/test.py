@@ -1,7 +1,8 @@
 from flask import render_template, request, redirect, flash, url_for
 from sqlalchemy import desc
 from app import app
-from modules.models import TestResults, test_result_form, Tank
+from modules.models import Tank, TestResults
+from modules.forms import test_result_form
 from modules.db_functions import insert_test_row
 from modules.tank_context import get_current_tank_id
 
@@ -17,12 +18,11 @@ def test_results():
 
 @app.route("/test/add", methods=['GET', 'POST'])
 async def add_test():
-    tank_id = get_current_tank_id()
     form = test_result_form()
     if form.validate_on_submit():
-        result = await insert_test_row(TestResults, form)
+        result = await insert_test_row(TestResults, form, get_current_tank_id())
         assert result != False, "error inserting"
-        return redirect('/test')
+        return redirect('/test/db')
     elif request.method == 'GET':
         return render_template("test/add_test.html", form=form)
     else:
@@ -43,7 +43,7 @@ def test_modify():
     tables = [
         {
             "id": "test_results",
-            "api_url": "/web/fn/get/test_results",
+            "api_url": "/web/fn/ops/get/test_results",
             "title": "Test Results",
             "columns": test_cols,
             "datatable_options": {
@@ -57,3 +57,4 @@ def test_modify():
         }
     ]
     return render_template('test/modify_test.html', tables=tables)
+

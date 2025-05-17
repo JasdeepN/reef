@@ -4,31 +4,39 @@ from sqlalchemy import text
 from datetime import datetime
 import pytz
 
-bp = Blueprint('controller_api', __name__)
+bp = Blueprint('controller_api', __name__, url_prefix='/controller')
 
-@bp.route('/controller/dose', methods=['POST'])
+@bp.route('/dose', methods=['POST'])
 def create_dosing():
     data = request.get_json()
-    sched_id = data.get('sched_id')
-    tank_id = data.get('tanks_id')
+    schedule_id = data.get('schedule_id')
+    tank_id = data.get('tank_id')
 
-    if not sched_id:
+    if not schedule_id:
         return jsonify({'success': False, 'error': 'Missing schedule ID'}), 400
+
+    # Check for existing schedule with same product_id and tank_id
+    check_sql = '''
+        SELECT 1 FROM d_schedule WHERE id = :schedule_id AND tank_id = :tank_id
+    '''
+    exists = db.session.execute(text(check_sql), {'schedule_id': schedule_id, 'tank_id': tank_id}).fetchone()
+    if not exists:
+        return jsonify({'success': False, 'error': 'No schedule found for this tank and schedule_id'}), 400
 
     sql = """
         SELECT 
-            d_schedule.products_id,
+            d_schedule.product_id,
             d_schedule.amount,
             products.current_avail
         FROM d_schedule
-        JOIN products ON d_schedule.products_id = products.id
-        WHERE d_schedule.id = :sched_id
+        JOIN products ON d_schedule.product_id = products.id
+        WHERE d_schedule.id = :schedule_id
     """
-    result = db.session.execute(text(sql), {'sched_id': sched_id}).fetchone()
+    result = db.session.execute(text(sql), {'schedule_id': schedule_id}).fetchone()
     if not result:
         return jsonify({'success': False, 'error': 'Schedule or product not found'}), 404
 
-    products_id, amount, current_avail = result
+    product_id, amount, current_avail = result
     try:
         amount_float = float(amount)
     except Exception:
@@ -37,10 +45,10 @@ def create_dosing():
     if current_avail is None or current_avail < amount_float:
         return jsonify({'success': False, 'error': 'Not enough available product'}), 400
 
-    update_sql = "UPDATE products SET current_avail = current_avail - :amount WHERE id = :products_id"
+    update_sql = "UPDATE products SET current_avail = current_avail - :amount WHERE id = :product_id"
     insert_sql = """
-        INSERT INTO dosing (products_id, sched_id, tanks_id, amount, trigger_time)
-        VALUES (:products_id, :sched_id, :tanks_id, :amount, :trigger_time)
+        INSERT INTO dosing (product_id, schedule_id, tank_id, amount, trigger_time)
+        VALUES (:product_id, :schedule_id, :tank_id, :amount, :trigger_time)
     """
     # Use datetime(3) precision for trigger_time in configured timezone
     tzname = current_app.config.get('TIMEZONE', 'UTC')
@@ -49,13 +57,13 @@ def create_dosing():
     trigger_time = datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S.%f')
     # print(f"Trigger time: {trigger_time}")
     try:
-        db.session.execute(text(update_sql), {'amount': amount_float, 'products_id': products_id})
+        db.session.execute(text(update_sql), {'amount': amount_float, 'product_id': product_id})
         db.session.execute(
             text(insert_sql),
             {
-                'products_id': products_id,
-                'sched_id': sched_id,
-                'tanks_id': tank_id,
+                'product_id': product_id,
+                'schedule_id': schedule_id,
+                'tank_id': tank_id,
                 'amount': amount_float,
                 'trigger_time': trigger_time
             }
@@ -66,7 +74,7 @@ def create_dosing():
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@bp.route('/controller/refill', methods=['POST'])
+@bp.route('/refill', methods=['POST'])
 def refill_product():
     data = request.get_json()
     prod_id = data.get('prod_id')
@@ -115,7 +123,7 @@ def refill_product():
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@bp.route('/controller/toggle/schedule', methods=['POST'])
+@bp.route('/toggle/schedule', methods=['POST'])
 def toggle_schedule():
     data = request.get_json()
     sched_id = data.get('sched_id')
@@ -145,7 +153,7 @@ def toggle_schedule():
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@bp.route('/controller/toggle/dosing_pump', methods=['POST'])
+@bp.route('/toggle/dosing_pump', methods=['POST'])
 def toggle_dosing_pump():
     data = request.get_json()
     pump_id = data.get('id')

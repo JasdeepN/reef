@@ -11,7 +11,7 @@ def allowed_file(filename):
 
 
 def process_test_data(input):
-    # print('process', input)
+    print('process', input)
     output = {}
     # print("PPB TO PPM CONVERSION COMPLETE", dirty.data['po4_ppm'],  3.066*int(dirty.data['po4_ppb'])/1000)
     try:
@@ -53,7 +53,7 @@ def process_test_data(input):
 
 def process_dosing_data(input):
     output = {}
-    allowed = {'_time', 'amount', 'id', 'product_id'}
+    allowed = {'_time', 'amount', 'id', 'product_id', 'tank_id', 'schedule_id'}
     for key, value in input.items():
         if key not in allowed:
             continue
@@ -65,7 +65,7 @@ def process_dosing_data(input):
                 output[key] = float(value)
             except Exception:
                 output[key] = None
-        elif key in ['product_id', 'id']:
+        elif key in ['product_id', 'id', 'tank_id']:
             try:
                 output[key] = int(value)
             except Exception:

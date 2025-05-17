@@ -2,14 +2,19 @@ from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request, current_app
 from app import db
 from modules.models import DSchedule, Products, Dosing
+from modules.tank_context import get_current_tank_id
 from modules.utils.helper import datatables_response
 from sqlalchemy import text
 import pytz
 
 bp = Blueprint('schedule_api', __name__, url_prefix='/schedule')
 
-@bp.route('/view', methods=['GET'])
+@bp.route('/get/all', methods=['GET'])
 def get_sched():
+    tank_id = get_current_tank_id()
+    if tank_id is None:
+        return jsonify({'error': 'No tank id provided'}), 400
+    
     params = {
         'search': request.args.get('search', ''),
         'sidx': request.args.get('sidx', ''),
@@ -26,11 +31,15 @@ def get_sched():
             DSchedule.suspended,
             Products.current_avail,
             Products.total_volume,
-            Products.name
+            Products.name,
+            DSchedule.last_refill
+
         )
-        .join(Products, Products.id == DSchedule.prod_id)
+        .join(Products, Products.id == DSchedule.product_id)
+        .filter(DSchedule.tank_id == tank_id)
         .all()
     )
+    print('rows', rows)
     data = [
         {
             "id": row[0],
@@ -39,10 +48,13 @@ def get_sched():
             "suspended": bool(row[3]),
             "current_avail": row[4],
             "total_volume": row[5],
-            "name": row[6]
+            "name": row[6],
+            "last_refill": row[7].strftime('%Y-%m-%d %H:%M:%S') if row[7] else "Never",
+            
         }
         for row in rows
     ]
+    print("data", data)
     response = datatables_response(data, params, draw)
     return jsonify(response)
 
@@ -98,8 +110,13 @@ def get_doses_for_schedule(schedule_id):
 
 
 
-@bp.route('/get/schedule_stats', methods=['GET'])
+@bp.route('/get/stats', methods=['GET'])
 def get_schedule_stats():
+    tank_id = get_current_tank_id()
+    
+    if tank_id is None:
+        return jsonify({'error': 'No tank id provided'}), 400
+    
     sql = """
         SELECT 
             products.id as product_id,
@@ -109,6 +126,7 @@ def get_schedule_stats():
             products.total_volume,
             products.dry_refill,
             products.current_avail,
+            products.uses,
             d_schedule.id as schedule_id,
             d_schedule.amount as set_amount,
             d_schedule.last_refill,
@@ -117,13 +135,27 @@ def get_schedule_stats():
             dosing.trigger_time as last_trigger,
             dosing.amount as dosed_amount
         FROM products 
-        LEFT JOIN d_schedule ON products.id = d_schedule.prod_id
+        LEFT JOIN d_schedule ON products.id = d_schedule.product_id
         JOIN dosing ON dosing.id = (
-            SELECT max(ID) FROM dosing WHERE products.id = dosing.prod_id
+            SELECT max(ID) FROM dosing WHERE products.id = dosing.product_id
         )
+        WHERE d_schedule.tank_id = :tank_id
     """
-    result = db.session.execute(text(sql))
+    params = {}
+    params['tank_id'] = tank_id
+    result = db.session.execute(text(sql), params)
     rows = result.fetchall()
+    if not rows:
+        # Backup query: get schedule without dosing
+        backup_sql = """
+            SELECT 
+                * 
+                from d_schedule 
+                left join products on d_schedule.product_id=products.id 
+                where tank_id=:tank_id;
+        """
+        result = db.session.execute(text(backup_sql), params)
+        rows = result.fetchall()
     columns = result.keys()
     units = {
         'product_id': '',
@@ -145,9 +177,6 @@ def get_schedule_stats():
         'estimated_empty_datetime': ''
     }
     date_keys = {'last_refill', 'last_trigger', 'estimated_empty_datetime'}
-    # Get timezone from app config
-    # tzname = current_app.config.get('TIMEZONE', 'UTC')
-    # tz = pytz.timezone(tzname)
     stats = []
     for row in rows:
         row_dict = dict(zip(columns, row))
@@ -165,8 +194,6 @@ def get_schedule_stats():
                         dt = datetime.fromisoformat(value)
                     else:
                         dt = value
-                    # Only convert if dt is naive and you know it's UTC
-                    # If your DB stores local time, do NOT convert
                     value = dt.strftime('%b %d %Y %H:%M:%S %Z')
                 except Exception:
                     pass
@@ -188,7 +215,6 @@ def get_schedule_stats():
                 estimated_empty_datetime = (
                     datetime.utcnow() + timedelta(days=days_until_empty)
                 )
-                # estimated_empty_datetime = pytz.utc.localize(estimated_empty_datetime).astimezone(tz)
                 stat['estimated_empty_datetime'] = [
                     'Estimated Empty Date',
                     estimated_empty_datetime.strftime('%b %d %Y %H:%M:%S %Z'),

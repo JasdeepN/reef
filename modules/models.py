@@ -8,10 +8,6 @@ from wtforms import StringField, DateField, TimeField, DecimalField, RadioField,
 from wtforms.validators import Optional, DataRequired, Length
 from wtforms.fields import DateTimeField
 
-import datetime as dt
-
-from modules.forms import *
-
 from flask_sqlalchemy import SQLAlchemy
 
 import numpy as np
@@ -53,36 +49,7 @@ class TestResults(db.Model):
             "tank_id": self.tank_id,
         }
     
-
-class test_result_form(FlaskForm):
-    test_date = DateField("Date", default=dt.datetime.today)
-    test_time = TimeField("Test Time", format='%H:%M:%S', default=dt.datetime.now)
-    alk = DecimalField("Alkalinity (KH)", [Optional()])
-    po4_ppm = DecimalField("Phosphate (PO\u2084\u00b3\u207b PPM)", [Optional()])
-    po4_ppb = IntegerField("Phosphate (PO\u2084\u00b3\u207b PPB)", [Optional()])
-    no3_ppm = DecimalField("Nitrate (NO\u2083\u207b PPM)", [Optional()])
-    cal = IntegerField("Calcium (Ca\u00b2\u207a PPM)", [Optional()])
-    mg = IntegerField("Magneisum (Mg\u00b2\u207a PPM)", [Optional()])
-    sg = DecimalField("Specific Gravity (SG)", [Optional()])
-    tank_id = IntegerField("Tank", validators=[DataRequired()])
-    submit = SubmitField()
-
-    # Custom validate method
-    def validate(self, extra_validators=None):
-        print('start')
-        if not super().validate(extra_validators):
-            return False
-        print('validating')
-        valid = False
-        for k, v in self.data.items():
-            if k not in ['test_date', 'test_time', 'csrf_token', 'submit']:
-                if v not in (None, '', [], {}):
-                    valid = True
-        if hasattr(self, 'tank_id') and (self.tank_id.data in (None, '', 0)):
-            print('tank_id missing or invalid')
-            return False
-        return valid
-                
+              
 
 class Products(db.Model):
     __tablename__ = 'products'
@@ -132,14 +99,6 @@ class Products(db.Model):
         return Products(**filtered)
 
 
-class ProductForm(BaseForm):
-    name = StringField("Name", validators=[DataRequired(), Length(max=30)])
-    total_volume = DecimalField("Total Volume", validators=[Optional()])
-    current_avail = DecimalField("Current Available", validators=[Optional()])
-    dry_refill = DecimalField("Dry Refill", validators=[Optional()])
-    submit = SubmitField("Submit")
-
-
 class DosingTypeEnum(enum.Enum):
     recurring = 'recurring'
     single = 'single'
@@ -152,7 +111,7 @@ class Dosing(db.Model):
     trigger_time = db.Column(db.DateTime(3))
     amount = db.Column(db.Float, nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'))
-    sched_id = db.Column(db.Integer, db.ForeignKey('d_schedule.id'), nullable=True)
+    schedule_id = db.Column(db.Integer, db.ForeignKey('d_schedule.id'), nullable=True)
     product = db.relationship('Products', backref=db.backref('dosings', lazy=True))
     schedule = db.relationship('DSchedule', backref=db.backref('dosings', lazy=True))
 
@@ -404,9 +363,5 @@ def predict_alkalinity_dose(tank_id, product_id, target_alk):
         raise ValueError("No valid model found or slope is zero.")
     dose = (target_alk - model.intercept) / model.slope
     return dose
-
-def get_current_tank_id():
-    return session.get('tank_id')
-
 
 

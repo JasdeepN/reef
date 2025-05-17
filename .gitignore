@@ -7,8 +7,15 @@ __pycache__/
 venv/
 env/
 reef-env/
-*.env
-*.flaskenv
+
+# Ignore all .flaskenv files except .flaskenv.template
+.flaskenv
+.flaskenv.*
+!.flaskenv.template
+
+# Search all folders for .env files
+.env.*
+!.env.template
 
 # Flask session files
 flask_session/
@@ -68,7 +75,8 @@ htmlcov/
 setup/
 .sass-cache/
 
-**/*/*.nosync # my personal ignore
+**/*.nosync* # my personal ignore
+
 todo.nosync
 
 app/user/**

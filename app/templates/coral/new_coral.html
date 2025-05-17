@@ -13,36 +13,13 @@
                 <form method="post" enctype="multipart/form-data" id="coral-form">
                     {{ form.hidden_tag() }}
                     <!-- Hidden tank_id field for tank context -->
-                    <input type="hidden" name="tank_id" id="tank_id_hidden" value="{{ tank_id }}">
-                    {% if not tank_id %}
-                    <div class="alert alert-warning mt-2">No tank selected. Please select a tank before adding a coral.</div>
-                    <script>
-                      document.addEventListener('DOMContentLoaded', function() {
-                        var submitBtn = document.querySelector('#coral-form button[type="submit"], #coral-form input[type="submit"]');
-                        if (submitBtn) submitBtn.disabled = true;
-                      });
-                    </script>
-                    {% endif %}
+                    
                     <fieldset class="border rounded p-3 mb-4">
                         <legend class="float-none w-auto px-2" style="font-size: 1.1em">
                             <span class="text-primary">Required Information</span>
                         </legend>
                         <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label" for="tank_id">
-                                    {{ form.tank_id.label }}<span class="text-danger">*</span>
-                                </label>
-                                <select id="tank_id" name="tank_id" class="form-select" required style="pointer-events: none; background: #e9ecef;">
-                                    {% if tanks|length == 1 %}
-                                        <option value="{{ tanks[0].id }}" selected>{{ tanks[0].name }}</option>
-                                    {% else %}
-                                        {% for tank in tanks %}
-                                            <option value="{{ tank.id }}" {% if tank.id == tank_id %}selected{% endif %}>{{ tank.name }}</option>
-                                        {% endfor %}
-                                    {% endif %}
-                                </select>
-                            </div>
-                            
+                                                        
                             <div class="col-md-4 mb-3">
                                 <label for="type" class="form-label">Type<span class="text-danger">*</span></label>
                                 <select id="type" name="type" class="form-select" required>

@@ -1,11 +1,20 @@
 from flask_wtf import FlaskForm
 from wtforms import (
-    StringField, DecimalField, IntegerField, SelectField, TextAreaField, SubmitField, BooleanField, DateTimeField, FormField, DateField, FileField, RadioField
+    StringField, DecimalField, IntegerField, SelectField, TextAreaField, SubmitField, BooleanField, DateTimeField, FormField, DateField, FileField, RadioField, TimeField
 )
 from wtforms.validators import DataRequired, Optional, Length
 import enum
 from datetime import date
+import datetime as dt
+class BaseForm(FlaskForm):
+    def validate(self, extra_validators=None):
+        """Default validate method for forms."""
+        if not super().validate(extra_validators):
+            return False
 
+        # Add any default validation logic here if needed
+        return True
+    
 # --- Product Form ---
 class ProductForm(FlaskForm):
     csrf = False
@@ -29,6 +38,15 @@ class DosingForm(FlaskForm):
     amount = DecimalField("Amount", validators=[Optional()])
     submit = SubmitField("Submit Dosing")
 
+
+class ProductForm(BaseForm):
+    name = StringField("Name", validators=[DataRequired(), Length(max=30)])
+    total_volume = DecimalField("Total Volume", validators=[Optional()])
+    current_avail = DecimalField("Current Available", validators=[Optional()])
+    dry_refill = DecimalField("Dry Refill", validators=[Optional()])
+    submit = SubmitField("Submit")
+
+
 # --- DSchedule Form ---
 class DScheduleForm(FlaskForm):
     csrf = False
@@ -51,14 +69,39 @@ class CombinedDosingScheduleForm(FlaskForm):
             ('intermittent', 'Intermittent Dosing'),
         ]
 
-class BaseForm(FlaskForm):
-    def validate(self, extra_validators=None):
-        """Default validate method for forms."""
-        if not super().validate(extra_validators):
-            return False
+class test_result_form(FlaskForm):
+    test_date = DateField("Date", default=dt.datetime.today)
+    test_time = TimeField("Test Time", format='%H:%M:%S', default=dt.datetime.now)
+    alk = DecimalField("Alkalinity (KH)", [Optional()])
+    po4_ppb = IntegerField("Phosphate (PO\u2084\u00b3\u207b PPB)", [Optional()])
+    no3_ppm = DecimalField("Nitrate (NO\u2083\u207b PPM)", [Optional()])
+    cal = IntegerField("Calcium (Ca\u00b2\u207a PPM)", [Optional()])
+    mg = IntegerField("Magneisum (Mg\u00b2\u207a PPM)", [Optional()])
+    sg = DecimalField("Specific Gravity (SG)", [Optional()])
 
-        # Add any default validation logic here if needed
-        return True
+    submit = SubmitField()
+
+    # Custom validate method
+    def validate(self, extra_validators=None):
+        valid = False
+
+        # print('start')
+        if not super().validate(extra_validators):
+            print('Form validation errors:', self.errors)
+            return valid
+        # print('validating')
+        for k, v in self.data.items():
+            if k not in ['test_date', 'test_time', 'csrf_token', 'submit']:
+                if v not in (None, '', [], {}):
+                    valid = True
+        if hasattr(self, 'tank_id') and (self.tank_id.data in (None, '', 0)):
+            print('tank_id missing or invalid')
+            return valid
+        
+        if not valid:
+            self.errors.setdefault('form', []).append('Validation failed: no test data received.')
+
+        return valid
 
 # --- Coral Form ---
 class CoralForm(FlaskForm):
@@ -96,7 +139,6 @@ class CoralForm(FlaskForm):
     photo = FileField("Photo", validators=[Optional()])
     notes = TextAreaField("Notes", validators=[Optional()])
     test_id = IntegerField("Test Results ID", validators=[Optional()])
-    tank_id = IntegerField("Tank", validators=[DataRequired()])
     vendors_id = IntegerField("Vendor", validators=[Optional()])
     color_morphs_id = IntegerField("Color Morph", validators=[DataRequired()])
     created_at = DateTimeField("Created At", format='%Y-%m-%d %H:%M:%S', validators=[Optional()])

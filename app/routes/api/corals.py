@@ -4,10 +4,10 @@ from modules.models import Coral, Tank, Taxonomy
 from datetime import datetime
 import pytz
 
-bp = Blueprint('coral_api', __name__)
+bp = Blueprint('coral_api', __name__, url_prefix='/corals')
 
 
-@bp.route('/corals/vendors/all', methods=['GET'])
+@bp.route('/vendors/all', methods=['GET'])
 def get_all_vendors():
     from modules.models import Vendors
     vendors = Vendors.query.order_by(Vendors.name).all()

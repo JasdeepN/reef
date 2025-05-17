@@ -63,11 +63,11 @@
               <input type="hidden" name="dosing_type" id="dosing_type_hidden">
             </div>
             <div class="form-group" data-types="recurring,single,intermittent">
-              <label for="prod_id">
+              <label for="product_id">
                 Product
                 <span class="text-danger" title="Required for recurring">*</span>
               </label>
-              <select name="prod_id" id="prod_id" class="form-control">
+              <select name="product_id" id="product_id" class="form-control">
                 <!-- Options will be populated dynamically -->
                 <option value="add_new_product">Add New Product</option>
               </select>
@@ -131,7 +131,7 @@
 
     // Editable DSchedule Table for Modify Existing
     function loadDScheduleTable() {
-      fetch('/api/get/d_schedule')
+      fetch('/web/fn/ops/get/d_schedule')
         .then(resp => resp.json())
         .then(data => {
           
@@ -157,7 +157,7 @@
     const typeRadios = document.querySelectorAll('input[name="form_type"]');
     const dosingType = document.getElementById('dosing_type');
     const dosingTypeHidden = document.getElementById('dosing_type_hidden');
-    const prodSelect = document.getElementById('prod_id');
+    const prodSelect = document.getElementById('product_id');
     const productFormPlaceholder = document.getElementById('product-form-placeholder');
 
     // Product form HTML as a string
@@ -189,7 +189,7 @@
     }
 
     function populateProductSelect() {
-      fetch('/api/get/raw/products')
+      fetch('/web/fn/ops/get/raw/products')
         .then(resp => resp.json())
         .then(data => {
           prodSelect.innerHTML = '';
@@ -257,21 +257,16 @@
       if (prodSelect) {
         const selectedProdId = prodSelect.value;
         if (selectedProdId && selectedProdId !== 'add_new_product') {
-          data.prod_id = parseInt(selectedProdId, 10);
+          data.product_id = parseInt(selectedProdId, 10);
         } else {
-          data.prod_id = selectedProdId; // keep as string for add_new_product
+          data.product_id = selectedProdId; // keep as string for add_new_product
         }
       }
 
-      // Ensure tank_id is included in the payload
-      const tankIdInput = document.getElementById('tank_id_hidden');
-      if (tankIdInput && tankIdInput.value) {
-        data.tank_id = tankIdInput.value;
-      }
 
       // Extra validation for recurring
       if (data.form_type === "recurring") {
-        const requiredFields = ["amount", "prod_id", "trigger_interval", "schedule_time"];
+        const requiredFields = ["amount", "product_id", "trigger_interval", "schedule_time"];
         const missing = requiredFields.filter(field => !data[field]);
         if (missing.length > 0) {
           alert(`Missing required fields for recurring: ${missing.join(', ')}`);

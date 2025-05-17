@@ -1,0 +1,179 @@
+{% macro generate(table) %}
+  <div class="grid-item full-width">
+    <div class="title">
+      <h3>{{ table.title | default("Data Table") }}</h3>
+    </div>
+    <div class="content table-container">
+      <table id="{{ table.id }}" class="display" style="width:100%">
+        <thead>
+          <tr>
+            {% for column in table.columns %}
+              <th>{{ column.label }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+      </table>
+    </div>
+
+    <!-- Modal and Backdrop -->
+    <div id="modal-container-{{ table.id }}" class="modal-container">
+      <div id="modal-{{ table.id }}" class="modal">
+        <h4 id="modal-title-{{ table.id }}" class="modal-header">&nbsp;</h4>
+        <form id="editForm-{{ table.id }}">
+          {% for column in table.columns if column.data != 'id' %}
+            <div class="form-group">
+              <label for="{{ column.data }}">{{ column.label }}:</label>
+              <input type="text" id="{{ column.data }}" name="{{ column.data }}" class="form-control">
+            </div>
+          {% endfor %}
+          <div class="modal-footer">
+            <button type="submit" id="saveButton-{{ table.id }}" class="btn btn-custom-1 btn-ok">Save</button>
+            <button type="button" class="btn btn-custom-2 btn-cancel" onclick="closeModal('{{ table.id }}')">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div id="modalBackdrop-{{ table.id }}" class="modal-backdrop"></div>
+  </div>
+
+  <script type="text/javascript">
+    window.urlTableConfigs = window.urlTableConfigs || {};
+    window.urlTableConfigs['{{ table.id }}'] = {{ table | tojson | safe }};
+
+    // Generic action handlers
+    function urlTableAddAction(tableId) {
+      openUrlTableModal(tableId, null);
+    }
+    function urlTableEditAction(tableId) {
+      var tableObj = window['table_' + tableId];
+      var selectedData = tableObj.row({ selected: true }).data();
+      if (selectedData) {
+        openUrlTableModal(tableId, selectedData);
+      } else {
+        alert('Please select a row to edit.');
+      }
+    }
+    function urlTableDeleteAction(tableId) {
+      var tableObj = window['table_' + tableId];
+      var selectedData = tableObj.row({ selected: true }).data();
+      if (selectedData) {
+        if (confirm('Are you sure you want to delete this record?')) {
+          var api_urls = window.urlTableConfigs[tableId].api_urls;
+          $.ajax({
+            url: api_urls.delete,
+            type: 'DELETE',
+            contentType: 'application/json',
+            data: JSON.stringify({ id: selectedData.id }),
+            success: function (response) {
+              alert('Record deleted successfully.');
+              tableObj.ajax.reload();
+            },
+            error: function (xhr) {
+              alert('Error deleting record: ' + xhr.responseText);
+            }
+          });
+        }
+      } else {
+        alert('Please select a row to delete.');
+      }
+    }
+
+    // Modal open/close
+    function openUrlTableModal(tableId, data) {
+      var isEdit = !!data;
+      var modalContainer = $('#modal-container-' + tableId);
+      var modal = $('#modal-' + tableId);
+      var backdrop = $('#modalBackdrop-' + tableId);
+      modal.find('#modal-title-' + tableId).text(isEdit ? 'Edit Record' : 'Add Record');
+      modal.find('input').each(function () {
+        var fieldName = $(this).attr('name');
+        $(this).val(data ? data[fieldName] || '' : '');
+      });
+      modalContainer.addClass('show');
+      backdrop.addClass('show');
+      modal.addClass('show');
+      // Form submit
+      $('#editForm-' + tableId).off('submit').on('submit', function (e) {
+        e.preventDefault();
+        var formData = $(this).serializeArray().reduce(function(obj, item) {
+          obj[item.name] = item.value;
+          return obj;
+        }, {});
+        var api_urls = window.urlTableConfigs[tableId].api_urls;
+        var url = isEdit ? api_urls.put : api_urls.post;
+        var method = isEdit ? 'PUT' : 'POST';
+        if (isEdit) {
+          formData.id = data.id;
+        }
+        $.ajax({
+          url: url,
+          type: method,
+          contentType: 'application/json',
+          data: JSON.stringify(formData),
+          success: function (response) {
+            alert((isEdit ? 'Record updated' : 'Record added') + ' successfully.');
+            closeModal(tableId);
+            $('#'+tableId).DataTable().ajax.reload();
+          },
+          error: function (xhr) {
+            alert('Error saving record: ' + xhr.responseText);
+          }
+        });
+      });
+    }
+    function closeModal(tableId) {
+      $('#modal-container-' + tableId).removeClass('show');
+      $('#modalBackdrop-' + tableId).removeClass('show');
+    }
+
+    // DataTable init
+    $(document).ready(function () {
+      var tableId = '{{ table.id }}';
+      var config = window.urlTableConfigs[tableId];
+      var actionMap = {
+        add: function() { urlTableAddAction(tableId); },
+        edit: function() { urlTableEditAction(tableId); },
+        delete: function() { urlTableDeleteAction(tableId); }
+      };
+      var buttons = (config.buttons || []).map(function(btn) {
+        return {
+          text: btn.text,
+          action: actionMap[btn.action]
+        };
+      });
+      var dtOptions = Object.assign({
+        serverSide: true,
+        processing: true,
+        ajax: {
+          url: config.api_urls.get,
+          type: 'GET',
+          data: function (d) {
+            return {
+              draw: d.draw,
+              page: (d.start / d.length) + 1,
+              rows: d.length,
+              sidx: d.columns[d.order[0].column].data,
+              sord: d.order[0].dir,
+              search: d.search.value
+            };
+          }
+        },
+        columns: config.columns,
+        paging: true,
+        searching: true,
+        ordering: true,
+        order: [[0, 'desc']],
+        responsive: true,
+        lengthMenu: [10, 25, 50, 100],
+        language: {
+          loadingRecords: "Loading...",
+          emptyTable: "No records to display",
+        },
+        select: true,
+        dom: (config.datatable_options && config.datatable_options.dom) || 'Bfrtip',
+        buttons: buttons
+      }, config.datatable_options || {});
+      window['table_' + tableId] = $('#' + tableId).DataTable(dtOptions);
+    });
+  </script>
+{% endmacro %}

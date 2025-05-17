@@ -9,7 +9,7 @@ from modules.tank_context import get_current_tank_id
 import enum
 from datetime import date, time
 
-bp = Blueprint('table_ops_api', __name__)
+bp = Blueprint('table_ops_api', __name__, url_prefix='/ops')
 
 @bp.route('/get/<table_name>', methods=['GET'])
 def get_table_data(table_name):
@@ -141,14 +141,17 @@ def add_new_record(table_name):
     if table_name == 'corals':
         if 'prod_id' in data:
             data['product_id'] = data.pop('prod_id')
-    # Ensure tank_id is set from request data if present and valid, else from context
-    if hasattr(table, 'tank_id') or 'tank_id' in table.__table__.columns:
+    
+    # Prevent duplicate d_schedule for same tank_id and product_id
+    if table_name == 'd_schedule':
+        product_id = data.get('product_id')
         tank_id = data.get('tank_id')
-        if not tank_id:
-            tank_id = get_current_tank_id()
-        if not tank_id:
-            return jsonify({'error': 'No tank selected. Please select a tank before adding records.'}), 400
-        data['tank_id'] = tank_id  # set only if not already present
+       
+        if product_id and tank_id:
+            exists = table.query.filter_by(product_id=product_id, tank_id=tank_id).first()
+            if exists:
+                return jsonify({'error': 'A schedule already exists for this tank and product.'}), 400
+
     # If the cleaned data only has a product id, throw a form error
     if list(data.keys()) == ["prod_id"]:
         return jsonify({'error': 'Form data missing: only product id provided.'}), 400
@@ -172,9 +175,10 @@ def delete_record(table_name):
 
         # Parse JSON data
         data = request.get_json()
-        row_id = data.get("id")
+        # Accept both 'id' and 'product_id' for primary key
+        row_id = data.get("id") or data.get("product_id")
         if not row_id:
-            return jsonify({"error": "Missing 'id' in request data."}), 400
+            return jsonify({"error": "Missing 'id' or 'product_id' in request data."}), 400
 
         # Find the record by ID
         row = table_model.query.get(row_id)

@@ -4,10 +4,13 @@ from datetime import datetime, timedelta
 from sqlalchemy import text
 import pytz
 
+from modules.tank_context import get_current_tank_id
+
 bp = Blueprint('product_api', __name__, url_prefix='/products')
 
 @bp.route('/stats', methods=['GET'])
 def get_product_stats():
+
     sql = """
         SELECT     
             products.id as product_id,      
@@ -16,12 +19,14 @@ def get_product_stats():
             products.used_amt,
             products.dry_refill,
             products.current_avail,
+            products.uses,
             d_schedule.amount as set_amount,
             d_schedule.last_refill,
             d_schedule.suspended,
             d_schedule.trigger_interval 
         FROM products 
-        LEFT JOIN d_schedule ON products.id = d_schedule.prod_id
+        LEFT JOIN d_schedule ON products.id = d_schedule.product_id;
+     
     """
     result = db.session.execute(text(sql))
     rows = result.fetchall()
@@ -31,6 +36,7 @@ def get_product_stats():
         'used_amt': 'ml',
         'dry_refill': 'g|ml',
         'current_avail': 'ml',
+        'uses': '',
         'set_amount': 'ml',
         'last_refill': '',
         'suspended': '',
@@ -46,6 +52,7 @@ def get_product_stats():
         row_dict = dict(zip(columns, row))
         stat = {}
         stat['card_title'] = ['Product Name', row_dict.get('name'), row_dict.get('id')]
+       
         for key in columns:
             label = key.replace('_', ' ').title()
             value = row_dict.get(key)
@@ -69,12 +76,12 @@ def get_product_stats():
                 SELECT 
                     amount, trigger_time
                 FROM dosing
-                WHERE sched_id = :sched_id
+                WHERE schedule_id = :schedule_id
                 ORDER BY trigger_time DESC
                 LIMIT 1
             """
             dosing_result = db.session.execute(
-                text(dosing_sql), {'sched_id': row_dict['schedule_id']}
+                text(dosing_sql), {'schedule_id': row_dict['schedule_id']}
             ).fetchone()
             dosing_columns = ['dose_amount', 'trigger_time']
             dosing_units = {

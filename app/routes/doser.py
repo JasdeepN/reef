@@ -4,7 +4,6 @@ from flask import jsonify, render_template, request, redirect, url_for, session,
 from app import app
 from modules.models import *  # Import your models
 from modules.utils.helper import *
-from modules.models import get_current_tank_id
 from modules.tank_context import get_current_tank_id
 # import db
 import enum
@@ -18,16 +17,40 @@ def doser_main():
     tank_id = get_current_tank_id()
     if not tank_id:
         flash("No tank selected.", "warning")
-        return redirect(url_for('index'))
-    schedules = DSchedule.query.filter_by(tank_id=tank_id).all()
-    return render_template("doser/main.html", schedules=schedules)
+    # Define columns for the doser table
+    columns = [
+        {"data": "id", "label": "ID"},
+        # {"data": "tank_id", "label": "Tank ID"},
+        {"data": "name", "label": "Product Name"},
+        {"data": "trigger_interval", "label": "Interval"},
+        {"data": "suspended", "label": "Suspended"},
+        {"data": "last_refill", "label": "Last Refill"},
+        {"data": "amount", "label": "Amount"},
+    ]
+    config = {
+        "id": "doser_table",
+        "title": "Dosing Schedules",
+        "columns": columns,
+        "api_urls": {
+            "get": "/web/fn/schedule/get/all",
+            "delete": "/web/fn/schedule/delete/",
+            "post": "/web/fn/schedule/new/",
+            "put": "/web/fn/schedule/edit/",
+        },
+        "datatable_options": {
+            "dom": "Bfrtip",
+            "buttons": [
+                {"text": "Add", "action": "add"},
+                {"text": "Edit", "action": "edit"},
+                {"text": "Delete", "action": "delete"}
+            ],
+            "serverSide": True,
+            "processing": True,
+        },
+        "initial_data": [],
+    }
+    return render_template("doser/main.html", title="Doser", table=config)
 
-@app.route("/doser", methods=["GET"])
-def doser_joined():
-    return jsonify({
-        "success": True,
-        "message": "This is a placeholder for the joined data."
-    })
 
 @app.route("/doser/db", methods=['GET'])
 def db_doser():
@@ -92,7 +115,7 @@ def modify_doser():
         s.pop('_sa_instance_state', None)
     d_schedule_table = {
         "id": "d_schedule",
-        "api_url": "/web/fn/get/d_schedule",
+        "api_url": "/web/fn/ops/get/d_schedule",
         "title": "Edit Dosing Schedules",
         "columns": columns,
         "datatable_options": {
@@ -119,16 +142,16 @@ def modify_doser():
 def run_schedule():
     tank_id = get_current_tank_id()
     urls = {
-        "GET": "/web/fn/get/schedule_stats",
-        "DELETE": "/web/fn/delete/d_schedule",
-        "POST": "/web/fn/new/d_schedule",
-        "PUT": "/web/fn/edit/d_schedule"
+        "GET": "/web/fn/schedule/get/stats",  # always use the context, not a tank_id param
+        "DELETE": "/web/fn/ops/delete/d_schedule",
+        "POST": "/web/fn/ops/new/d_schedule",
+        "PUT": "/web/fn/ops/edit/d_schedule"
     }
-    return render_template("doser/schedule.html", title="Schedule", api_urls=urls)
+    return render_template("doser/schedule.html", title="Schedule", api_urls=urls, tank_id=tank_id)
     
 
-from flask import request, jsonify
-import requests
+
+
 
 @app.route("/doser/submit", methods=["POST"])
 def doser_submit():
@@ -141,19 +164,19 @@ def doser_submit():
         return jsonify({"success": False, "error": "Missing form_type"}), 400
 
     # --- Handle new product creation if needed ---
-    if data.get("prod_id") == "add_new_product":
+    if data.get("product_id") == "add_new_product":
         product_fields = {"name", "total_volume", "current_avail", "dry_refill"}
         product_data = {k: v for k, v in data.items() if k in product_fields}
         from app import app as flask_app
         with flask_app.test_request_context():
             with flask_app.test_client() as client:
-                resp = client.post("/web/fn/new/products", json=product_data)
+                resp = client.post("/web/fn/ops/new/products", json=product_data)
                 prod_resp = resp.get_json()
                 if not prod_resp or not prod_resp.get("success") or not prod_resp.get("id"):
                     return jsonify({"success": False, "error": "Failed to create new product"}), 400
-                data["prod_id"] = prod_resp["id"]
+                data["product_id"] = prod_resp["id"]
 
-    if not data.get("prod_id"):
+    if not data.get("product_id"):
         return jsonify({"success": False, "error": "Product ID is required"}), 400
 
     if "schedule_time" in data:
@@ -161,14 +184,15 @@ def doser_submit():
         data.pop("schedule_time", None)
 
     # Always set tank_id in the data dict for downstream API calls
-    data["tank_id"] = tank_id
+    # data["tank_id"] = tank_id
 
     from app import app as flask_app
     with flask_app.test_request_context():
         with flask_app.test_client() as client:
+            
             if form_type == "recurring":
                 # Validation for recurring
-                required_fields = ["amount", "prod_id", "trigger_interval", "_time"]
+                required_fields = ["amount", "product_id", "trigger_interval", "_time"]
                 missing = [field for field in required_fields if not data.get(field)]
                 if missing:
                     return jsonify({
@@ -178,27 +202,26 @@ def doser_submit():
                 # Insert only into d_schedule (not dosing)
                 schedule_data = {
                     "amount": data["amount"],
-                    "product_id": data["prod_id"],
+                    "product_id": data["product_id"],
                     "trigger_interval": data["trigger_interval"],
                     "suspended": data.get("suspended", False),
-                    "tank_id": data["tank_id"]
+                    "tank_id": tank_id,
                 }
-                sched_resp = client.post("/web/fn/new/d_schedule", json=schedule_data)
+                sched_resp = client.post("/web/fn/ops/new/d_schedule", json=schedule_data)
                 return sched_resp.get_data(), sched_resp.status_code, sched_resp.headers.items()
             elif form_type in ("single", "intermittent"):
-                required_fields = ["amount", "prod_id", "_time"]
+                required_fields = ["amount", "product_id", "_time"]
                 missing = [field for field in required_fields if not data.get(field)]
                 if missing:
                     return jsonify({
                         "success": False,
                         "error": f"Missing required fields for {form_type}: {', '.join(missing)}"
                     }), 400
-                api_url = "/web/fn/new/dosing"
+                api_url = "/web/fn/ops/new/dosing"
                 dosing_data = {
                     "amount": data["amount"],
-                    "product_id": data["prod_id"],
+                    "product_id": data["product_id"],
                     "trigger_time": data["_time"],
-                    "tank_id": data["tank_id"]
                 }
                 resp = client.post(api_url, json=dosing_data)
                 return resp.get_data(), resp.status_code, resp.headers.items()
@@ -208,11 +231,10 @@ def doser_submit():
 
 @app.route("/doser/products", methods=["GET"])
 def get_products():
-    tank_id = get_current_tank_id()
     urls = {
-        "GET": "/web/fn/get/product_stats",
-        "DELETE": "/web/fn/delete/products",
-        "POST": "/web/fn/new/products",
-        "PUT": "/web/fn/edit/products"
+        "GET": "/web/fn/products/stats",
+        "DELETE": "/web/fn/ops/delete/products",
+        "POST": "/web/fn/ops/new/products",
+        "PUT": "/web/fn/ops/edit/products"
     }
-    return render_template("doser/products.html", title="Products", api_urls=urls, tank_id=tank_id)
+    return render_template("doser/products.html", title="Products", api_urls=urls)

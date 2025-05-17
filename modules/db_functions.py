@@ -60,15 +60,16 @@ async def delete_row(table_class, filters):
         return False
 
 # Test functions
-async def insert_test_row(table_class, data):  
+async def insert_test_row(table_class, data, tank_id):  
   clean_data = await process_data(data)
   assert clean_data != {}, "no data to insert"
   try:
-    print('try this data', clean_data)
+    # print('try this data', clean_data)
+    clean_data['tank_id'] = tank_id
     stmt = insert(table_class).values(clean_data)
-    print(stmt)
+    # print(stmt)
     compiled = stmt.compile()
-    print(compiled.params) 
+    # print(compiled.params) 
   except Exception as err:
     print(f"Unexpected {err=}, {type(err)=}")
     raise
@@ -85,21 +86,23 @@ async def insert_test_row(table_class, data):
 async def process_data(dirty):
   # print('process', dirty)
   clean_data = {}
-  if dirty.po4_ppb.data != None:
-    dirty.po4_ppm.data = (3.066*float(dirty.po4_ppb.data)/1000)
+
     # print("PPB TO PPM CONVERSION COMPLETE", dirty.data['po4_ppm'],  3.066*int(dirty.data['po4_ppb'])/1000)
 
   try:
     for row in dirty:  
       # print(row)
       if (row.id != 'csrf_token' and row.id != 'submit'):
-          print('check', row.id,  row.data)
+          # print('check', row.id,  row.data)
           
           if row.data is not None:
             # print(row.data)
             clean_data.update({row.id: row.data})
-   
-    print('cleaned', clean_data)   
+
+          if dirty.po4_ppb.data != None:
+            clean_data['po4_ppm'] = 3.066 * float(dirty.po4_ppb.data) / 1000
+    
+    # print('cleaned', clean_data)   
     return clean_data
   except:
     print('error cleaning data')

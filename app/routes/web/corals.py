@@ -66,3 +66,7 @@ def get_all_vendors():
     vendors = Vendors.query.order_by(Vendors.name).all()
     # print(f"Vendors: {vendors}")    
     return jsonify([{'id': v.id, 'name': v.name} for v in vendors])
+
+
+
+

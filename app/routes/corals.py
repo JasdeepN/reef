@@ -4,7 +4,7 @@ from werkzeug.utils import secure_filename
 from app import app, db
 from modules.utils import helper
 from modules.forms import CoralForm
-from modules.models import Coral, Tank, Taxonomy, ColorMorphs, get_current_tank_id # Add Taxonomy, ColorMorph, and get_current_tank_id import
+from modules.models import Coral, Tank, Taxonomy, ColorMorphs # Add Taxonomy, ColorMorph
 from modules.tank_context import get_current_tank_id
 import os
 import datetime
@@ -46,7 +46,7 @@ def build_coral(form, taxonomy=None, color_morph=None):
     return Coral(
         coral_name=coral_name,
         date_acquired=get_field(form, "date_acquired"),
-        tank_id=request.form.get("tank_id") or form.tank_id.data,
+        tank_id=get_current_tank_id(),
         taxonomy_id=taxonomy.id if taxonomy else None,
         color_morphs_id=color_morph.id if color_morph else None,
         vendors_id=request.form.get("vendors_id") or form.vendors_id.data,
@@ -120,7 +120,7 @@ def coral_db():
         "POST": "/web/fn/new/corals",
         "PUT": "/web/fn/edit/corals"
     }
-    return render_template('coral/gallery.html', title="Corals", api_urls=urls, tank_id=tank_id)
+    return render_template('coral/gallery.html', title="Corals", api_urls=urls)
 
 
 # DataTables-compatible endpoint for corals filtered by tank context

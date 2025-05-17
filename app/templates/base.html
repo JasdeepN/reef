@@ -17,18 +17,7 @@
     
   </head>
   <body class="site">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-  
-      <div class="flashes">
-        
-      {% for category, message in messages %}
-        <span class="{{ category }}">{{ message }}<a onclick=delete_flash(this) href="#" class="close-button">&#10006;</a></span>
-      {% endfor %}
-       
-      </div>
-    {% endif %}
-  {% endwith %}
+   
 
   {% if tanks is not defined %}
     {% set tanks = [] %}
@@ -150,11 +139,7 @@
   
    
   <script>
-    function delete_flash(flash){
-      console.log("click");
-      $(flash).parent().remove()
-    }
-
+ 
     // Centralized tank context change JS
     document.addEventListener('DOMContentLoaded', function() {
       var tankSelect = document.getElementById('tank-select');
@@ -165,6 +150,8 @@
         });
       }
     });
+
+
   </script>
   {% endblock %}
 

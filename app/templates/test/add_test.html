@@ -12,7 +12,6 @@
             <form name="add_test" method="post" class="form">
                 <div class="form__container">
                     {{ form.hidden_tag() }}
-                    {{ form.hidden_tag(form.po4_ppm) }}
 
                     {{ render_form_field(form.test_date) }}
                     {{ render_form_field(form.test_time) }}
@@ -22,22 +21,8 @@
                     {{ render_form_field(form.cal) }}
                     {{ render_form_field(form.mg) }}
                     {{ render_form_field(form.sg) }}
-                     <div class="row">
-                            <label class="form-label" for="tank_id">
-                                {{ form.tank_id.label }}<span class="text-danger">*</span>
-                            </label>
-                            <select id="tank_id" name="tank_id" class="form-select" required style="pointer-events: none; background: #e9ecef;">
-                                {% if tanks|length == 1 %}
-                                    <option value="{{ tanks[0].id }}" selected>{{ tanks[0].name }}</option>
-                                {% else %}
-                                    {% for tank in tanks %}
-                                        <option value="{{ tank.id }}" {% if tank.id == tank_id %}selected{% endif %}>{{ tank.name }}</option>
-                                    {% endfor %}
-                                {% endif %}
-                            </select>
-                        </div>
-                    <div class="button-row">
-                        {{ form.submit(class="btn btn-custom-1", id="submit-test") }}
+                  
+                    {{ form.submit(class="btn btn-custom-1", id="submit-test") }}
 
                     </div>
                 </div>
