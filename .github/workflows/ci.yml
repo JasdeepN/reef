@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: reef_test
+          MYSQL_USER: testuser
+          MYSQL_PASSWORD: testpass
+        ports:
+          - 3310:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent" \
+          --health-interval=10s \
+          --health-timeout=5s \
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install --with-deps
+      - name: Wait for MySQL
+        run: |
+          for i in {1..30}; do
+            if mysqladmin ping -h 127.0.0.1 -P 3310 --silent; then
+              echo "MySQL is up!"
+              break
+            fi
+            sleep 2
+          done
+      - name: Run tests
+        env:
+          TEST_BASE_URL: http://localhost:5000
+          DB_USER: testuser
+          DB_PASS: testpass
+          DB_HOST_ADDRESS: 127.0.0.1
+          TEST_DB_PORT: 3310
+          DB_NAME: reef_test
+        run: |
+          # Start your Flask app in the background
+          FLASK_ENV=testing flask run --host=0.0.0.0 &
+          sleep 5
+          pytest

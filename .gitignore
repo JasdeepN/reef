@@ -80,3 +80,4 @@ setup/
 todo.nosync
 
 app/user/**
+app/static/css/*

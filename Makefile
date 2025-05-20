@@ -1,41 +1,52 @@
 # Makefile for switching Flask environment files and running the app or tests
 
-.PHONY: run-prod run-test test clean sass-dev sass-prod sass-test
+.PHONY: build-dev build-prod build-test test clean sass-dev sass-prod sass-test build
 
-# Default target
-Default:
-	@echo "[Makefile] No target specified. Use 'make run' to start the Flask app in development mode."
 
-run:
-	@echo "[Makefile] Using .flaskenv for development..."
-	cp .flaskenv.dev .flaskenv
+
+run: 
+	flask run 
+
+run-dev:
 	make sass-dev &
-	flask run --debug
+	make run --debug
 
-run-prod:
-	@echo "[Makefile] Using .flaskenv for production..."
-	cp .flaskenv.prod .flaskenv
-	make sass-prod 
-	flask run
+dev:
+	make build
+	@echo "[Makefile] Using .flaskenv.dev for development..."
+	cp evs/.flaskenv.dev .flaskenv
 
-run-test:
-	@echo "[Makefile] Using .flaskenv.test for testing..."
-	cp .flaskenv.test .flaskenv
-	make sass-test &
-	flask run
+prod:
+	make build
+	@echo "[Makefile] Using .flaskenv.prod for production..."
+	cp evs/.flaskenv.prod .flaskenv
+	make sass-prod
 
 test:
+	make build
+	@echo "[Makefile] Using .flaskenv.test for testing..."
+	cp evs/.flaskenv.test .flaskenv
+	make sass-test
+
+test-run:
 	@echo "[Makefile] Using .flaskenv.test for pytest..."
-	cp .flaskenv.test .flaskenv
+	cp evs/.flaskenv.test .flaskenv
+	flask run --debug &		
 	make sass-test &
 	pytest -s
 
 clean:
 	@echo "[Makefile] Cleaning up .flaskenv..."
 	rm -f .flaskenv
-
+	rm -f app/static/css/*.css
+	
 sass-dev sass-test:
 	sass --watch app/static/scss:app/static/css --sourcemap=none
 
 sass-prod:
 	sass app/static/scss:app/static/css --style=compressed --no-source-map
+
+build:
+	python3 -m pip install --upgrade pip
+	pip install -r requirements.txt
+	python3 -m playwright install --with-deps
