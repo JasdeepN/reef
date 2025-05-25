@@ -36,44 +36,60 @@ bootstrap = Bootstrap5(app)
 # Use config from Config class only
 app.config.from_object(Config)
 
-# Set DB config at runtime, after env vars are set
-_db_user = os.getenv("DB_USER", "testuser")
-_db_pass = os.getenv("DB_PASS", "testpass")
-
-# Apply CI environment detection (same logic as conftest.py)
-if os.getenv("ACT"):
-    # Running in ACT - use MySQL container name
-    _db_host = "mysql"
-    print("[app/__init__.py] Detected ACT environment, using MySQL container name", file=sys.stderr, flush=True)
-elif os.getenv("CI") or os.getenv("GITHUB_ACTIONS"):
-    # Running in real CI - use localhost
-    _db_host = "127.0.0.1" 
-    print("[app/__init__.py] Detected CI environment, using localhost", file=sys.stderr, flush=True)
+# Check if we're in unit testing mode (should use SQLite instead of MySQL)
+if os.getenv("TESTING") == "true" and os.getenv("SQLALCHEMY_DATABASE_URI"):
+    print("[app/__init__.py] Unit testing mode detected - using provided SQLALCHEMY_DATABASE_URI", file=sys.stderr, flush=True)
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("SQLALCHEMY_DATABASE_URI")
+    app.config['TESTING'] = True
+    app.config['WTF_CSRF_ENABLED'] = False
+    
+    # Skip MySQL configuration and go straight to SQLAlchemy setup
+    app.config['DB_ENGINE'] = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
+    app.config["SESSION_COOKIE_NAME"] = "session"
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    db = SQLAlchemy(app)
+    Session(app)
+    print(f"[app/__init__.py] Unit test setup complete with: {app.config['SQLALCHEMY_DATABASE_URI']}", file=sys.stderr, flush=True)
 else:
-    # Local development - use configured value from env
-    _db_host = os.getenv("DB_HOST_ADDRESS", os.getenv("DB_HOST", "127.0.0.1"))
-    print("[app/__init__.py] Local development environment detected", file=sys.stderr, flush=True)
 
-_db_port = os.getenv("DB_PORT", "3310")
-print(f"[DEBUG] _db_port value: {_db_port} (type: {type(_db_port)})", file=sys.stderr, flush=True)
-if _db_port == "None":
-    raise RuntimeError("DB_PORT environment variable is set to the string 'None'. Please set it to a valid port number.")
-_db_name = os.getenv("DB_NAME", "reef_test")
-print(f"[app/__init__.py] DB_USER={_db_user} DB_PASS={_db_pass} DB_HOST={_db_host} DB_PORT={_db_port} DB_NAME={_db_name}", file=sys.stderr, flush=True)
-if not all([_db_user, _db_pass, _db_host, _db_port, _db_name]):
-    raise RuntimeError(f"Missing DB env var: DB_USER={_db_user}, DB_PASS={_db_pass}, DB_HOST={_db_host}, DB_PORT={_db_port}, DB_NAME={_db_name}")
-app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{_db_user}:{_db_pass}@{_db_host}:{_db_port}/{_db_name}"
-if ":None/" in app.config['SQLALCHEMY_DATABASE_URI']:
-    raise RuntimeError(f"SQLALCHEMY_DATABASE_URI contains ':None/': {app.config['SQLALCHEMY_DATABASE_URI']}")
-print(f"[app/__init__.py] SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}", file=sys.stderr, flush=True)
+    # Set DB config at runtime, after env vars are set
+    _db_user = os.getenv("DB_USER", "testuser")
+    _db_pass = os.getenv("DB_PASS", "testpass")
 
-app.config['DB_ENGINE'] = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
-app.config["SESSION_COOKIE_NAME"] = "session"
+    # Apply CI environment detection (same logic as conftest.py)
+    if os.getenv("ACT"):
+        # Running in ACT - use MySQL container name
+        _db_host = "mysql"
+        print("[app/__init__.py] Detected ACT environment, using MySQL container name", file=sys.stderr, flush=True)
+    elif os.getenv("CI") or os.getenv("GITHUB_ACTIONS"):
+        # Running in real CI - use localhost
+        _db_host = "127.0.0.1" 
+        print("[app/__init__.py] Detected CI environment, using localhost", file=sys.stderr, flush=True)
+    else:
+        # Local development - use configured value from env
+        _db_host = os.getenv("DB_HOST_ADDRESS", os.getenv("DB_HOST", "127.0.0.1"))
+        print("[app/__init__.py] Local development environment detected", file=sys.stderr, flush=True)
 
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+    _db_port = os.getenv("DB_PORT", "3310")
+    print(f"[DEBUG] _db_port value: {_db_port} (type: {type(_db_port)})", file=sys.stderr, flush=True)
+    if _db_port == "None":
+        raise RuntimeError("DB_PORT environment variable is set to the string 'None'. Please set it to a valid port number.")
+    _db_name = os.getenv("DB_NAME", "reef_test")
+    print(f"[app/__init__.py] DB_USER={_db_user} DB_PASS={_db_pass} DB_HOST={_db_host} DB_PORT={_db_port} DB_NAME={_db_name}", file=sys.stderr, flush=True)
+    if not all([_db_user, _db_pass, _db_host, _db_port, _db_name]):
+        raise RuntimeError(f"Missing DB env var: DB_USER={_db_user}, DB_PASS={_db_pass}, DB_HOST={_db_host}, DB_PORT={_db_port}, DB_NAME={_db_name}")
+    app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{_db_user}:{_db_pass}@{_db_host}:{_db_port}/{_db_name}"
+    if ":None/" in app.config['SQLALCHEMY_DATABASE_URI']:
+        raise RuntimeError(f"SQLALCHEMY_DATABASE_URI contains ':None/': {app.config['SQLALCHEMY_DATABASE_URI']}")
+    print(f"[app/__init__.py] SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}", file=sys.stderr, flush=True)
 
-Session(app)
+    app.config['DB_ENGINE'] = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
+    app.config["SESSION_COOKIE_NAME"] = "session"
+
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    db = SQLAlchemy(app)
+
+    Session(app)
 
 # Initialize Prometheus metrics
 x_metrics = PrometheusMetrics(app)
@@ -101,9 +117,20 @@ from modules.tank_context import get_current_tank_id
 
 @app.context_processor
 def inject_tank_context():
-    tanks = Tank.query.all()
-    tank_id = get_current_tank_id()
-    return dict(tanks=tanks, tank_id=tank_id)
+    # For unit tests without database, provide default values
+    if app.config.get('TESTING') and not app.config.get('SQLALCHEMY_DATABASE_URI', '').startswith('mysql'):
+        return dict(tanks=[], tank_id=1)
+    
+    try:
+        tanks = Tank.query.all()
+        tank_id = get_current_tank_id()
+        return dict(tanks=tanks, tank_id=tank_id)
+    except Exception as e:
+        # If database is not available during testing, provide defaults
+        if app.config.get('TESTING'):
+            print(f"[inject_tank_context] Database not available during testing, using defaults: {e}")
+            return dict(tanks=[], tank_id=1)
+        raise
 
 # FINAL FAIL-FAST CHECK
 print(f"[FINAL CHECK] SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}", file=sys.stderr, flush=True)

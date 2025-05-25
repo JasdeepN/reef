@@ -116,7 +116,8 @@ def global_setup_and_teardown():
     # Only make HTTP requests for E2E tests, not unit tests
     # Check if this is an E2E test session by examining pytest arguments
     import sys
-    is_e2e_session = any("e2e" in arg for arg in sys.argv)
+    # Check if we're running E2E tests specifically (not just ignoring them)
+    is_e2e_session = any("tests/e2e" in arg or "/e2e/" in arg for arg in sys.argv) and not any("--ignore" in arg and "e2e" in arg for arg in sys.argv)
     
     if is_e2e_session:
         print("[pytest] Detected E2E test session - checking Flask server...")
