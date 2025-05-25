@@ -39,7 +39,21 @@ app.config.from_object(Config)
 # Set DB config at runtime, after env vars are set
 _db_user = os.getenv("DB_USER", "testuser")
 _db_pass = os.getenv("DB_PASS", "testpass")
-_db_host = os.getenv("DB_HOST_ADDRESS", os.getenv("DB_HOST", "127.0.0.1"))
+
+# Apply CI environment detection (same logic as conftest.py)
+if os.getenv("ACT"):
+    # Running in ACT - use MySQL container name
+    _db_host = "mysql"
+    print("[app/__init__.py] Detected ACT environment, using MySQL container name", file=sys.stderr, flush=True)
+elif os.getenv("CI") or os.getenv("GITHUB_ACTIONS"):
+    # Running in real CI - use localhost
+    _db_host = "127.0.0.1" 
+    print("[app/__init__.py] Detected CI environment, using localhost", file=sys.stderr, flush=True)
+else:
+    # Local development - use configured value from env
+    _db_host = os.getenv("DB_HOST_ADDRESS", os.getenv("DB_HOST", "127.0.0.1"))
+    print("[app/__init__.py] Local development environment detected", file=sys.stderr, flush=True)
+
 _db_port = os.getenv("DB_PORT", "3310")
 print(f"[DEBUG] _db_port value: {_db_port} (type: {type(_db_port)})", file=sys.stderr, flush=True)
 if _db_port == "None":

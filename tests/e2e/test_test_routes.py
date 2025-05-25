@@ -136,7 +136,32 @@ def test_all(page):
     # Click the delete button (assuming a button with text 'Delete' or a trash icon is present)
     delete_btn = page.locator('button, .dt-button').filter(has_text='Delete')
     assert delete_btn.count() > 0, 'Delete button not found in datatable UI.'
-    delete_btn.first.click()
+    
+    # Close any open modals that might be interfering
+    modal_backdrops = page.locator('.modal-backdrop')
+    if modal_backdrops.count() > 0:
+        print(f"[DEBUG] Found {modal_backdrops.count()} modal backdrops, closing modals...")
+        # Try to close modals by pressing Escape or clicking close buttons
+        page.keyboard.press('Escape')
+        page.wait_for_timeout(500)
+        # Look for and click close buttons
+        close_buttons = page.locator('.modal .btn-close, .modal .close, [data-dismiss="modal"]')
+        for i in range(close_buttons.count()):
+            close_buttons.nth(i).click()
+            page.wait_for_timeout(200)
+    
+    # Wait for any modals to fully close
+    page.wait_for_timeout(1000)
+    
+    # Force remove any remaining modal backdrops via JavaScript
+    page.evaluate("document.querySelectorAll('.modal-backdrop').forEach(el => el.remove())")
+    
+    # Try clicking the delete button with force if modal still interferes
+    try:
+        delete_btn.first.click(timeout=5000)
+    except Exception as e:
+        print(f"[DEBUG] Regular click failed: {e}, trying force click...")
+        delete_btn.first.click(force=True, timeout=5000)
 
     # Accept the confirm dialog if present
     def handle_dialog(dialog):

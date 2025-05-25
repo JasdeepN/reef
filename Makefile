@@ -48,7 +48,7 @@ start-test: test test-db-start
 	@echo "[Makefile] Starting test Flask server on port 5001..."
 	@echo "[Makefile] Test MySQL on port 3310, Flask on port 5001"
 	make sass-test &
-	flask run
+	FLASK_DEBUG=0 flask run
 
 stop-all:
 	@echo "[Makefile] Stopping all Flask servers and test database..."

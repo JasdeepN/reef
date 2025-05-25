@@ -17,7 +17,7 @@ jobs:
       DB_PASS: testpassword
       DB_HOST_ADDRESS: 127.0.0.1
       DB_HOST: 127.0.0.1
-      DB_PORT: 3310
+      DB_PORT: 3311
       DB_NAME: reef_test
     services:
       mysql:
@@ -28,7 +28,7 @@ jobs:
           MYSQL_USER: testuser
           MYSQL_PASSWORD: testpassword
         ports:
-          - 3310:3306
+          - 3311:3306
         options: >-
           --health-cmd="mysqladmin ping --silent" --health-interval=10s --health-timeout=5s --health-retries=5
     steps:
@@ -50,11 +50,14 @@ jobs:
             # In act with host networking, MySQL is available on localhost
             echo "DB_HOST_ADDRESS=127.0.0.1" >> $GITHUB_ENV
             echo "DB_HOST=127.0.0.1" >> $GITHUB_ENV
-            echo "DB_PORT=3310" >> $GITHUB_ENV
+            echo "DB_PORT=3311" >> $GITHUB_ENV
+            echo "TEST_BASE_URL=http://localhost:5001" >> $GITHUB_ENV
           else
             echo "Running in real GitHub Actions"
             echo "DB_HOST_ADDRESS=127.0.0.1" >> $GITHUB_ENV
             echo "DB_HOST=127.0.0.1" >> $GITHUB_ENV
+            echo "DB_PORT=3311" >> $GITHUB_ENV
+            echo "TEST_BASE_URL=http://localhost:5001" >> $GITHUB_ENV
           fi
           
           # Print final values for debugging
@@ -89,7 +92,7 @@ jobs:
             return 1
           }
           
-          # Simple retry loop - in host networking mode, MySQL should be at localhost:3310
+          # Simple retry loop - in host networking mode, MySQL should be at localhost:3311
           CONNECTED=false
           for attempt in $(seq 1 15); do
             echo "=== Attempt $attempt/15 ==="
@@ -114,6 +117,14 @@ jobs:
       - name: Seed test database
         run: |
           mysql -h $DB_HOST_ADDRESS -P $DB_PORT -u root -proot $DB_NAME < tests/seed.sql
+      - name: Clear test data before tests
+        run: |
+          echo "Clearing any existing test data..."
+          mysql -h $DB_HOST_ADDRESS -P $DB_PORT -u root -proot -e "
+          USE $DB_NAME;
+          DELETE FROM test_results WHERE 1=1;
+          DELETE FROM doser_products WHERE name LIKE '%Playwright Test Product%';
+          "
       - name: Debug all MySQL users
         run: |
           mysql -h $DB_HOST_ADDRESS -P $DB_PORT -u root -proot -e "SELECT user, host FROM mysql.user;"
@@ -134,30 +145,55 @@ jobs:
           pytest tests/ --ignore=tests/e2e/
       - name: Run E2E tests
         run: |
-          # Use a different port to avoid conflicts
-          export FLASK_PORT=5555
+          # Use port 5001 to match TEST_BASE_URL
+          export FLASK_PORT=5001
+          echo "Starting Flask server on port $FLASK_PORT..."
           env \
-            FLASK_APP=wsgi.py \
-            FLASK_ENV=testing \
+            FLASK_APP=index.py \
+            FLASK_ENV=test \
+            FLASK_RUN_HOST=0.0.0.0 \
+            FLASK_RUN_PORT=$FLASK_PORT \
+            FLASK_DEBUG=0 \
             DB_USER=$DB_USER \
             DB_PASS=$DB_PASS \
             DB_HOST_ADDRESS=$DB_HOST_ADDRESS \
             DB_HOST=$DB_HOST \
             DB_PORT=$DB_PORT \
             DB_NAME=$DB_NAME \
-            python -m flask run --host=0.0.0.0 --port=$FLASK_PORT &
+            python -m flask run &
           FLASK_PID=$!
           
-          # Wait for Flask to start
+          # Wait for Flask to start with health check
           echo "Waiting for Flask to start on port $FLASK_PORT..."
-          sleep 5
+          FLASK_READY=false
+          for attempt in $(seq 1 30); do
+            echo "Flask health check attempt $attempt/30..."
+            if curl -s http://localhost:$FLASK_PORT/ >/dev/null 2>&1; then
+              echo "✅ Flask server is ready at http://localhost:$FLASK_PORT"
+              FLASK_READY=true
+              break
+            fi
+            sleep 1
+          done
           
-          # Update the base URL for tests
+          if [ "$FLASK_READY" != "true" ]; then
+            echo "❌ Flask server failed to start after 30 seconds"
+            echo "Flask process status:"
+            ps aux | grep flask || echo "No Flask processes found"
+            echo "Port $FLASK_PORT status:"
+            netstat -tlnp 2>/dev/null | grep ":$FLASK_PORT " || echo "No process on port $FLASK_PORT"
+            kill $FLASK_PID 2>/dev/null || true
+            exit 1
+          fi
+          
+          # Ensure TEST_BASE_URL matches Flask port
           export TEST_BASE_URL=http://localhost:$FLASK_PORT
+          echo "Using TEST_BASE_URL: $TEST_BASE_URL"
           
-          # Run Python Playwright tests instead of npx
+          # Run E2E tests
           export PYTHONPATH=.
           python -m pytest tests/e2e/ -v
           
           # Clean up Flask process
-          kill $FLASK_PID
+          echo "Stopping Flask server..."
+          kill $FLASK_PID 2>/dev/null || true
