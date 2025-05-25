@@ -123,7 +123,7 @@ jobs:
           mysql -h $DB_HOST_ADDRESS -P $DB_PORT -u root -proot -e "
           USE $DB_NAME;
           DELETE FROM test_results WHERE 1=1;
-          DELETE FROM doser_products WHERE name LIKE '%Playwright Test Product%';
+          DELETE FROM products WHERE name LIKE '%Playwright Test Product%';
           "
       - name: Debug all MySQL users
         run: |
