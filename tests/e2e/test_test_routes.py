@@ -118,6 +118,43 @@ def test_all(page):
     # Assert we are on the correct page after submission
     # Wait for any table to appear (id, class, or just table)
     page.wait_for_selector('table, table.dataTable, table.table-striped', timeout=5000)
+    
+    # Comprehensive modal reset before any interactions
+    print("[DEBUG] Performing comprehensive modal reset...")
+    page.evaluate("""
+        // Remove all modal backdrops and reset modal state completely
+        document.querySelectorAll('.modal-backdrop').forEach(el => {
+            console.log('Removing modal backdrop:', el.id || el.className);
+            el.remove();
+        });
+        
+        // Close any open modals and reset their state
+        document.querySelectorAll('.modal').forEach(modal => {
+            console.log('Resetting modal:', modal.id);
+            modal.classList.remove('show');
+            modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
+        });
+        
+        // Reset modal containers
+        document.querySelectorAll('.modal-container').forEach(container => {
+            console.log('Resetting modal container:', container.id);
+            container.classList.remove('show');
+            container.style.display = 'none';
+        });
+        
+        // Remove modal-open class from body
+        document.body.classList.remove('modal-open');
+        
+        // Reset any sub-modal containers  
+        document.querySelectorAll('.sub-modal-container').forEach(container => {
+            console.log('Resetting sub-modal container:', container.id);
+            container.classList.remove('show');
+        });
+        
+        console.log('Modal reset complete');
+    """)
+    page.wait_for_timeout(1000)
 
     # Find the row with the random alk value
     rows = page.locator('table tbody tr')
@@ -129,38 +166,54 @@ def test_all(page):
             break
     assert found_row is not None, f"Newly added test entry with alk={rand_alk} not found in datatable."
 
-    # Select the row (if selection is required)
-    found_row.click()
+    # Check for and remove any modal backdrops that might be interfering BEFORE clicking the row
+    print("[DEBUG] Checking for modal backdrops before row selection...")
+    page.evaluate("""
+        // Remove all modal backdrops and reset modal state
+        document.querySelectorAll('.modal-backdrop').forEach(el => {
+            console.log('Removing modal backdrop:', el.id);
+            el.remove();
+        });
+        
+        // Close any open modals
+        document.querySelectorAll('.modal.show').forEach(modal => {
+            console.log('Closing modal:', modal.id);
+            modal.classList.remove('show');
+            modal.style.display = 'none';
+        });
+        
+        // Remove modal-open class from body
+        document.body.classList.remove('modal-open');
+        
+        // Reset any modal containers
+        document.querySelectorAll('.modal-container.show').forEach(container => {
+            console.log('Closing modal container:', container.id);
+            container.classList.remove('show');
+        });
+    """)
     page.wait_for_timeout(500)
+
+    # Select the row (if selection is required)
+    try:
+        found_row.click()
+        page.wait_for_timeout(500)
+    except Exception as e:
+        print(f"[DEBUG] Row click failed: {e}, trying force click...")
+        found_row.click(force=True)
+        page.wait_for_timeout(500)
 
     # Click the delete button (assuming a button with text 'Delete' or a trash icon is present)
     delete_btn = page.locator('button, .dt-button').filter(has_text='Delete')
     assert delete_btn.count() > 0, 'Delete button not found in datatable UI.'
     
-    # Close any open modals that might be interfering
-    modal_backdrops = page.locator('.modal-backdrop')
-    if modal_backdrops.count() > 0:
-        print(f"[DEBUG] Found {modal_backdrops.count()} modal backdrops, closing modals...")
-        # Try to close modals by pressing Escape or clicking close buttons
-        page.keyboard.press('Escape')
-        page.wait_for_timeout(500)
-        # Look for and click close buttons
-        close_buttons = page.locator('.modal .btn-close, .modal .close, [data-dismiss="modal"]')
-        for i in range(close_buttons.count()):
-            close_buttons.nth(i).click()
-            page.wait_for_timeout(200)
-    
-    # Wait for any modals to fully close
-    page.wait_for_timeout(1000)
-    
-    # Force remove any remaining modal backdrops via JavaScript
+    # Ensure no modal backdrops are present before clicking delete
     page.evaluate("document.querySelectorAll('.modal-backdrop').forEach(el => el.remove())")
     
-    # Try clicking the delete button with force if modal still interferes
+    # Try clicking the delete button
     try:
         delete_btn.first.click(timeout=5000)
     except Exception as e:
-        print(f"[DEBUG] Regular click failed: {e}, trying force click...")
+        print(f"[DEBUG] Delete button click failed: {e}, trying force click...")
         delete_btn.first.click(force=True, timeout=5000)
 
     # Accept the confirm dialog if present
