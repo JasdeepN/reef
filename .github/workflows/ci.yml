@@ -21,7 +21,7 @@ jobs:
       DB_NAME: reef_test
     services:
       mysql:
-        image: mysql:8.0
+        image: mysql:lts
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: reef_test
