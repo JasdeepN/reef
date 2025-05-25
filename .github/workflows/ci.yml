@@ -12,7 +12,7 @@ jobs:
     env:
       CI: true
       GITHUB_ACTIONS: true
-      TEST_BASE_URL: http://localhost:5000
+      TEST_BASE_URL: http://localhost:5001
       DB_USER: testuser
       DB_PASS: testpassword
       DB_HOST_ADDRESS: 127.0.0.1
@@ -135,7 +135,7 @@ jobs:
       - name: Run E2E tests
         run: |
           # Use a different port to avoid conflicts
-          export FLASK_PORT=5555
+          export FLASK_PORT=5001
           env \
             FLASK_APP=wsgi.py \
             FLASK_ENV=testing \

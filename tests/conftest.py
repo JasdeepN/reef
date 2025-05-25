@@ -41,7 +41,7 @@ else:
 if not os.path.isfile(MYSQL_SCRIPT):
     raise FileNotFoundError(f"Ephemeral MySQL script not found: {MYSQL_SCRIPT}")
 
-TEST_BASE_URL = os.getenv('TEST_BASE_URL')
+TEST_BASE_URL = os.getenv('TEST_BASE_URL', 'http://127.0.0.1:5001')
 TEST_DB_PORT = os.getenv('DB_PORT', '3310')
 
 _test_tank_id = None
@@ -114,9 +114,9 @@ def global_setup_and_teardown():
     _test_tank_id = int(tank_id)
 
     # Only make HTTP requests for E2E tests, not unit tests
-    # Check if this is an E2E test session by examining pytest arguments
+    # Check if we're explicitly running E2E tests by looking at test file paths
     import sys
-    is_e2e_session = any("e2e" in arg for arg in sys.argv)
+    is_e2e_session = any('tests/e2e/' in arg for arg in sys.argv)
     
     if is_e2e_session:
         print("[pytest] Detected E2E test session - checking Flask server...")
