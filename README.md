@@ -82,6 +82,161 @@ Features listed here are not guaranteed.***
 6. **Access the app**  
    Open your browser and go to [http://localhost:5000](http://localhost:5000)
 
+## Testing
+
+### Overview
+
+The project includes comprehensive testing with both unit tests and end-to-end (E2E) tests:
+- **Unit tests**: Fast API and route tests that don't require a running Flask server
+- **E2E tests**: Full browser automation tests using Playwright that test the complete user workflow
+
+### Container Management
+
+The testing system uses ephemeral MySQL containers to avoid conflicts with production data:
+
+- **Local E2E tests**: Uses `reef-sql-test` container on port 3310
+- **CI tests**: Uses GitHub Actions services or `act` containers 
+- **Production**: Uses `reef-sql` container on port 3306
+
+### Quick Testing Commands
+
+```bash
+# Validate the entire container management setup
+make validate
+
+# Run all unit tests (fast, no Flask server required)
+make test-unit
+
+# Run E2E tests (requires running Flask server)
+make test-e2e
+
+# Start/stop ephemeral test database
+make test-db-start
+make test-db-stop
+make test-db-restart
+
+# Run CI tests locally with act (with automatic cleanup)
+make act-test
+
+# Clean up act containers manually
+make act-clean
+```
+
+### Local Testing Setup
+
+1. **Install test dependencies** (if not already done):
+    ```bash
+    pip install -r requirements.txt
+    python -m playwright install --with-deps
+    ```
+
+2. **For E2E tests, start the test database and Flask server**:
+    ```bash
+    # Terminal 1: Start test database
+    make test-db-start
+    
+    # Terminal 2: Start Flask in test mode
+    make test-server
+    
+    # Terminal 3: Run E2E tests
+    make test-e2e
+    ```
+
+3. **For unit tests only** (no Flask server needed):
+    ```bash
+    make test-unit
+    ```
+
+### CI Testing with act
+
+To run the same tests that GitHub Actions runs locally:
+
+```bash
+# Install act if not already installed
+curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+
+# Run CI tests (automatically cleans up containers)
+make act-test
+```
+
+The `act` configuration is optimized to:
+- Automatically remove containers after execution
+- Use proper resource limits
+- Clean up old containers before running new tests
+- Keep only one MySQL test container running
+
+### Container Cleanup
+
+The testing system includes automatic container cleanup:
+
+- **`.actrc`**: Configures `act` to automatically remove containers
+- **`tests/scripts/cleanup_act_containers.sh`**: Removes old `act` containers and networks
+- **`tests/scripts/run_act_tests.sh`**: Wrapper that runs cleanup before and after tests
+
+If you see multiple database containers, run:
+```bash
+make act-clean
+```
+
+### Environment Variables
+
+Test configuration is managed through `tests/.env.test`:
+
+```bash
+# Test database configuration
+DB_PORT=3310
+DB_NAME=reef_test
+DB_USER=testuser
+DB_PASS=testpassword
+DB_HOST_ADDRESS=172.0.10.1
+TEST_BASE_URL=http://172.0.10.1:5000
+
+# Container configuration
+CONTAINER=reef-sql-test
+USE_MOUNTED_CONTAINER=false
+```
+
+### Flask Server Check
+
+E2E tests automatically check if the Flask server is running before proceeding. If the server isn't accessible, you'll see:
+
+```
+[pytest] ❌ Flask server not accessible after 3 attempts: HTTPConnectionPool(host='172.0.10.1', port=5000): Read timed out. (read timeout=5)
+[pytest] 💡 To start the Flask server, run: flask run --host=172.0.10.1 --port=5000
+[pytest] 💡 Or use: python index.py
+```
+
+To start the server for testing:
+```bash
+make test-server  # Starts Flask on 172.0.10.1:5000
+```
+
+### Debugging Tests
+
+If tests fail:
+
+1. **Check container status**:
+    ```bash
+    docker ps | grep mysql
+    ```
+
+2. **Check test database connection**:
+    ```bash
+    mysql -h 172.0.10.1 -P 3310 -u testuser -ptestpassword reef_test -e "SHOW TABLES;"
+    ```
+
+3. **Run tests with verbose output**:
+    ```bash
+    pytest tests/ --ignore=tests/e2e/ -v  # Unit tests
+    pytest tests/e2e/ -v                   # E2E tests
+    ```
+
+4. **Clean up all test containers**:
+    ```bash
+    make act-clean
+    make test-db-stop
+    ```
+
 ## License
 
 This project is **not open source**.  

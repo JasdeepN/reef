@@ -4,6 +4,7 @@
 from flask import Flask, session
 from flask_bootstrap import Bootstrap5
 import os
+import sys
 from flask_sqlalchemy import SQLAlchemy
 from config import Config
 from sqlalchemy import create_engine
@@ -11,6 +12,13 @@ from flask_session import Session
 from prometheus_flask_exporter import PrometheusMetrics
 import pytz
 from datetime import datetime
+
+print("[DEBUG] ENV DUMP:", file=sys.stderr, flush=True)
+for k, v in os.environ.items():
+    if k.startswith("DB_") or k == "TEST_BASE_URL":
+        print(f"{k}={v}", file=sys.stderr, flush=True)
+sys.stderr.flush()
+sys.stdout.flush()
 
 UPLOAD_FOLDER = 'static/temp'
 ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
@@ -25,22 +33,31 @@ UPLOAD_FOLDER = 'static/temp'
 
 bootstrap = Bootstrap5(app)
 
-# engine_string = "mysql+pymysql://{0}:{1}@{2}:{3}/{4}".format(
-#     os.getenv("DB_USER"), os.getenv("DB_PASS"), os.getenv("DB_HOST_ADDRESS"), os.getenv("DB_HOST_PORT"), os.getenv("DB_NAME")
-# )
-
-app.config['SQLALCHEMY_DATABASE_URI'] = Config.ENGINE_STRING
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
-
-app.config['DB_ENGINE'] = create_engine(Config.ENGINE_STRING)
-app.config["SESSION_COOKIE_NAME"] = "session"
+# Use config from Config class only
 app.config.from_object(Config)
 
-# tzname = app.config.get('TIMEZONE', 'UTC')
-# tz = pytz.timezone(tzname)
-# print("Timezone:", tz)
-# print("Current time in timezone:", datetime.now(tz))
+# Set DB config at runtime, after env vars are set
+_db_user = os.getenv("DB_USER", "testuser")
+_db_pass = os.getenv("DB_PASS", "testpass")
+_db_host = os.getenv("DB_HOST_ADDRESS", os.getenv("DB_HOST", "127.0.0.1"))
+_db_port = os.getenv("DB_PORT", "3310")
+print(f"[DEBUG] _db_port value: {_db_port} (type: {type(_db_port)})", file=sys.stderr, flush=True)
+if _db_port == "None":
+    raise RuntimeError("DB_PORT environment variable is set to the string 'None'. Please set it to a valid port number.")
+_db_name = os.getenv("DB_NAME", "reef_test")
+print(f"[app/__init__.py] DB_USER={_db_user} DB_PASS={_db_pass} DB_HOST={_db_host} DB_PORT={_db_port} DB_NAME={_db_name}", file=sys.stderr, flush=True)
+if not all([_db_user, _db_pass, _db_host, _db_port, _db_name]):
+    raise RuntimeError(f"Missing DB env var: DB_USER={_db_user}, DB_PASS={_db_pass}, DB_HOST={_db_host}, DB_PORT={_db_port}, DB_NAME={_db_name}")
+app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{_db_user}:{_db_pass}@{_db_host}:{_db_port}/{_db_name}"
+if ":None/" in app.config['SQLALCHEMY_DATABASE_URI']:
+    raise RuntimeError(f"SQLALCHEMY_DATABASE_URI contains ':None/': {app.config['SQLALCHEMY_DATABASE_URI']}")
+print(f"[app/__init__.py] SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}", file=sys.stderr, flush=True)
+
+app.config['DB_ENGINE'] = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
+app.config["SESSION_COOKIE_NAME"] = "session"
+
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
 Session(app)
 
@@ -73,3 +90,8 @@ def inject_tank_context():
     tanks = Tank.query.all()
     tank_id = get_current_tank_id()
     return dict(tanks=tanks, tank_id=tank_id)
+
+# FINAL FAIL-FAST CHECK
+print(f"[FINAL CHECK] SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}", file=sys.stderr, flush=True)
+if ':None/' in app.config['SQLALCHEMY_DATABASE_URI']:
+    raise RuntimeError(f"[FINAL CHECK] SQLALCHEMY_DATABASE_URI contains ':None/': {app.config['SQLALCHEMY_DATABASE_URI']}")

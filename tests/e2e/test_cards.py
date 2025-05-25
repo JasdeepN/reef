@@ -1,12 +1,17 @@
 import pytest
 import time
+import os
 
 def test_product_card_create_and_delete(page):
     # Set the test flag before page load to disable onbeforeunload
     # page.add_init_script("window.PLAYWRIGHT_TEST = true;")
 
+    # Get base URL from environment variable
+    BASE_URL = os.getenv('TEST_BASE_URL', 'http://localhost:5000')
+    print(f"[DEBUG] Using BASE_URL: {BASE_URL}")
+    
     # Start your Flask app before running this test!
-    page.goto("http://172.0.10.1:5000/doser/products")
+    page.goto(f"{BASE_URL}/doser/products")
 
     page.wait_for_selector('.card-data-body', timeout=30000)
     cards_before = page.locator('.card-data-body').count()

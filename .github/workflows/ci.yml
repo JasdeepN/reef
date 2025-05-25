@@ -9,6 +9,16 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      CI: true
+      GITHUB_ACTIONS: true
+      TEST_BASE_URL: http://localhost:5000
+      DB_USER: testuser
+      DB_PASS: testpassword
+      DB_HOST_ADDRESS: 127.0.0.1
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3310
+      DB_NAME: reef_test
     services:
       mysql:
         image: mysql:8.0
@@ -16,20 +26,45 @@ jobs:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: reef_test
           MYSQL_USER: testuser
-          MYSQL_PASSWORD: testpass
+          MYSQL_PASSWORD: testpassword
         ports:
           - 3310:3306
         options: >-
-          --health-cmd="mysqladmin ping --silent" \
-          --health-interval=10s \
-          --health-timeout=5s \
-          --health-retries=5
+          --health-cmd="mysqladmin ping --silent" --health-interval=10s --health-timeout=5s --health-retries=5
     steps:
+      - name: Print full environment at start
+        run: |
+          echo "==== FULL ENVIRONMENT DUMP ===="
+          env
+          echo "==== END ENVIRONMENT DUMP ===="
       - uses: actions/checkout@v4
+      - name: Detect environment and set database host
+        run: |
+          echo "Detecting CI environment..."
+          echo "GITHUB_ACTIONS: $GITHUB_ACTIONS"
+          echo "ACT: $ACT"
+          echo "RUNNER_OS: $RUNNER_OS"
+          
+          if [ "$ACT" = "true" ]; then
+            echo "Running in act environment"
+            # In act with host networking, MySQL is available on localhost
+            echo "DB_HOST_ADDRESS=127.0.0.1" >> $GITHUB_ENV
+            echo "DB_HOST=127.0.0.1" >> $GITHUB_ENV
+            echo "DB_PORT=3310" >> $GITHUB_ENV
+          else
+            echo "Running in real GitHub Actions"
+            echo "DB_HOST_ADDRESS=127.0.0.1" >> $GITHUB_ENV
+            echo "DB_HOST=127.0.0.1" >> $GITHUB_ENV
+          fi
+          
+          # Print final values for debugging
+          echo "Final DB_HOST_ADDRESS: 127.0.0.1"
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+      - name: Install MySQL client
+        run: sudo apt-get update && sudo apt-get install -y mysql-client
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -37,23 +72,92 @@ jobs:
           python -m playwright install --with-deps
       - name: Wait for MySQL
         run: |
-          for i in {1..30}; do
-            if mysqladmin ping -h 127.0.0.1 -P 3310 --silent; then
-              echo "MySQL is up!"
+          echo "Starting MySQL health check..."
+          echo "DB_HOST_ADDRESS: $DB_HOST_ADDRESS"
+          echo "DB_PORT: $DB_PORT"
+          echo "ACT mode: $ACT"
+          
+          # Quick connection test function
+          test_mysql() {
+            local host=$1
+            local port=$2
+            echo "Testing $host:$port..."
+            if timeout 3 mysql -h "$host" -P "$port" -u root -proot -e "SELECT 1;" >/dev/null 2>&1; then
+              echo "✅ MySQL ready at $host:$port"
+              return 0
+            fi
+            return 1
+          }
+          
+          # Simple retry loop - in host networking mode, MySQL should be at localhost:3310
+          CONNECTED=false
+          for attempt in $(seq 1 15); do
+            echo "=== Attempt $attempt/15 ==="
+            
+            if test_mysql "$DB_HOST_ADDRESS" "$DB_PORT"; then
+              CONNECTED=true
               break
             fi
+            
+            echo "Waiting 2 seconds before retry..."
             sleep 2
           done
-      - name: Run tests
-        env:
-          TEST_BASE_URL: http://localhost:5000
-          DB_USER: testuser
-          DB_PASS: testpass
-          DB_HOST_ADDRESS: 127.0.0.1
-          TEST_DB_PORT: 3310
-          DB_NAME: reef_test
+          
+          if [ "$CONNECTED" != "true" ]; then
+            echo "❌ MySQL not available after 15 attempts"
+            echo "=== Final diagnostics ==="
+            netstat -tlnp 2>/dev/null | grep ":$DB_PORT " || echo "No process on port $DB_PORT"
+            exit 1
+          fi
+          
+          echo "✅ MySQL ready at $DB_HOST_ADDRESS:$DB_PORT"
+      - name: Seed test database
         run: |
-          # Start your Flask app in the background
-          FLASK_ENV=testing flask run --host=0.0.0.0 &
+          mysql -h $DB_HOST_ADDRESS -P $DB_PORT -u root -proot $DB_NAME < tests/seed.sql
+      - name: Debug all MySQL users
+        run: |
+          mysql -h $DB_HOST_ADDRESS -P $DB_PORT -u root -proot -e "SELECT user, host FROM mysql.user;"
+      - name: Debug MySQL users
+        run: |
+          mysql -h $DB_HOST_ADDRESS -P $DB_PORT -u root -proot -e "SELECT user, host FROM mysql.user WHERE user='testuser';"
+      - name: Print DB env vars before Flask
+        run: |
+          echo "DB_USER=$DB_USER"
+          echo "DB_PASS=$DB_PASS"
+          echo "DB_HOST_ADDRESS=$DB_HOST_ADDRESS"
+          echo "DB_PORT=$DB_PORT"
+          echo "DB_NAME=$DB_NAME"
+          env | grep DB_
+      - name: Run unit/API tests
+        run: |
+          export PYTHONPATH=.
+          pytest tests/ --ignore=tests/e2e/
+      - name: Run E2E tests
+        run: |
+          # Use a different port to avoid conflicts
+          export FLASK_PORT=5555
+          env \
+            FLASK_APP=wsgi.py \
+            FLASK_ENV=testing \
+            DB_USER=$DB_USER \
+            DB_PASS=$DB_PASS \
+            DB_HOST_ADDRESS=$DB_HOST_ADDRESS \
+            DB_HOST=$DB_HOST \
+            DB_PORT=$DB_PORT \
+            DB_NAME=$DB_NAME \
+            python -m flask run --host=0.0.0.0 --port=$FLASK_PORT &
+          FLASK_PID=$!
+          
+          # Wait for Flask to start
+          echo "Waiting for Flask to start on port $FLASK_PORT..."
           sleep 5
-          pytest
+          
+          # Update the base URL for tests
+          export TEST_BASE_URL=http://localhost:$FLASK_PORT
+          
+          # Run Python Playwright tests instead of npx
+          export PYTHONPATH=.
+          python -m pytest tests/e2e/ -v
+          
+          # Clean up Flask process
+          kill $FLASK_PID
