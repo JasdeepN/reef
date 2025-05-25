@@ -7,7 +7,7 @@ def test_product_card_create_and_delete(page):
     # page.add_init_script("window.PLAYWRIGHT_TEST = true;")
 
     # Get base URL from environment variable
-    BASE_URL = os.getenv('TEST_BASE_URL', 'http://localhost:5000')
+    BASE_URL = os.getenv('TEST_BASE_URL', 'http://localhost:5001')
     print(f"[DEBUG] Using BASE_URL: {BASE_URL}")
     
     # Start your Flask app before running this test!

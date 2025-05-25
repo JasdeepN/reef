@@ -80,7 +80,13 @@ Features listed here are not guaranteed.***
     ```
 
 6. **Access the app**  
-   Open your browser and go to [http://localhost:5000](http://localhost:5000)
+   Open your browser and go to [http://localhost:5000](http://localhost:5000) for production/development
+
+## Environment System
+
+ReefDB uses a dual environment system:
+- **Development/Production**: Flask runs on port 5000 
+- **Testing**: Flask runs on port 5001 with dedicated test database on port 3310
 
 ## Testing
 
@@ -188,8 +194,8 @@ DB_PORT=3310
 DB_NAME=reef_test
 DB_USER=testuser
 DB_PASS=testpassword
-DB_HOST_ADDRESS=172.0.10.1
-TEST_BASE_URL=http://172.0.10.1:5000
+DB_HOST_ADDRESS=127.0.0.1
+TEST_BASE_URL=http://127.0.0.1:5001
 
 # Container configuration
 CONTAINER=reef-sql-test
@@ -202,13 +208,13 @@ E2E tests automatically check if the Flask server is running before proceeding. 
 
 ```
 [pytest] ❌ Flask server not accessible after 3 attempts: HTTPConnectionPool(host='172.0.10.1', port=5000): Read timed out. (read timeout=5)
-[pytest] 💡 To start the Flask server, run: flask run --host=172.0.10.1 --port=5000
-[pytest] 💡 Or use: python index.py
+[pytest] 💡 To start the Flask server, run: flask run --host=127.0.0.1 --port=5001
+[pytest] 💡 Or use: make start-test
 ```
 
 To start the server for testing:
 ```bash
-make test-server  # Starts Flask on 172.0.10.1:5000
+make start-test  # Starts Flask on 127.0.0.1:5001 with test database
 ```
 
 ### Debugging Tests

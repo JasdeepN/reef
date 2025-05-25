@@ -41,7 +41,7 @@ else:
 if not os.path.isfile(MYSQL_SCRIPT):
     raise FileNotFoundError(f"Ephemeral MySQL script not found: {MYSQL_SCRIPT}")
 
-TEST_BASE_URL = os.getenv('TEST_BASE_URL', 'http://127.0.0.1:5001')
+TEST_BASE_URL = os.getenv('TEST_BASE_URL')
 TEST_DB_PORT = os.getenv('DB_PORT', '3310')
 
 _test_tank_id = None
@@ -114,9 +114,9 @@ def global_setup_and_teardown():
     _test_tank_id = int(tank_id)
 
     # Only make HTTP requests for E2E tests, not unit tests
-    # Check if we're explicitly running E2E tests by looking at test file paths
+    # Check if this is an E2E test session by examining pytest arguments
     import sys
-    is_e2e_session = any('tests/e2e/' in arg for arg in sys.argv)
+    is_e2e_session = any("e2e" in arg for arg in sys.argv)
     
     if is_e2e_session:
         print("[pytest] Detected E2E test session - checking Flask server...")
@@ -124,8 +124,8 @@ def global_setup_and_teardown():
         server_ok, message = check_flask_server(TEST_BASE_URL)
         if not server_ok:
             print(f"[pytest] ❌ {message}")
-            print("[pytest] 💡 To start the Flask server, run: flask run --host=172.0.10.1 --port=5000")
-            print("[pytest] 💡 Or use: python index.py")
+            print("[pytest] 💡 To start the Flask server, run: make start-test")
+            print("[pytest] 💡 Or use: flask run --host=127.0.0.1 --port=5001")
             raise RuntimeError(f"Flask server required for E2E tests: {message}")
         else:
             print(f"[pytest] ✅ {message}")

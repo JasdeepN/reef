@@ -1,6 +1,6 @@
 # Makefile for ReefDB Flask application with dual environment support
 
-.PHONY: build-dev build-prod build-test test clean sass-dev sass-prod sass-test build act-test act-clean test-db-start test-db-stop validate start-prod start-dev start-test stop-all test-full
+.PHONY: build-dev build-prod build-test test clean sass-dev sass-prod sass-test build act-test act-clean test-db-start test-db-stop validate start-prod start-dev start-test stop-all kill-flask test-full test-simple
 
 # === BASIC COMMANDS ===
 run: 
@@ -52,10 +52,28 @@ start-test: test test-db-start
 
 stop-all:
 	@echo "[Makefile] Stopping all Flask servers and test database..."
-	pkill -f "flask run" || true
-	pkill -f "sass --watch" || true
-	make test-db-stop
+	@pgrep -f "python.*flask run" | xargs -r kill || true
+	@pgrep -f "sass --watch" | xargs -r kill || true
+	@docker stop reef-sql-test 2>/dev/null || echo "  Database container already stopped or not found"
+	@echo "[Makefile] Cleanup complete!"
 
+kill-flask:
+	@echo "[Makefile] Killing all Flask servers and clearing ports..."
+	@echo "  Stopping Flask processes..."
+	pkill -f "flask run" || true
+	pkill -f "python.*flask" || true
+	pkill -f "python.*index.py" || true
+	@echo "  Stopping Sass processes..."
+	pkill -f "sass --watch" || true
+	@echo "  Checking for processes using ports 5000-5001..."
+	@for port in 5000 5001; do \
+		pid=$$(lsof -ti:$$port 2>/dev/null || true); \
+		if [ -n "$$pid" ]; then \
+			echo "    Killing process $$pid using port $$port"; \
+			kill -9 $$pid 2>/dev/null || true; \
+		fi; \
+	done
+	@echo "  Flask cleanup complete!"
 # === SASS COMPILATION ===
 sass-dev sass-test:
 	sass --watch app/static/scss:app/static/css --sourcemap=none
@@ -66,15 +84,15 @@ sass-prod:
 # === DATABASE MANAGEMENT ===
 test-db-start:
 	@echo "[Makefile] Starting ephemeral test database on port 3310..."
-	bash bin/mysql_test_reset.sh start
+	bash tests/scripts/test_mysql_ephemeral.sh start
 
 test-db-stop:
 	@echo "[Makefile] Stopping ephemeral test database..."
-	bash bin/mysql_test_reset.sh stop
+	bash tests/scripts/test_mysql_ephemeral.sh stop
 
 test-db-status:
 	@echo "[Makefile] Checking test database status..."
-	bash bin/mysql_test_reset.sh status
+	bash tests/scripts/test_mysql_ephemeral.sh status
 
 test-db-restart: test-db-stop test-db-start
 
@@ -92,6 +110,10 @@ test-e2e: test start-test
 
 test-full: test-db-restart test-unit test-e2e
 	@echo "[Makefile] Running complete test suite..."
+
+# === TESTING TARGETS ===
+test-simple:
+	@echo "Simple test working!"
 
 # === CI/ACT TESTING ===
 act-clean:
@@ -129,6 +151,7 @@ help:
 	@echo "  start-test   - Start test server with test database"
 	@echo "  start-prod   - Start production server"
 	@echo "  stop-all     - Stop all servers and databases"
+	@echo "  kill-flask   - Force kill all Flask servers and clear ports"
 	@echo "  status       - Show current environment status"
 	@echo ""
 	@echo "Database Management:"

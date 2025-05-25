@@ -135,7 +135,7 @@ jobs:
       - name: Run E2E tests
         run: |
           # Use a different port to avoid conflicts
-          export FLASK_PORT=5001
+          export FLASK_PORT=5555
           env \
             FLASK_APP=wsgi.py \
             FLASK_ENV=testing \

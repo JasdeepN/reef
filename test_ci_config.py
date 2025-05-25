@@ -8,7 +8,10 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 # Load test environment
 from dotenv import load_dotenv
+
+# Load both test environment files (order matters - .flaskenv.test may override .env.test)
 load_dotenv(os.path.join("tests", ".env.test"))
+load_dotenv(os.path.join("evs", ".flaskenv.test"))
 
 print("=== BEFORE CI OVERRIDE ===")
 print(f"DB_HOST_ADDRESS: {os.getenv('DB_HOST_ADDRESS')}")
