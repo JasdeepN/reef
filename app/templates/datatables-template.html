@@ -13,7 +13,11 @@
 <div class="grid-container {% if tables|length == 1 %}single-table{% endif %}">
   {% if tables is iterable and tables|length > 0 %}
     {% for table in tables %}
-      <div class="grid-item">
+      <div class="grid-item
+        {% if tables|length is odd and loop.last %}
+          full-width
+        {% endif %}
+      ">
         <div class="title">
           <h3>{{ table.title | default("Data Table") }}</h3>
         </div>
@@ -27,27 +31,28 @@
               </tr>
             </thead>
           </table>
-          <!-- Modal and Backdrop -->
-          <div id="modal-container-{{ table.id }}" class="modal-container">
-            <div id="modal-{{ table.id }}" class="modal">
-              <h4 id="modal-title-{{ table.id }}" class="modal-header"></h4>
-              <form id="editForm-{{ table.id }}">
-                {% for column in table.columns if column.data != 'id' %}
-                  <div class="form-group">
-                    <label for="{{ column.data }}">{{ column.label }}:</label>
-                    <input type="text" id="{{ column.data }}" name="{{ column.data }}" class="form-control">
-                  </div>
-                {% endfor %}
-                <div class="modal-footer">
-                  <button type="submit" id="saveButton-{{ table.id }}" class="btn btn-custom-1 btn-ok">Save</button>
-                  <button type="button" class="btn btn-custom-2 btn-cancel" onclick="closeModal('{{ table.id }}')">Cancel</button>
-                </div>
-              </form>
-            </div>
-          </div>
-          <div id="modalBackdrop-{{ table.id }}" class="modal-backdrop"></div>
         </div>
       </div>
+
+     <!-- Modal and Backdrop -->
+      <div id="modal-container-{{ table.id }}" class="modal-container">
+        <div id="modal-{{ table.id }}" class="modal">
+          <h4 id="modal-title-{{ table.id }}" class="modal-header"></h4>
+          <form id="editForm-{{ table.id }}">
+            {% for column in table.columns if column.data != 'id' %}
+              <div class="form-group">
+                <label for="{{ column.data }}">{{ column.label }}:</label>
+                <input type="text" id="{{ column.data }}" name="{{ column.data }}" class="form-control">
+              </div>
+            {% endfor %}
+            <div class="modal-footer">
+              <button type="submit" id="saveButton-{{ table.id }}" class="btn btn-custom-1 btn-ok">Save</button>
+              <button type="button" class="btn btn-custom-2 btn-cancel" onclick="closeModal('{{ table.id }}')">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="modalBackdrop-{{ table.id }}" class="modal-backdrop"></div>
     {% endfor %}
   {% else %}
     <div class="grid-item full-width">
@@ -56,6 +61,8 @@
   {% endif %}
 </div>
 {% endblock %}
+
+
 
 {% block scripts %}
   {{ super() }}
@@ -68,26 +75,28 @@
 <script>
   let counter = 0;
   $(document).ready(function () {
+    
     {% if tables is iterable and tables|length > 0 %}
       {% for table in tables %}
         counter++;
         // Initialize DataTable for each table
-
+        var url = '/web/fn/ops/get/{{ table.id }}';
+        var options = {{ table.datatable_options | default({}) | tojson | safe }};
+        var initialData = {{ table.initial_data | default([]) | tojson | safe }};
         const table_{{ loop.index }} = $('#{{ table.id }}').DataTable({
-          serverSide: true, // Enable server-side processing
-          processing: true, // Show a processing indicator
+          serverSide: true,
+          processing: true,
           ajax: {
-            url: '{{ table.api_url }}', // Backend API endpoint for fetching data
+            url: url,
             type: 'GET',
             data: function (d) {
-              // Map DataTables parameters to backend parameters
               return {
-                draw: d.draw, // Pass the draw counter
-                page: (d.start / d.length) + 1, // Calculate the current page
-                rows: d.length, // Number of rows per page
-                sidx: d.columns[d.order[0].column].data, // Column to sort by
-                sord: d.order[0].dir, // Sort direction (asc/desc)
-                search: d.search.value // Global search value
+                draw: d.draw,
+                page: (d.start / d.length) + 1,
+                rows: d.length,
+                sidx: d.columns[d.order[0].column].data,
+                sord: d.order[0].dir,
+                search: d.search.value
               };
             }
           },
@@ -107,51 +116,55 @@
             emptyTable: "No records to display",
           },
           select: true, // Enable row selection
-          dom: 'Bfrtip', // Add buttons for CRUD operations
-          buttons: [
-            {
-              text: 'Add',
-              action: function () {
-                openModal(null, '{{ table.id }}');
+          dom: options.dom, // Use options from table.datatable_options
+          buttons: options.buttons.map(btn => {
+            if (btn.action === "add") {
+              return {
+                text: btn.text,
+                action: function () { openModal(null, '{{ table.id }}'); }
               }
-            },
-            {
-              text: 'Edit',
-              action: function () {
-                const selectedData = table_{{ loop.index }}.row({ selected: true }).data();
-                if (selectedData) {
-                  openModal(selectedData, '{{ table.id }}');
-                } else {
-                  alert('Please select a row to edit.');
-                }
-              }
-            },
-            {
-              text: 'Delete',
-              action: function () {
-                const selectedData = table_{{ loop.index }}.row({ selected: true }).data();
-                if (selectedData) {
-                  if (confirm('Are you sure you want to delete this record?')) {
-                    $.ajax({
-                      url: `/api/delete/{{ table.id }}`,
-                      type: 'DELETE',
-                      contentType: 'application/json',
-                      data: JSON.stringify({ id: selectedData.id }),
-                      success: function (response) {
-                        alert('Record deleted successfully.');
-                        table_{{ loop.index }}.ajax.reload();
-                      },
-                      error: function (xhr) {
-                        alert('Error deleting record: ' + xhr.responseText);
-                      }
-                    });
+            }
+            if (btn.action === "edit") {
+              return {
+                text: btn.text,
+                action: function () {
+                  const selectedData = table_{{ loop.index }}.row({ selected: true }).data();
+                  if (selectedData) {
+                    openModal(selectedData, '{{ table.id }}');
+                  } else {
+                    alert('Please select a row to edit.');
                   }
-                } else {
-                  alert('Please select a row to delete.');
                 }
               }
             }
-          ]
+            if (btn.action === "delete") {
+              return {
+                text: btn.text,
+                action: function () {
+                  const selectedData = table_{{ loop.index }}.row({ selected: true }).data();
+                  if (selectedData) {
+                    if (confirm('Are you sure you want to delete this record?')) {
+                      $.ajax({
+                        url: `/web/fn/ops/delete/{{ table.id }}`,
+                        type: 'DELETE',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ id: selectedData.id }),
+                        success: function (response) {
+                          alert('Record deleted successfully.');
+                          table_{{ loop.index }}.ajax.reload();
+                        },
+                        error: function (xhr) {
+                          alert('Error deleting record: ' + xhr.responseText);
+                        }
+                      });
+                    }
+                  } else {
+                    alert('Please select a row to delete.');
+                  }
+                }
+              }
+            }
+          })
         });
 
         // Function to open a modal for adding/editing   
@@ -172,6 +185,20 @@
           backdrop.addClass('show');
           modal.addClass('show');
 
+          setTimeout(function() {
+            if (isModalOutOfView('#modal-' + tableId)) {
+              console.log('Modal is partially outside the viewport! Resizing...');
+              // Dynamically resize and reposition modal
+              //TODO: this needs to be adjusted
+              modal.css({
+                top: '20%',
+                maxHeight: '90vh',
+                width: '90vw',
+                overflowY: 'auto'
+              });
+            }
+          }, 100);
+
           // Handle form submission
           $(`#editForm-${tableId}`).off('submit').on('submit', function (e) {
             e.preventDefault();
@@ -179,7 +206,7 @@
               obj[item.name] = item.value;
               return obj;
             }, {});
-            const url = isEdit ? `/api/edit/${tableId}` : `/api/new/${tableId}`;
+            const url = isEdit ? `/web/fn/ops/edit/${tableId}` : `/web/fn/ops/new/${tableId}`;
             const method = isEdit ? 'PUT' : 'POST';
             if (isEdit) {
               formData.id = data.id; // Include the ID of the row if editing
@@ -203,6 +230,7 @@
               }
             });
           });
+          
         }
       {% endfor %}
     {% endif %}

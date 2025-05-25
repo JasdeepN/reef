@@ -4,6 +4,9 @@
   --background-accent: var(--davys-gray);
   --form-background: var(--cool-gray);
 
+
+  --font-body: 'Source Sans Pro', monospace;
+
   /* Text Colors */
   --text-color: var(--alice-blue);
   --text-muted: var(--powder-blue);
@@ -36,19 +39,41 @@
   --navbar-text: var(--alice-blue);
   --navbar-text-accent: var(--powder-blue);
 
+  --grid-item-bg: var(--davys-gray);
+  --card-bg: var(--grey2);
+  --card-bg-secondary: var(--davys-gray);
+  --card-bg-tertiary: var(--shadow-blue);
+  --card-header-text: var(--powder-blue);
+  --card-border-color: var(--cool-gray);
+  --card-text-color-primary: var(--alice-blue);
+
   /* Complementary Table Colors */
   --table-bg: var(--cool-gray);
   --table-header-bg: var(--davys-gray);
   --table-row-hover-bg: var(--outer-space);
-  --table-border-color: var(--powder-blue);
+  --table-border-color: var(--cool-gray);
   --table-text-color: var(--alice-blue);
   --table-header-text-color: var(--alice-blue);
   --table-row-highlight-bg: var(--outer-space);
   --table-cell-disabled-bg: var(--davys-gray);
   --table-header-hover-bg: #778899; /* Light Slate Gray */
   --table-header-hover-text-color: var(--outer-space); /* White */
+  
 
-  /* CSS HEX */
+  --text-primary: var(--light-gray);
+  --text-secondary: var(--light-slate-gray);
+
+  --grey-out: rgba(216, 216, 216, 0.032); /* Semi-transparent background */
+
+  /* Form Colors */
+  --form-background: var(--outer-space);
+  --form-text-color: var(--alice-blue);
+  --form-border-color: var(--cool-gray);
+  --form-border-radius: 4px;
+  --form-padding: 0.5rem;
+
+  /* CSS HEX Colors */
+  
   --alice-blue: #dcedffff;
   --powder-blue: #94b0daff;
   --light-slate-gray: #778899ff;
@@ -56,5 +81,7 @@
   --cool-gray: #8f91a2ff;
   --davys-gray: #505a5bff;
   --outer-space: #343f3eff;
+  --grey2: #56666B;
+  --shadow-blue: #6b7a8fff;
 
 }

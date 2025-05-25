@@ -8,5 +8,5 @@ from modules.models import *
 @app.route('/x/test')
 @x_metrics.counter('test_requests_total', 'Total requests to the /test endpoint')
 def run_metrics():
-    result = test_results.query.order_by(desc(test_results.id))
+    result = TestResults.query.order_by(desc(TestResults.id))
     return render_template("metrics/test_metrics.html", db_response=result)

@@ -1,14 +1,18 @@
 from app import db
-
+from sqlalchemy import Enum
+import enum
 from sqlalchemy import Computed
 
 from flask_wtf import FlaskForm 
 from wtforms import StringField, DateField, TimeField, DecimalField, RadioField, SelectField, TextAreaField, SubmitField, IntegerField, HiddenField
 from wtforms.validators import Optional, DataRequired, Length
+from wtforms.fields import DateTimeField
 
-import datetime as dt
+from flask_sqlalchemy import SQLAlchemy
 
-from modules.forms import BaseForm
+import numpy as np
+from datetime import datetime
+from flask import session
 
 class TestResults(db.Model):
     __tablename__ = 'test_results'
@@ -22,137 +26,342 @@ class TestResults(db.Model):
     cal = db.Column(db.Integer)
     mg = db.Column(db.Float)
     sg = db.Column(db.Float)
+    tank_id = db.Column(db.Integer, db.ForeignKey('tanks.id'), nullable=False, index=True)
+    
+    # Relationships
+    tank = db.relationship('Tank', backref=db.backref('test_results', lazy=True))
 
     def __getattribute__(self, name):
         return super().__getattribute__(name)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "test_date": self.test_date.isoformat() if self.test_date else None,
+            "test_time": self.test_time.strftime('%H:%M:%S') if self.test_time else None,
+            "alk": self.alk,
+            "po4_ppm": self.po4_ppm,
+            "po4_ppb": self.po4_ppb,
+            "no3_ppm": self.no3_ppm,
+            "cal": self.cal,
+            "mg": self.mg,
+            "sg": self.sg,
+            "tank_id": self.tank_id,
+        }
     
-
-class test_result_form(FlaskForm):
-    test_date = DateField("Date", default=dt.datetime.today)
-    test_time = TimeField("Test Time", format='%H:%M:%S', default=dt.datetime.now)
-    alk = DecimalField("Alkalinity (KH)", [Optional()])
-    po4_ppm = DecimalField("Phosphate (PO\u2084\u00b3\u207b PPM)", [Optional()])
-    po4_ppb = IntegerField("Phosphate (PO\u2084\u00b3\u207b PPB)", [Optional()])
-    no3_ppm = DecimalField("Nitrate (NO\u2083\u207b PPM)", [Optional()])
-    cal = IntegerField("Calcium (Ca\u00b2\u207a PPM)", [Optional()])
-    mg = IntegerField("Magneisum (Mg\u00b2\u207a PPM)", [Optional()])
-    sg = DecimalField("Specific Gravity (SG)", [Optional()])
-    submit = SubmitField()
-
-    # Custom validate method
-    def validate(self, extra_validators=None):
-        if super().validate(extra_validators):
-            valid = False
-            for k in self.data:
-                if k not in ['test_date', 'test_time', 'csrf_token', 'submit'] and self.data[k] is not None:
-                    valid = True
-            return valid
-        return False
-
+              
 
 class Products(db.Model):
     __tablename__ = 'products'
 
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String(30), nullable=False)
-    dose_amt = db.Column(db.Float, nullable=True)
-    total_volume = db.Column(db.Float, nullable=True)
-    current_avail = db.Column(db.Float, nullable=True)
-    used_amt = db.Column(
-        db.Float,
-        Computed("total_volume - current_avail", persisted=True)  # Generated column
-    )
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(128), nullable=False)
+    uses = db.Column(db.String(32), nullable=True)  # e.g. '+Alk', '-NO3', etc.
+    total_volume = db.Column(db.Float)
+    current_avail = db.Column(db.Float)
+    # used_amt = db.Column(db.Float)  # This is a generated column in MySQL, not directly supported in SQLAlchemy
+    dry_refill = db.Column(db.Float)
+    last_update = db.Column(db.TIMESTAMP, server_default=None, onupdate=db.func.current_timestamp())
 
     def __repr__(self):
-        return f"<Product {self.name}>"
+        return f"<Products id={self.id} name={self.name} uses={self.uses}>"
 
     def validate(self):
-        if not self.name:
+        """Raise ValueError if any field is invalid."""
+        if not self.name or not self.name.strip():
             raise ValueError("Name is required")
-        if self.dose_amt is not None and self.dose_amt < 0:
-            raise ValueError("Dose amount must be non-negative")
         if self.total_volume is not None and self.total_volume < 0:
             raise ValueError("Total volume must be non-negative")
         if self.current_avail is not None and self.current_avail < 0:
             raise ValueError("Current available must be non-negative")
+        if self.dry_refill is not None and self.dry_refill < 0:
+            raise ValueError("Dry refill must be non-negative")
 
-    def to_dict(self):
-        return {
+    def to_dict(self, include_private=False):
+        """Serialize product to dictionary."""
+        data = {
             'id': self.id,
             'name': self.name,
-            'dose_amt': self.dose_amt,
             'total_volume': self.total_volume,
             'current_avail': self.current_avail,
-            'used_amt': self.used_amt
+            'used_amt': self.used_amt,
+            'dry_refill': self.dry_refill,
         }
+        if include_private:
+            data['_sa_instance_state'] = getattr(self, '_sa_instance_state', None)
+        return data
+
+    @staticmethod
+    def from_dict(data):
+        """Create a Products instance from a dictionary, ignoring unknown keys."""
+        allowed = {'name', 'total_volume', 'current_avail', 'dry_refill'}
+        filtered = {k: v for k, v in data.items() if k in allowed}
+        return Products(**filtered)
 
 
-class ProductForm(BaseForm):
-    name = StringField("Name", validators=[DataRequired(), Length(max=30)])
-    dose_amt = DecimalField("Dose Amount", validators=[Optional()])
-    total_volume = DecimalField("Total Volume", validators=[Optional()])
-    current_avail = DecimalField("Current Available", validators=[Optional()])
-    used_amt = DecimalField("Used Amount", validators=[Optional()])
-    submit = SubmitField("Submit")
+class DosingTypeEnum(enum.Enum):
+    recurring = 'recurring'
+    single = 'single'
+    intermittent = 'intermittent'
 
-
-class ManualDosing(db.Model):
-    __tablename__ = 'manual_dosing'
+class Dosing(db.Model):
+    __tablename__ = 'dosing'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    added_on = db.Column(db.Date, nullable=False)
-    dosed_at = db.Column(db.Time, nullable=False)
-    product = db.Column(db.String(128), nullable=False)
-    amount = db.Column(db.Float, nullable=True)
-    reason = db.Column(db.Text, nullable=True)
+    trigger_time = db.Column(db.DateTime(3))
+    amount = db.Column(db.Float, nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'))
+    schedule_id = db.Column(db.Integer, db.ForeignKey('d_schedule.id'), nullable=True)
+    product = db.relationship('Products', backref=db.backref('dosings', lazy=True))
+    schedule = db.relationship('DSchedule', backref=db.backref('dosings', lazy=True))
+
+    def validate(self):
+        if self.amount is not None and self.amount < 0:
+            raise ValueError("Amount must be non-negative")
+        if self.product_id is None:
+            raise ValueError("Product must be selected")
+        if self.amount is None:
+            raise ValueError("Amount must be specified")
+        if hasattr(self, '_type') and self._type is None:
+            raise ValueError("Dosing type must be specified")
+        if self.trigger_time is None:
+            raise ValueError("Dosing time must be specified")
+
+
+class DSchedule(db.Model):
+    __tablename__ = 'd_schedule'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    trigger_interval = db.Column(db.Integer, nullable=False)
+    suspended = db.Column(db.Boolean, default=False)
+    last_refill = db.Column(db.DateTime, default=None)
+    amount = db.Column(db.Float, nullable=False)
+    tank_id = db.Column(db.Integer, db.ForeignKey('tanks.id'), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
+
+    # Relationships
+    tank = db.relationship('Tank', backref=db.backref('schedules', lazy=True))
+    product = db.relationship('Products', backref=db.backref('schedules', lazy=True))
 
     def __repr__(self):
-        return f"<ManualDosing {self.product}>"
-    # Custom validate method
-    def validate(self, extra_validators=None):
-        if super().validate(extra_validators):
-            if not self.added_on:
-                raise ValueError("Added on date is required")
-            if not self.dosed_at:
-                raise ValueError("Dosed at time is required")
-            if not self.product:
-                raise ValueError("Product is required")
-            if self.amount is not None and self.amount < 0:
-                raise ValueError("Amount must be non-negative")
-            if self.reason and len(self.reason) > 500:
-                raise ValueError("Reason must be less than 500 characters")
-        
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'added_on': self.added_on.strftime("%Y-%m-%d"),
-            'dosed_at': self.dosed_at.strftime("%H:%M:%S"),
-            'product': self.product,
-            'amount': self.amount,
-            'reason': self.reason
-        }
+        return f"<DSchedule {self.id} (Tank {self.tank_id}, Product {self.product_id})>"
 
+def get_d_schedule_dict(d_schedule):
+    """Helper to serialize DSchedule model to dict."""
+    return {
+        "id": d_schedule.id,
+        "product_name": d_schedule.product.name if d_schedule.product else None,
+        "trigger_interval": d_schedule.trigger_interval,
+        "suspended": d_schedule.suspended,
+        "last_refill": d_schedule.last_refill.isoformat() if d_schedule.last_refill else None,
+        "amount": d_schedule.amount
+    }
 
-class ManualDosingForm(BaseForm):
-    added_on = DateField("Added On", validators=[DataRequired()])
-    dosed_at = TimeField("Dosed At", format='%H:%M:%S', validators=[DataRequired()])
-    product = StringField("Product", validators=[DataRequired(), Length(max=128)])
-    amount = DecimalField("Amount", validators=[Optional()])
-    reason = TextAreaField("Reason", validators=[Optional()])
+class Coral(db.Model):
+    __tablename__ = 'corals'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    coral_name = db.Column(db.String(128), nullable=False, index=True)
+    date_acquired = db.Column(db.Date, nullable=False, index=True)
+    par = db.Column(db.Integer)
+    flow = db.Column(db.Enum('Low', 'Medium', 'High'))
+    placement = db.Column(db.Enum('Top', 'Middle', 'Bottom'))
+    current_size = db.Column(db.String(64))
+    health_status = db.Column(db.Enum(
+        'Healthy', 'Recovering', 'New', 'Stressed', 'Dying', 'Dead', 'Other'
+    ))
+    frag_colony = db.Column(db.Enum('Frag', 'Colony'))
+    last_fragged = db.Column(db.Date)
+    unique_id = db.Column(db.String(64))
+    photo = db.Column(db.String(255))
+    notes = db.Column(db.Text)
+    test_id = db.Column(db.Integer, db.ForeignKey('test_results.id'))
+    created_at = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
+    updated_at = db.Column(
+        db.TIMESTAMP,
+        server_default=db.func.current_timestamp(),
+        onupdate=db.func.current_timestamp()
+    )
+
+    taxonomy_id = db.Column(db.Integer, db.ForeignKey('taxonomy.id'), nullable=False, index=True)
+    tank_id = db.Column(db.Integer, db.ForeignKey('tanks.id'), nullable=False, index=True)
+    vendors_id = db.Column(db.Integer, db.ForeignKey('vendors.id'), nullable=True, index=True)
+    color_morphs_id = db.Column(db.Integer, db.ForeignKey('color_morphs.id'), nullable=True, index=True)
+
+    # Relationships
+    test_result = db.relationship('TestResults', backref='corals', lazy=True)
+    tank = db.relationship('Tank', backref='corals', lazy=True)
+    taxonomy = db.relationship('Taxonomy', backref='corals', lazy=True)
+    vendor = db.relationship('Vendors', backref='corals', lazy=True)
+    color_morph = db.relationship('ColorMorphs', backref='corals', lazy=True)
+
+class Tank(db.Model):
+    __tablename__ = 'tanks'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String(45), nullable=False)
+    gross_water_vol = db.Column(db.Integer)
+    net_water_vol = db.Column(db.Integer)
+    live_rock_lbs = db.Column(db.Float)
+
+    def __repr__(self):
+        return f"<Tank {self.name}>"
+
+class Taxonomy(db.Model):
+    __tablename__ = 'taxonomy'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    genus = db.Column(db.String(100), nullable=False)
+    species = db.Column(db.String(100))
+    family = db.Column(db.String(255))
+    type = db.Column(db.Enum('SPS', 'LPS', 'Soft', 'Mushroom', 'Zoanthid'), nullable=False)
+    picture_uri = db.Column(db.String(2083))
+    common_name = db.Column(db.String(255))
+    color_morphs = db.relationship('ColorMorphs', back_populates='taxonomy')
+    __table_args__ = (
+        db.UniqueConstraint('genus', 'species', name='genus'),
+    )
+
+    def __repr__(self):
+        return f"<Taxonomy {self.common_name} ({self.genus} {self.species})>"
+
+class Vendors(db.Model):
+    __tablename__ = 'vendors'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    tag = db.Column(db.String(8), nullable=False)
+    name = db.Column(db.String(128), nullable=False)
+
+    def __repr__(self):
+        return f"<Vendor {self.name}>"
+
+class ColorMorphs(db.Model):
+    __tablename__ = 'color_morphs'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    taxonomy_id = db.Column(db.Integer, db.ForeignKey('taxonomy.id'), nullable=False, index=True)
+    morph_name = db.Column(db.String(64))
+    description = db.Column(db.Text)
+    rarity = db.Column(db.Enum('Common', 'Uncommon', 'Rare', 'Ultra'))
+    source = db.Column(db.String(100))
+    image_url = db.Column(db.Text)
+    taxonomy = db.relationship('Taxonomy', back_populates='color_morphs')
+
+    def __repr__(self):
+        return f"<ColorMorph {self.morph_name}>"
+
+class CareReqs(db.Model):
+    __tablename__ = 'care_reqs'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    genus = db.Column(db.String(100), nullable=False, unique=True)
+    temperature = db.Column(db.Numeric(4,2))
+    salinity = db.Column(db.Numeric(5,3))
+    pH = db.Column('pH', db.Numeric(3,2))
+    alkalinity = db.Column(db.Numeric(4,2))
+    calcium = db.Column(db.Integer)
+    magnesium = db.Column(db.Integer)
+    par = db.Column(db.Integer)
+    flow = db.Column(db.Enum('Low', 'Moderate', 'High'))
+    notes = db.Column(db.Text)
+
+    def __repr__(self):
+        return f"<CareReqs {self.genus}>"
+
+class TaxonomyForm(FlaskForm):
+    common_name = StringField("Common Name", validators=[DataRequired(), Length(max=128)])
+    type = StringField("Type", validators=[DataRequired(), Length(max=32)])
+    species = StringField("Species", validators=[DataRequired(), Length(max=128)])
+    genus = StringField("Genus", validators=[DataRequired(), Length(max=128)])
+    family = StringField("Family", validators=[DataRequired(), Length(max=128)])
+    picture_uri = StringField("Picture URI", validators=[Optional(), Length(max=255)])
     submit = SubmitField("Submit")
 
+class AlkalinityDoseModel(db.Model):
+    __tablename__ = 'alkalinity_dose_model'
 
-class DoseEvents(db.Model):
-    __tablename__ = 'dose_events'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    tank_id = db.Column(db.Integer, db.ForeignKey('tanks.id', ondelete='CASCADE'), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='SET NULL'), nullable=True, index=True)
+    slope = db.Column(db.Float, nullable=False)
+    intercept = db.Column(db.Float, nullable=False)
+    weight_decay = db.Column(db.Float, default=0.9)
+    last_trained = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    r2_score = db.Column(db.Float)
+    notes = db.Column(db.Text)
 
-    dose_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    repeat_type = db.Column(db.Enum('Hourly', 'Split-Dose', 'Bi-Hourly', 'Quarterly', 'Custom'), nullable=False)
-    start_time = db.Column(db.DateTime, nullable=False)
-    until_no = db.Column(db.Integer, nullable=True)
-    f_product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
-    description = db.Column(db.String(30), nullable=True)
-
-    product = db.relationship('Products', backref='dose_events', lazy=True)
+    # Relationships
+    tank = db.relationship('Tank', backref=db.backref('alkalinity_dose_models', lazy=True, cascade='all, delete-orphan'))
+    product = db.relationship('Products', backref=db.backref('alkalinity_dose_models', lazy=True))
 
     def __repr__(self):
-        return f"<DoseEvents {self.description}>"
+        return f"<AlkalinityDoseModel id={self.id} tank_id={self.tank_id} product_id={self.product_id}>"
+
+# --- AlkalinityDoseModel helpers ---
+
+def initialize_alkalinity_model(tank_id, product_id, slope=1.0, intercept=0.0, weight_decay=0.9, r2_score=None, notes=None):
+    """Create a new AlkalinityDoseModel entry with initial/default parameters."""
+    model = AlkalinityDoseModel(
+        tank_id=tank_id,
+        product_id=product_id,
+        slope=slope,
+        intercept=intercept,
+        weight_decay=weight_decay,
+        last_trained=datetime.utcnow(),
+        r2_score=r2_score,
+        notes=notes or "Initialized with default parameters."
+    )
+    db.session.add(model)
+    db.session.commit()
+    return model
+
+def get_alkalinity_model(tank_id, product_id):
+    """Fetch the most recent AlkalinityDoseModel for a tank and product."""
+    return AlkalinityDoseModel.query.filter_by(tank_id=tank_id, product_id=product_id).order_by(AlkalinityDoseModel.last_trained.desc()).first()
+
+def should_update_alkalinity_model(tank_id, product_id, retrain_interval_days=7):
+    """Return True if the model should be retrained (e.g., if last_trained is too old)."""
+    model = get_alkalinity_model(tank_id, product_id)
+    if not model:
+        return True
+    if (datetime.utcnow() - model.last_trained).days >= retrain_interval_days:
+        return True
+    return False
+
+def update_alkalinity_model(tank_id, product_id, dose_history, alk_history, weight_decay=0.9, notes=None):
+    """
+    Fit a weighted linear regression to dose_history and alk_history, update the model in DB.
+    dose_history: list/array of dose amounts (x)
+    alk_history: list/array of resulting alk values (y)
+    """
+    if len(dose_history) != len(alk_history) or len(dose_history) < 2:
+        raise ValueError("Need at least 2 matching dose and alk values.")
+    # Exponential weights: most recent = highest weight
+    weights = np.array([weight_decay ** (len(dose_history) - i - 1) for i in range(len(dose_history))])
+    X = np.array(dose_history).reshape(-1, 1)
+    y = np.array(alk_history)
+    # Weighted linear regression
+    from sklearn.linear_model import LinearRegression
+    model = LinearRegression()
+    model.fit(X, y, sample_weight=weights)
+    slope = float(model.coef_[0])
+    intercept = float(model.intercept_)
+    r2 = float(model.score(X, y, sample_weight=weights))
+    # Update or create model
+    alk_model = get_alkalinity_model(tank_id, product_id)
+    if not alk_model:
+        alk_model = initialize_alkalinity_model(tank_id, product_id, slope, intercept, weight_decay, r2, notes)
+    else:
+        alk_model.slope = slope
+        alk_model.intercept = intercept
+        alk_model.weight_decay = weight_decay
+        alk_model.last_trained = datetime.utcnow()
+        alk_model.r2_score = r2
+        alk_model.notes = notes or "Model updated."
+        db.session.commit()
+    return alk_model
+
+def predict_alkalinity_dose(tank_id, product_id, target_alk):
+    """Given a target alkalinity, return the required dose using the latest model."""
+    model = get_alkalinity_model(tank_id, product_id)
+    if not model or model.slope == 0:
+        raise ValueError("No valid model found or slope is zero.")
+    dose = (target_alk - model.intercept) / model.slope
+    return dose
+
+

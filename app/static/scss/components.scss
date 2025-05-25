@@ -106,24 +106,7 @@
   .form__label {
     margin-bottom: 0.5rem;
   }
-  
-  .form__field {
-    /* Removes the border and the outline highlight when the text field is in focus */
-    outline: none;
-    border: none;
-  
-    /* Re-adds a bottom border which will be replaces when the field is in focus. This
-         is going to prevent any jumping when we add the border later */
-    border-bottom: 3px solid #fff;
-  
-    /* We have to be explicit about our text fields inheriting font properties */
-    font-size: inherit;
-    font-family: inherit;
-  
-    padding: 0.75rem 0.5rem;
-    background: var(--background-color);
-  }
-  
+
   /* When the field is in focus, we change the border colour at the bottom to the accent colour */
   .form__field:focus {
     border-bottom: 3px solid var(--accent-colour);
@@ -166,7 +149,7 @@
   color: white;
 }
 
-button.btn.btn-custom-1 {
+.btn.btn-custom-1 {
     background-color: var(--button-background ) ; /* Light slate gray background */
     color: var(--button-text); /* White text */
     border: none !important;
@@ -209,3 +192,25 @@ button.btn.btn-custom-1 {
   color: #9b9b9b; /* White text */
   border: none !important;
 }
+
+.form-control:disabled,
+.grey-out {
+  background-color: var(--grey-out);
+  color: var(--text-muted);
+}
+
+.form-select:disabled,
+.grey-out {
+  background-color: var(--grey-out);
+  color: var(--text-muted);
+}
+
+.popover > h3 {
+  color: var(--outer-space);
+}
+
+.col-md-4, .mb-3 > label{
+  color: var(--text-color);
+}
+
+

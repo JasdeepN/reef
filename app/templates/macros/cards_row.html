@@ -1,0 +1,110 @@
+{% macro cards_row(urls) %}
+  <div class="card-row-container">
+    <div class="card-row" id="card-row">
+      <!-- Cards will be populated by JS -->
+    </div>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      fetch('{{ urls["GET"] }}')
+        .then(response => response.json())
+        .then(function(stats) {
+          const row = document.getElementById('card-row');
+          row.innerHTML = '';
+          stats.forEach(function(stat) {
+            if (!stat) return; // skip None values
+            const keys = Object.keys(stat);
+            // Use card_title for product name if available, fallback to first key
+            const cardTitle = stat.card_title ? stat.card_title[1] : (stat[keys[0]] ? stat[keys[0]][1] : '');
+            const cardId = stat.product_id ? stat.product_id[1] : (stat[keys[0]] ? stat[keys[0]][1] : '');
+            const card = document.createElement('div');
+            card.className = 'card-data-body';
+            card.innerHTML = `
+              <input type="hidden" class="product-id-hidden" value="${cardId}">
+              <div class="card-header">
+                ${cardTitle}
+                <div class="card-header-button">
+                  <button class="action-btn" data-card-id="${cardId}" data-product-name="${cardTitle}" title="Delete">&#128465;</button>
+                </div>
+              </div>
+              <div class="card-body">
+                <table class='card-table'>
+                  ${Object.entries(stat).filter(([k, v]) => Array.isArray(v) && v.length >= 2 && k !== 'product_id').map(([k, pair]) =>
+                    `<tr class='card-row-data'>
+                      <td class='label'>${pair[0]}</td>
+                      <td class='value'>${pair[1] !== null && pair[1] !== undefined ? pair[1] : ''} ${pair[2] ? pair[2] : ''}</td>
+                    </tr>`
+                  ).join('')}
+                </table>
+              </div>
+            `;
+            // Add delete handler
+            card.querySelector('.action-btn').addEventListener('click', function() {
+              const cardId = this.getAttribute('data-card-id');
+              const productName = this.getAttribute('data-product-name') || '';
+              if (confirm(`Are you sure you want to delete product "${productName}"? This action cannot be undone and any associated database entries will be updated.`)) {
+                fetch('{{ urls["DELETE"] }}', {
+                  method: 'DELETE',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ product_id: cardId })
+                })
+                .then(resp => resp.json())
+                .then(resp => {
+                  if (resp.success) {
+                    alert('Item deleted!');
+                    card.remove();
+                  } else {
+                    alert('Error: ' + (resp.error || resp.message));
+                  }
+                })
+                .catch(err => alert('Request failed: ' + err));
+              }
+            });
+            row.appendChild(card);
+          });
+        });
+
+      function moveDateTimeUnderLabel() {
+        document.querySelectorAll('.card-table tr').forEach(function(row) {
+          const labelCell = row.querySelector('.label');
+          const valueCell = row.querySelector('.value');
+          if (!labelCell || !valueCell) return;
+          // Check if this is a datetime field (adjust as needed)
+          if (/date|time/i.test(labelCell.textContent)) {
+            // Create a temporary clone to measure lines
+            const clone = valueCell.cloneNode(true);
+            clone.style.position = 'absolute';
+            clone.style.visibility = 'hidden';
+            clone.style.width = valueCell.offsetWidth + 'px';
+            clone.style.whiteSpace = 'pre-line';
+            document.body.appendChild(clone);
+            const lineHeight = parseFloat(getComputedStyle(valueCell).lineHeight);
+            const lines = Math.round(clone.offsetHeight / lineHeight);
+            document.body.removeChild(clone);
+            if (lines > 3) {
+              // Move value under label
+              valueCell.style.display = 'block';
+              valueCell.style.width = '100%';
+              valueCell.style.marginTop = '0.25em';
+              labelCell.appendChild(valueCell);
+            } else {
+              // Reset if not wrapped
+              valueCell.style.display = '';
+              valueCell.style.width = '';
+              valueCell.style.marginTop = '';
+              if (labelCell.parentNode === row) {
+                row.appendChild(valueCell);
+              }
+            }
+          }
+        });
+      }
+      // Run after cards are rendered
+      setTimeout(moveDateTimeUnderLabel, 200);
+      // Optionally, re-run on window resize
+      window.addEventListener('resize', function() {
+        setTimeout(moveDateTimeUnderLabel, 200);
+      });
+    });
+  </script>
+{% endmacro %}

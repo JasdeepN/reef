@@ -1,0 +1,309 @@
+{% extends 'base.html' %}
+
+{% from "forms.html" import combined_form %}
+{% from "stripped-datatables.html" import dts_table %}
+
+{% block content %}
+<div class="grid-container single-wide">
+  <div class="grid-item">
+    <div class="card card-body form-background" id="combined-form">
+      <h4>Select the Dose Form</h4>
+      <!-- Action radio buttons -->
+      <div class="form-group mb-3 card card-body card-support">
+        <label class="form-label">Doser Action:</label>
+        <div>
+          <input type="radio" id="action_add" name="doser_action" value="add" checked>
+          <label for="action_add">Add New</label>
+          <input type="radio" id="action_modify" name="doser_action" value="modify">
+          <label for="action_modify">Modify Existing</label>
+          <input type="radio" id="action_delete" name="doser_action" value="delete">
+          <label for="action_delete">Delete</label>
+        </div>
+      </div>
+
+      <!-- Sections for each action -->
+      <div id="add-form-section" class="card card-body card-secondary">
+        <!-- Existing form type select and form code (now under Add New) -->
+        <form id="dynamic-create-form">
+          <div class="form__container">
+            <div class="form__group">
+              <div class="form-group mb-3">
+                <label class="form-label">Form Type <span class="text-danger" title="Required">*</span></label>
+                <div id="form-type-radio-group">
+                  {% for value, label in selector %}
+                    <input type="radio" id="form_type_{{ value }}" name="form_type" value="{{ value }}" {% if loop.first %}checked{% endif %}>
+                    <label for="form_type_{{ value }}">{{ label }}</label>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <!-- Hidden tank_id field for tank context -->
+            <input type="hidden" name="tank_id" id="tank_id_hidden" value="{{ tank_id }}">
+            {% if not tank_id %}
+            <div class="alert alert-warning mt-2">No tank selected. Please select a tank before adding a dosing schedule.</div>
+            <script>
+              document.addEventListener('DOMContentLoaded', function() {
+                var submitBtn = document.querySelector('#dynamic-create-form button[type="submit"]');
+                if (submitBtn) submitBtn.disabled = true;
+              });
+            </script>
+            {% endif %}
+
+            <!-- Dosing Fields -->
+            <div class="form-group" data-types="recurring,single,intermittent">
+              <label for="dosing_type">
+                Dosing Type <span class="text-danger" title="Required">*</span>
+              </label>
+              <select name="dosing_type" id="dosing_type" class="form-control grey-out" disabled>
+                <option value="recurring">Recurring</option>
+                <option value="single">Single</option>
+                <option value="intermittent">Intermittent</option>
+              </select>
+              <input type="hidden" name="dosing_type" id="dosing_type_hidden">
+            </div>
+            <div class="form-group" data-types="recurring,single,intermittent">
+              <label for="product_id">
+                Product
+                <span class="text-danger" title="Required for recurring">*</span>
+              </label>
+              <select name="product_id" id="product_id" class="form-control">
+                <!-- Options will be populated dynamically -->
+                <option value="add_new_product">Add New Product</option>
+              </select>
+              <!-- Place the product form placeholder right here -->
+              <div id="product-form-placeholder" style="display:none;"></div>
+            </div>
+            <div class="form-group" data-types="recurring,single,intermittent">
+              <label for="amount">
+                Amount
+                <span class="text-danger" title="Required for recurring">*</span>
+              </label>
+              <input type="number" step="any" name="amount" id="amount" class="form-control">
+            </div>
+          
+            <div class="form-group" data-types="recurring,single,intermittent">
+              <label for="schedule_time">
+                Dose Time
+                <span class="text-danger" title="Required for recurring, single and intermittent">*</span>
+              </label>
+              <input type="datetime-local" name="schedule_time" id="schedule_time" class="form-control">
+            </div>
+
+            <div class="form-group" data-types="recurring">
+              <label for="trigger_interval">
+                Trigger Interval
+                <span class="text-danger" title="Required for recurring">*</span>
+              </label>
+              <input type="number" name="trigger_interval" id="trigger_interval" class="form-control">
+            </div>
+            
+          </div>
+          <div class="form-group">
+            <button type="submit" class="btn btn-custom-1">Lets goooo</button>
+          </div>
+        </form>
+      </div>
+      <div id="modify-form-section" style="display:none;">
+        <div class="card card-body card-secondary">
+          <h4>Edit Existing Dosing Schedules</h4>
+          {{ dts_table(d_schedule_table) }}
+        </div>
+      </div>
+      <div id="delete-form-section" style="display:none;">
+        <!-- Placeholder for Delete form (to be implemented) -->
+        <div class="alert alert-warning">Delete form coming soon.</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+{{ super() }}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Action radio logic
+    const actionRadios = document.getElementsByName('doser_action');
+    const addSection = document.getElementById('add-form-section');
+    const modifySection = document.getElementById('modify-form-section');
+    const deleteSection = document.getElementById('delete-form-section');
+
+    // Editable DSchedule Table for Modify Existing
+    function loadDScheduleTable() {
+      fetch('/web/fn/ops/get/d_schedule')
+        .then(resp => resp.json())
+        .then(data => {
+          
+        });
+    }
+
+    function updateActionForm() {
+      const selected = document.querySelector('input[name="doser_action"]:checked').value;
+      addSection.style.display = selected === 'add' ? '' : 'none';
+      modifySection.style.display = selected === 'modify' ? '' : 'none';
+      deleteSection.style.display = selected === 'delete' ? '' : 'none';
+      if (selected === 'modify') {
+        loadDScheduleTable();
+      }
+    }
+
+    actionRadios.forEach(radio => {
+      radio.addEventListener('change', updateActionForm);
+    });
+    updateActionForm();
+
+    // Populate product select from API
+    const typeRadios = document.querySelectorAll('input[name="form_type"]');
+    const dosingType = document.getElementById('dosing_type');
+    const dosingTypeHidden = document.getElementById('dosing_type_hidden');
+    const prodSelect = document.getElementById('product_id');
+    const productFormPlaceholder = document.getElementById('product-form-placeholder');
+
+    // Product form HTML as a string
+    const productFormFields = `
+      <div class="card card-body form-background card-secondary">
+        <h4>Add a New Product</h4>
+      <div class="form-group">
+        <label for="name">Product Name</label>
+        <input type="text" name="name" id="name" class="form-control">
+      </div>
+      <div class="form-group">
+        <label for="total_volume">Total Volume</label>
+        <input type="number" step="any" name="total_volume" id="total_volume" class="form-control">
+      </div>
+      <div class="form-group">
+        <label for="current_avail">Current Available</label>
+        <input type="number" step="any" name="current_avail" id="current_avail" class="form-control">
+      </div>
+      <div class="form-group">
+        <label for="dry_refill">Dry Refill (grams)</label>
+        <input type="number" step="any" name="dry_refill" id="dry_refill" class="form-control">
+      </div>
+      </div>
+    `;
+
+    function getSelectedFormType() {
+      const checked = document.querySelector('input[name="form_type"]:checked');
+      return checked ? checked.value : null;
+    }
+
+    function populateProductSelect() {
+      fetch('/web/fn/ops/get/raw/products')
+        .then(resp => resp.json())
+        .then(data => {
+          prodSelect.innerHTML = '';
+          if (Array.isArray(data.data)) {
+            data.data.forEach(product => {
+              const opt = document.createElement('option');
+              opt.value = product.id;
+              opt.textContent = product.name;
+              prodSelect.appendChild(opt);
+            });
+          }
+          // Always add "Add New Product" at the end
+          const addNewOption = document.createElement('option');
+          addNewOption.value = 'add_new_product';
+          addNewOption.textContent = 'Add New Product';
+          prodSelect.appendChild(addNewOption);
+
+          // After populating, update the form fields visibility
+          updateFormFields();
+        });
+    }
+
+    function updateFormFields() {
+      const selectedType = getSelectedFormType();
+      document.querySelectorAll('#dynamic-create-form [data-types]').forEach(function(el) {
+        const types = el.getAttribute('data-types').split(',');
+        el.style.display = types.includes(selectedType) ? '' : 'none';
+      });
+      if (dosingType) {
+        dosingType.value = selectedType;
+      }
+      if (dosingTypeHidden) {
+        dosingTypeHidden.value = selectedType;
+      }
+      // Show product form only if "Add New Product" is selected
+      if (prodSelect && prodSelect.value === 'add_new_product') {
+        productFormPlaceholder.innerHTML = productFormFields;
+        productFormPlaceholder.style.display = '';
+      } else {
+        productFormPlaceholder.innerHTML = '';
+        productFormPlaceholder.style.display = 'none';
+      }
+    }
+
+    typeRadios.forEach(radio => {
+      radio.addEventListener('change', updateFormFields);
+    });
+
+    prodSelect.addEventListener('change', updateFormFields);
+
+    // Initial population and setup
+    populateProductSelect();
+
+    // Handle form submission to API endpoint
+    document.getElementById('dynamic-create-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      const data = {};
+      formData.forEach((value, key) => {
+        if (value !== '') data[key] = value;
+      });
+
+      // Ensure prod_id is set from the dropdown (and is an integer if not "add_new_product")
+      const prodSelect = document.getElementById('prod_id');
+      if (prodSelect) {
+        const selectedProdId = prodSelect.value;
+        if (selectedProdId && selectedProdId !== 'add_new_product') {
+          data.product_id = parseInt(selectedProdId, 10);
+        } else {
+          data.product_id = selectedProdId; // keep as string for add_new_product
+        }
+      }
+
+
+      // Extra validation for recurring
+      if (data.form_type === "recurring") {
+        const requiredFields = ["amount", "product_id", "trigger_interval", "schedule_time"];
+        const missing = requiredFields.filter(field => !data[field]);
+        if (missing.length > 0) {
+          alert(`Missing required fields for recurring: ${missing.join(', ')}`);
+          return;
+        }
+      }
+
+      // Convert schedule_time from "YYYY-MM-DDTHH:MM" to "YYYY-MM-DD HH:MM:SS"
+      if (data.schedule_time && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(data.schedule_time)) {
+        data.schedule_time = data.schedule_time.replace('T', ' ') + ':00';
+      }
+      if ("schedule_time" in data) {
+        data["_time"] = data["schedule_time"];
+      }
+      delete data.schedule_time;
+
+      fetch('/doser/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      .then(resp => resp.json())
+      .then(resp => {
+        if (resp.success) {
+          alert('Entry added!');
+          this.reset();
+          populateProductSelect();
+          updateFormFields();
+        } else {
+          alert('Error: ' + (resp.error || resp.message));
+        }
+      })
+      .catch(err => alert('Request failed: ' + err));
+    });
+  });
+</script>
+{% endblock %}
+
+
+

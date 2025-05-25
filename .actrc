@@ -1,0 +1,24 @@
+# Act configuration file
+# This configures act to automatically clean up containers and use proper resource limits
+
+# Use Ubuntu latest instead of the default runner
+-P ubuntu-latest=catthehacker/ubuntu:act-latest
+
+# Use host networking to allow service container communication
+--container-options "--network=host"
+
+# Automatically remove containers after execution
+--rm
+
+# Limit resources to prevent overwhelming the system
+--container-cap-add SYS_PTRACE
+--container-cap-add NET_ADMIN
+
+# Use default bridge network for service container compatibility
+--network bridge
+
+# Clean up previous containers before running
+--reuse=false
+
+# Increase verbosity for debugging
+--verbose
