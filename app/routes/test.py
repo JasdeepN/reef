@@ -14,6 +14,7 @@ def test_results():
         flash("No tank selected.", "warning")
         return redirect(url_for('index'))
     tests = TestResults.query.filter_by(tank_id=tank_id).order_by(TestResults.test_date.desc(), TestResults.test_time.desc()).all()
+    # print(tests)
     return render_template("test/results.html", tests=tests)
 
 @app.route("/test/add", methods=['GET', 'POST'])

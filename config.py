@@ -9,8 +9,8 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 basedir = os.path.abspath(os.path.dirname(__file__))
-# Load environment variables from .flaskenv
-dotenv_path = os.path.join(os.path.dirname(__file__), '.flaskenv')
+# Load environment variables from .env
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path)
 
@@ -30,7 +30,7 @@ class Config(object):
     PK_DELIMITER = '---' # must be 3 characters
 
     GUNICORN_WORKERS = 4  # Number of worker processes
-    GUNICORN_BIND = "0.0.0.0:5000"  # Bind address
+    GUNICORN_BIND = "0.0.0.0:5371"  # Default production bind address
     GUNICORN_WORKER_CLASS = "gevent"  # Use Gevent worker class
 
     # Add timezone config

@@ -33,7 +33,6 @@ UPLOAD_FOLDER = 'static/temp'
 
 bootstrap = Bootstrap5(app)
 
-# Use config from Config class only
 app.config.from_object(Config)
 
 # Check if we're in unit testing mode (should use SQLite instead of MySQL)

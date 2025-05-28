@@ -55,38 +55,104 @@ Features listed here are not guaranteed.***
 
 ## Setup
 
+ReefDB now uses Docker containers for all environments to ensure consistency and easy deployment.
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Make (for using the Makefile commands)
+- Git
+
+### Quick Start
+
 1. **Clone the repository**
     ```bash
     git clone https://github.com/JasdeepN/reefdb.git
-    cd reefdb
+    cd reefdb/web
     ```
 
-2. **Install dependencies**
+2. **Start development environment**
+    ```bash
+    make start-dev
+    ```
+    This will:
+    - Build the development Docker image
+    - Start MySQL database on port 3306
+    - Start Flask web container on port 5000 with auto-reload
+    - Start Sass compilation in watch mode
+    
+    **Note**: On first startup, the container's entrypoint will automatically create database tables and seed initial data. No external SQL seed files are required.
+    
+3. **Access the app**  
+   Open your browser and go to [http://localhost:5000](http://localhost:5000) for development
+
+### Environment System
+
+ReefDB uses a three-tier Docker environment system:
+
+- **Development**: 
+  - Database: MySQL (latest) on port 3306
+  - Web: Flask dev server on port 5000 with auto-reload
+  - File changes automatically reload the container
+  - Traefik routing: `rdb-dev.server.lan` / `rdb-dev.lan`
+
+- **Production**: 
+  - Database: MySQL (latest) on port 3142  
+  - Web: Gunicorn server on ports 5371 and 33812
+  - Optimized for performance with health checks
+
+- **Testing**: 
+  - Database: Ephemeral MySQL container on port 3310
+  - Web: Flask test server on port 5001
+
+### Makefile Commands
+
+```bash
+# Environment Management
+make start-dev      # Start development (DB:3306, Web:5000)
+make start-prod     # Start production (DB:3142, Web:5371 & 33812)  
+make start-test     # Start test (DB:3310, Web:5001)
+
+# Stop Services
+make stop-flask     # Stop all Flask web services (leave DBs running)
+make stop-flask-dev # Stop development Flask container only
+make stop-flask-prod # Stop production Flask container only
+make stop-flask-test # Stop test Flask container only
+make stop-all       # Stop everything (web + databases)
+
+# Database Management
+make start-db-dev   # Start development database container
+make stop-db-dev    # Stop development database container
+make start-db-prod  # Start production database container
+make stop-db-prod   # Stop production database container
+
+# Development Tools
+make build-dev      # Build development Docker image
+make status         # Show current environment status
+make help           # Show all available commands
+```
+
+### Manual Setup (Alternative)
+
+If you prefer not to use Docker:
+
+1. **Install dependencies**
     ```bash
     pip install -r requirements.txt
     ```
 
-3. **Configure environment variables**  
+2. **Configure environment variables**  
    Set your database credentials and other environment variables as needed.
 
-4. **Initialize the database**
+3. **Initialize the database**
     ```bash
     flask db upgrade
     ```
 
-5. **Run the application**
+4. **Run the application**
     ```bash
     flask run
     ```
-
-6. **Access the app**  
-   Open your browser and go to [http://localhost:5000](http://localhost:5000) for production/development
-
-## Environment System
-
-ReefDB uses a dual environment system:
-- **Development/Production**: Flask runs on port 5000 
-- **Testing**: Flask runs on port 5001 with dedicated test database on port 3310
 
 ## Testing
 
@@ -98,11 +164,12 @@ The project includes comprehensive testing with both unit tests and end-to-end (
 
 ### Container Management
 
-The testing system uses ephemeral MySQL containers to avoid conflicts with production data:
+The application uses Docker containers with MySQL (latest) for all environments:
 
-- **Local E2E tests**: Uses `reef-sql-test` container on port 3310
-- **CI tests**: Uses GitHub Actions services or `act` containers 
-- **Production**: Uses `reef-sql` container on port 3306
+- **Development containers**: Uses `reef-sql-dev` database and `reefdb-web-dev` web container
+- **Production containers**: Uses `reef-sql-prod` database and `reefdb-web-prod` web container  
+- **Test database**: Uses ephemeral `reef-sql-test` container on port 3310
+- **CI tests**: Uses GitHub Actions services or `act` containers
 
 ### Quick Testing Commands
 
@@ -138,14 +205,7 @@ make act-clean
 
 2. **For E2E tests, start the test database and Flask server**:
     ```bash
-    # Terminal 1: Start test database
-    make test-db-start
-    
-    # Terminal 2: Start Flask in test mode
-    make test-server
-    
-    # Terminal 3: Run E2E tests
-    make test-e2e
+    make start-test
     ```
 
 3. **For unit tests only** (no Flask server needed):
@@ -223,12 +283,12 @@ If tests fail:
 
 1. **Check container status**:
     ```bash
-    docker ps | grep mysql
+    make docker-status
     ```
 
 2. **Check test database connection**:
     ```bash
-    mysql -h 172.0.10.1 -P 3310 -u testuser -ptestpassword reef_test -e "SHOW TABLES;"
+    make test-db-status
     ```
 
 3. **Run tests with verbose output**:

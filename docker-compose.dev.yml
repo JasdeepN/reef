@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # Development MySQL Database Service
+  reefdb-database-dev:
+    image: mysql:latest
+    container_name: reef-sql-dev
+    ports:
+      - "3306:3306"  # Development database on standard port 3306
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-devroot2025!}
+      - MYSQL_DATABASE=${DB_NAME:-reef}
+      - MYSQL_USER=${DB_USER:-admin}
+      - MYSQL_PASSWORD=${DB_PASS:-adminpassword}
+      - MYSQL_CHARACTER_SET_SERVER=utf8mb4
+      - MYSQL_COLLATION_SERVER=utf8mb4_unicode_ci
+      - MYSQL_ALLOW_EMPTY_PASSWORD=no
+    volumes:
+      # Persistent data storage mapped to actual MySQL data directory
+      - ../database/dev/db:/var/lib/mysql
+      # Configuration files (if any)
+      - ../database/dev:/opt/dev-config:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-devroot2025!}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - rdb-dev-network
+    command: >
+      --innodb-buffer-pool-size=128M
+      --max-connections=50
+      --innodb-flush-log-at-trx-commit=2
+      --sync-binlog=0
+      --sql-mode=STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO
+
+  # Development Web Application Service
+  reefdb-web-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: reefdb-web-dev
+    image: reefdb-web:dev
+    env_file:
+      - ./evs/.env.dev
+    volumes:
+      - ./:/app
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    depends_on:
+      reefdb-database-dev:
+        condition: service_healthy
+    networks:
+      - rdb-dev-network
+    labels:
+      - "traefik.enable=true"
+      # - "traefik.http.routers.reefdb-web-dev.rule=Host(`dev.reefdb.local`)"
+      - "traefik.http.routers.reefdb-web-dev.entrypoints=websecure"
+      - "traefik.http.services.reefdb-web-dev.loadbalancer.server.port=5000"
+      - 'traefik.http.routers.reefdb-web-dev.middlewares=reefdb-web-dev-redirect,wl@file'
+      - 'traefik.http.routers.reefdb-web-dev.rule=Host(`rdb-dev.server.lan`) || Host(`rdb-dev.lan`)'
+      - 'traefik.http.middlewares.reefdb-web-dev-redirect.redirectregex.regex=^https?://rdb-dev.lan/(.*)'
+      - 'traefik.http.middlewares.reefdb-web-dev-redirect.redirectregex.replacement=https://rdb-dev.server.lan/$${1}'
+      - 'traefik.http.middlewares.reefdb-web-dev-redirect.redirectregex.permanent=true'
+      - 'certificatesresolvers.certs.acme.httpchallenge.entrypoint=web'
+
+    command: flask run --host=0.0.0.0 --port=5000
+
+networks:
+  rdb-dev-network:
+    driver: bridge
+    name: lan-net
+    external: true

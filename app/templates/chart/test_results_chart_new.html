@@ -1,0 +1,423 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Test Results Chart{% endblock %}
+
+{% block styles %}
+  {{ super() }}
+  <style>
+    .chart-container {
+      position: relative;
+      height: 400px;
+      width: 100%;
+      margin-bottom: 2rem;
+    }
+    .chart-controls {
+      margin-bottom: 1rem;
+    }
+    .parameter-toggle {
+      margin: 0.25rem;
+    }
+    .chart-info {
+      background: var(--card-background);
+      padding: 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="grid-container single-wide">
+  <div class="grid-item">
+    <h2>Test Results Over Time - Tank {{ session.get('tank_id', 'Unknown') }}</h2>
+    
+    <div class="chart-info">
+      <p class="mb-2"><strong>Chart Features:</strong></p>
+      <ul class="mb-0">
+        <li>Click parameter names in the legend to show/hide lines</li>
+        <li>Hover over data points to see exact values</li>
+        <li>Use the controls below to customize the view</li>
+        <li><strong>Interpolation:</strong> Dashed lines show estimated values between actual test data points</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="grid-item">
+    <div class="grid-container">
+      <div class="grid-item">
+        <div class="chart-controls">
+          <h5>Show/Hide Parameters:</h5>
+          <div class="row">
+            <div class="col-md-6">
+              <strong>Original Data (Solid Lines):</strong>
+              <div class="form-check parameter-toggle">
+                <input class="form-check-input" type="checkbox" id="show-alk" checked>
+                <label class="form-check-label" for="show-alk">Alkalinity</label>
+              </div>
+              <div class="form-check parameter-toggle">
+                <input class="form-check-input" type="checkbox" id="show-cal" checked>
+                <label class="form-check-label" for="show-cal">Calcium</label>
+              </div>
+              <div class="form-check parameter-toggle">
+                <input class="form-check-input" type="checkbox" id="show-mg" checked>
+                <label class="form-check-label" for="show-mg">Magnesium</label>
+              </div>
+              <div class="form-check parameter-toggle">
+                <input class="form-check-input" type="checkbox" id="show-po4" checked>
+                <label class="form-check-label" for="show-po4">PO4</label>
+              </div>
+              <div class="form-check parameter-toggle">
+                <input class="form-check-input" type="checkbox" id="show-no3" checked>
+                <label class="form-check-label" for="show-no3">NO3</label>
+              </div>
+              <div class="form-check parameter-toggle">
+                <input class="form-check-input" type="checkbox" id="show-sg" checked>
+                <label class="form-check-label" for="show-sg">Specific Gravity</label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <strong>Interpolated Data (Dashed Lines):</strong>
+              <div class="form-check parameter-toggle">
+                <input class="form-check-input" type="checkbox" id="show-alk-interp" checked>
+                <label class="form-check-label" for="show-alk-interp">Alkalinity (Interpolated)</label>
+              </div>
+              <div class="form-check parameter-toggle">
+                <input class="form-check-input" type="checkbox" id="show-cal-interp" checked>
+                <label class="form-check-label" for="show-cal-interp">Calcium (Interpolated)</label>
+              </div>
+              <div class="form-check parameter-toggle">
+                <input class="form-check-input" type="checkbox" id="show-mg-interp" checked>
+                <label class="form-check-label" for="show-mg-interp">Magnesium (Interpolated)</label>
+              </div>
+              <div class="form-check parameter-toggle">
+                <input class="form-check-input" type="checkbox" id="show-po4-interp" checked>
+                <label class="form-check-label" for="show-po4-interp">PO4 (Interpolated)</label>
+              </div>
+              <div class="form-check parameter-toggle">
+                <input class="form-check-input" type="checkbox" id="show-no3-interp" checked>
+                <label class="form-check-label" for="show-no3-interp">NO3 (Interpolated)</label>
+              </div>
+              <div class="form-check parameter-toggle">
+                <input class="form-check-input" type="checkbox" id="show-sg-interp" checked>
+                <label class="form-check-label" for="show-sg-interp">Specific Gravity (Interpolated)</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-item">
+        <div class="chart-controls">
+          <h5>Actions:</h5>
+          <button class="btn btn-secondary btn-sm" id="refresh-chart">Refresh Chart</button>
+          <button class="btn btn-outline-secondary btn-sm" id="show-all">Show All</button>
+          <button class="btn btn-outline-secondary btn-sm" id="hide-all">Hide All</button>
+          <button class="btn btn-outline-info btn-sm" id="toggle-interpolation">Toggle Interpolation</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-item">
+    <div class="chart-container">
+      <canvas id="testResultsChart"></canvas>
+    </div>
+  </div>
+
+  <div class="grid-item">
+    <div class="grid-container">
+      <div class="grid-item">
+        <div class="card">
+          <div class="card-header">
+            <h5>Quick Actions</h5>
+          </div>
+          <div class="card-body">
+            <a href="/test/add" class="btn btn-primary">Add New Test</a>
+            <a href="/test" class="btn btn-outline-primary">View Test Table</a>
+            <a href="/test/db" class="btn btn-outline-secondary">Manage Tests</a>
+          </div>
+        </div>
+      </div>
+      <div class="grid-item">
+        <div class="card">
+          <div class="card-header">
+            <h5>Chart Legend</h5>
+          </div>
+          <div class="card-body">
+            <small>
+              <div><strong>Original Data (Solid Lines):</strong></div>
+              <div><span style="color: rgb(75, 192, 192);">●</span> Alkalinity (dKH) - Left Y-axis</div>
+              <div><span style="color: rgb(255, 99, 132);">●</span> Calcium (ppm) - Right Y-axis 1</div>
+              <div><span style="color: rgb(54, 162, 235);">●</span> Magnesium (ppm) - Right Y-axis 1</div>
+              <div><span style="color: rgb(255, 206, 86);">●</span> PO4 (ppm) - Right Y-axis 2</div>
+              <div><span style="color: rgb(153, 102, 255);">●</span> NO3 (ppm) - Right Y-axis 3</div>
+              <div><span style="color: rgb(255, 159, 64);">●</span> Specific Gravity - Right Y-axis 4</div>
+              <br>
+              <div><strong>Interpolated Data (Dashed Lines):</strong></div>
+              <div><span style="color: rgb(75, 192, 192);">- - -</span> Shows estimated values between test points</div>
+              <em>Note: Only visible for parameters with missing data between tests</em>
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+let testChart = null;
+
+const chartConfig = {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: []
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      title: {
+        display: true,
+        text: 'Reef Tank Parameters Over Time'
+      },
+      legend: {
+        display: true,
+        onClick: function(e, legendItem, legend) {
+          const index = legendItem.datasetIndex;
+          const ci = legend.chart;
+          if (ci.isDatasetVisible(index)) {
+            ci.hide(index);
+            legendItem.hidden = true;
+          } else {
+            ci.show(index);
+            legendItem.hidden = false;
+          }
+        }
+      },
+      tooltip: {
+        mode: 'index',
+        intersect: false,
+        callbacks: {
+          label: function(context) {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            if (context.parsed.y !== null) {
+              label += context.parsed.y;
+            }
+            return label;
+          }
+        }
+      }
+    },
+    interaction: {
+      mode: 'nearest',
+      axis: 'x',
+      intersect: false
+    },
+    scales: {
+      x: {
+        display: true,
+        title: {
+          display: true,
+          text: 'Date/Time'
+        },
+        ticks: {
+          maxTicksLimit: 10
+        }
+      },
+      y: {
+        type: 'linear',
+        display: true,
+        position: 'left',
+        title: {
+          display: true,
+          text: 'Alkalinity (dKH)'
+        }
+      },
+      y1: {
+        type: 'linear',
+        display: true,
+        position: 'right',
+        title: {
+          display: true,
+          text: 'Ca/Mg (ppm)'
+        },
+        grid: {
+          drawOnChartArea: false,
+        },
+      },
+      y2: {
+        type: 'linear',
+        display: false,
+        position: 'right',
+        title: {
+          display: true,
+          text: 'PO4 (ppm)'
+        }
+      },
+      y3: {
+        type: 'linear',
+        display: false,
+        position: 'right',
+        title: {
+          display: true,
+          text: 'NO3 (ppm)'
+        }
+      },
+      y4: {
+        type: 'linear',
+        display: false,
+        position: 'right',
+        title: {
+          display: true,
+          text: 'Specific Gravity'
+        }
+      }
+    }
+  }
+};
+
+function loadChartData() {
+  fetch('/api/test-results-data')
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        console.error('Error loading chart data:', data.error);
+        return;
+      }
+      
+      chartConfig.data.labels = data.labels;
+      chartConfig.data.datasets = data.datasets;
+      
+      if (testChart) {
+        testChart.destroy();
+      }
+      
+      const ctx = document.getElementById('testResultsChart').getContext('2d');
+      testChart = new Chart(ctx, chartConfig);
+    })
+    .catch(error => {
+      console.error('Error loading chart data:', error);
+    });
+}
+
+function toggleDataset(datasetIndex, show) {
+  if (!testChart) return;
+  
+  if (show) {
+    testChart.show(datasetIndex);
+  } else {
+    testChart.hide(datasetIndex);
+  }
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+  loadChartData();
+  
+  // Original parameter checkbox event listeners
+  const parameterCheckboxes = [
+    { id: 'show-alk', index: 0 },
+    { id: 'show-cal', index: 1 },
+    { id: 'show-mg', index: 2 },
+    { id: 'show-po4', index: 3 },
+    { id: 'show-no3', index: 4 },
+    { id: 'show-sg', index: 5 }
+  ];
+  
+  parameterCheckboxes.forEach(({ id, index }) => {
+    const checkbox = document.getElementById(id);
+    if (checkbox) {
+      checkbox.addEventListener('change', function() {
+        const datasetIndex = index * 2; // Original datasets are at even indices
+        toggleDataset(datasetIndex, this.checked);
+      });
+    }
+  });
+  
+  // Interpolated parameter checkbox event listeners
+  const interpolatedCheckboxes = [
+    { id: 'show-alk-interp', index: 0 },
+    { id: 'show-cal-interp', index: 1 },
+    { id: 'show-mg-interp', index: 2 },
+    { id: 'show-po4-interp', index: 3 },
+    { id: 'show-no3-interp', index: 4 },
+    { id: 'show-sg-interp', index: 5 }
+  ];
+  
+  interpolatedCheckboxes.forEach(({ id, index }) => {
+    const checkbox = document.getElementById(id);
+    if (checkbox) {
+      checkbox.addEventListener('change', function() {
+        const datasetIndex = (index * 2) + 1; // Interpolated datasets are at odd indices
+        toggleDataset(datasetIndex, this.checked);
+      });
+    }
+  });
+  
+  // Button event listeners
+  document.getElementById('refresh-chart').addEventListener('click', loadChartData);
+  
+  document.getElementById('show-all').addEventListener('click', function() {
+    // Show all original datasets
+    parameterCheckboxes.forEach(({ id }) => {
+      const checkbox = document.getElementById(id);
+      if (checkbox) {
+        checkbox.checked = true;
+        checkbox.dispatchEvent(new Event('change'));
+      }
+    });
+    
+    // Show all interpolated datasets
+    interpolatedCheckboxes.forEach(({ id }) => {
+      const checkbox = document.getElementById(id);
+      if (checkbox) {
+        checkbox.checked = true;
+        checkbox.dispatchEvent(new Event('change'));
+      }
+    });
+  });
+  
+  document.getElementById('hide-all').addEventListener('click', function() {
+    // Hide all original datasets
+    parameterCheckboxes.forEach(({ id }) => {
+      const checkbox = document.getElementById(id);
+      if (checkbox) {
+        checkbox.checked = false;
+        checkbox.dispatchEvent(new Event('change'));
+      }
+    });
+    
+    // Hide all interpolated datasets
+    interpolatedCheckboxes.forEach(({ id }) => {
+      const checkbox = document.getElementById(id);
+      if (checkbox) {
+        checkbox.checked = false;
+        checkbox.dispatchEvent(new Event('change'));
+      }
+    });
+  });
+  
+  document.getElementById('toggle-interpolation').addEventListener('click', function() {
+    // Toggle all interpolated datasets
+    interpolatedCheckboxes.forEach(({ id }) => {
+      const checkbox = document.getElementById(id);
+      if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        checkbox.dispatchEvent(new Event('change'));
+      }
+    });
+  });
+});
+</script>
+{% endblock %}

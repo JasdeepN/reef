@@ -8,10 +8,10 @@ venv/
 env/
 reef-env/
 
-# Ignore all .flaskenv files except .flaskenv.template
-.flaskenv
-.flaskenv.*
-!.flaskenv.template
+# Ignore all .env files except .env.template
+.env
+.env.*
+!.env.template
 
 # Search all folders for .env files
 .env.*

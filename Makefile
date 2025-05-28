@@ -1,6 +1,6 @@
-# Makefile for ReefDB Flask application with dual environment support
+# Makefile for ReefDB Flask application with Docker container support
 
-.PHONY: build-dev build-prod build-test test clean sass-dev sass-prod sass-test build act-test act-clean test-db-start test-db-stop validate start-prod start-dev start-test stop-all kill-flask test-full test-simple
+.PHONY: build-dev build-prod build-test test clean sass-dev sass-prod sass-test build act-test act-clean docker-dev-start docker-dev-stop docker-prod-start docker-prod-stop docker-status test-db-start test-db-stop validate start-prod start-dev start-test stop-all kill-flask test-full test-simple stop-flask-dev stop-flask-prod stop-flask-test stop-flask start-db-dev stop-db-dev start-db-prod stop-db-prod restart restart-full dev-logs prod-logs test-logs
 
 # === BASIC COMMANDS ===
 run: 
@@ -11,38 +11,47 @@ build:
 	pip install -r requirements.txt
 	python3 -m playwright install --with-deps
 
+build-dev:
+	@echo "[Makefile] Building development web image..."
+	docker-compose -f docker-compose.dev.yml build reefdb-web-dev
+
 clean:
-	@echo "[Makefile] Cleaning up .flaskenv and CSS..."
-	rm -f .flaskenv
-	rm -f app/static/css/*.css
-	pkill -f "flask run" || true
+	@echo "[Makefile] Cleaning up .env and CSS..."
+	@rm -f .env || echo "No .env to remove"
+	@rm -f app/static/css/*.css || echo "No CSS files to remove"
+	@-pkill -f "flask run" 2>/dev/null || echo "No Flask processes to kill"
 
 # === ENVIRONMENT SETUP ===
 dev:
 	@echo "[Makefile] Setting up development environment (port 5000)..."
-	cp evs/.flaskenv.dev .flaskenv
+	cp evs/.env.dev .env
 	@echo "[Makefile] Development ready. Use 'make start-dev' to run."
 
 prod:
-	@echo "[Makefile] Setting up production environment (port 5000)..."
-	cp evs/.flaskenv.prod .flaskenv
+	@echo "[Makefile] Setting up production environment (port 5371)..."
+	cp evs/.env.prod .env
 	make sass-prod
 	@echo "[Makefile] Production ready. Use 'make start-prod' to run."
 
 test:
 	@echo "[Makefile] Setting up test environment (port 5001)..."
-	cp evs/.flaskenv.test .flaskenv
+	cp evs/.env.test .env
 	@echo "[Makefile] Test environment ready. Use 'make start-test' to run."
 
 # === SERVER MANAGEMENT ===
-start-prod: prod
-	@echo "[Makefile] Starting production Flask server on port 5000..."
-	flask run
+start-prod: prod docker-prod-start
+	@echo "[Makefile] Starting production environment with Docker containers..."
+	@echo "[Makefile] Production database on port 3142"
+	@echo "[Makefile] Production web container on ports 5371 and 33812"
+	@echo "[Makefile] View logs with 'docker-compose -f docker-compose.prod.yml logs -f reefdb-web'"
 
-start-dev: dev
-	@echo "[Makefile] Starting development Flask server on port 5000..."
+start-dev: dev build-dev docker-dev-start
+	@echo "[Makefile] Starting development environment with Docker containers..."
+	@echo "[Makefile] Development database started on port 3306"
+	@echo "[Makefile] Starting development web container (auto-reload on port 5000)..."
+	docker-compose -f docker-compose.dev.yml up -d reefdb-web-dev
+	@echo "[Makefile] Web container started. Follow logs with 'docker-compose -f docker-compose.dev.yml logs -f reefdb-web-dev'"
 	make sass-dev &
-	flask run --debug
 
 start-test: test test-db-start
 	@echo "[Makefile] Starting test Flask server on port 5001..."
@@ -51,10 +60,13 @@ start-test: test test-db-start
 	FLASK_DEBUG=0 flask run
 
 stop-all:
-	@echo "[Makefile] Stopping all Flask servers and test database..."
-	@pgrep -f "python.*flask run" | xargs -r kill || true
-	@pgrep -f "sass --watch" | xargs -r kill || true
-	@docker stop reef-sql-test 2>/dev/null || echo "  Database container already stopped or not found"
+	@echo "[Makefile] Stopping all Flask servers and databases..."
+	@-pgrep -f "python.*flask run" | xargs -r kill || true
+	@-pgrep -f "sass --watch" | xargs -r kill || true
+	@echo "[Makefile] Stopping Docker containers..."
+	@-docker-compose -f docker-compose.dev.yml down 2>/dev/null || echo "  Development containers already stopped"
+	@-docker-compose -f docker-compose.prod.yml down 2>/dev/null || echo "  Production containers already stopped"
+	@-docker stop reef-sql-test 2>/dev/null || echo "  Test database container already stopped"
 	@echo "[Makefile] Cleanup complete!"
 
 kill-flask:
@@ -74,6 +86,105 @@ kill-flask:
 		fi; \
 	done
 	@echo "  Flask cleanup complete!"
+
+# Stop only Flask web services per environment
+.PHONY: stop-flask-dev stop-flask-prod stop-flask-test
+stop-flask-dev:
+	@echo "[Makefile] Stopping development Flask container..."
+	@docker-compose -f docker-compose.dev.yml stop reefdb-web-dev
+
+stop-flask-prod:
+	@echo "[Makefile] Stopping production Flask container..."
+	@docker-compose -f docker-compose.prod.yml stop reefdb-web
+
+stop-flask-test:
+	@echo "[Makefile] Stopping test Flask container..."
+	@pkill -f "flask run --host=0.0.0.0 --port=5001" || true
+
+# Alias to stop all Flask web containers without touching databases
+.PHONY: stop-flask
+stop-flask: stop-flask-dev stop-flask-prod stop-flask-test
+	@echo "[Makefile] All Flask web services stopped (dev, prod, test)"
+
+# Restart current web container with rebuild (keeps database running)
+.PHONY: restart
+restart:
+	@if [ ! -f .env ]; then \
+		echo "[Makefile] ERROR: No .env file found. Please run 'make dev', 'make prod', or 'make test' first."; \
+		exit 1; \
+	fi
+	@current_env=$$(grep FLASK_ENV .env 2>/dev/null | cut -d'=' -f2 | tr -d ' ' || echo 'unknown'); \
+	echo "[Makefile] Detected current environment: $$current_env"; \
+	case $$current_env in \
+		development) \
+			echo "[Makefile] Restarting development web container with rebuild (keeping DB running)..."; \
+			docker-compose -f docker-compose.dev.yml stop reefdb-web-dev; \
+			docker-compose -f docker-compose.dev.yml build --no-cache reefdb-web-dev; \
+			docker-compose -f docker-compose.dev.yml up -d reefdb-web-dev; \
+			echo "[Makefile] Development web container restarted on port 5000 (DB kept running)"; \
+			;; \
+		production) \
+			echo "[Makefile] Restarting production web container with rebuild (keeping DB running)..."; \
+			docker-compose -f docker-compose.prod.yml stop reefdb-web; \
+			docker-compose -f docker-compose.prod.yml build --no-cache reefdb-web; \
+			docker-compose -f docker-compose.prod.yml up -d reefdb-web; \
+			echo "[Makefile] Production web container restarted on ports 5371 & 33812 (DB kept running)"; \
+			;; \
+		test) \
+			echo "[Makefile] Restarting test environment..."; \
+			pkill -f "flask run --host=0.0.0.0 --port=5001" || true; \
+			docker stop reef-sql-test 2>/dev/null || true; \
+			bash tests/scripts/test_mysql_ephemeral.sh start; \
+			echo "[Makefile] Test environment restarted. Use 'make start-test' to run Flask."; \
+			;; \
+		*) \
+			echo "[Makefile] ERROR: Unknown environment '$$current_env'. Expected: development, production, or test"; \
+			exit 1; \
+			;; \
+	esac
+
+# Restart entire environment including database (use with caution)
+.PHONY: restart-full
+restart-full:
+	@if [ ! -f .env ]; then \
+		echo "[Makefile] ERROR: No .env file found. Please run 'make dev', 'make prod', or 'make test' first."; \
+		exit 1; \
+	fi
+	@current_env=$$(grep FLASK_ENV .env 2>/dev/null | cut -d'=' -f2 | tr -d ' ' || echo 'unknown'); \
+	echo "[Makefile] WARNING: Restarting ENTIRE environment including database: $$current_env"; \
+	read -p "This will stop the database. Continue? (y/N): " confirm; \
+	if [ "$$confirm" != "y" ] && [ "$$confirm" != "Y" ]; then \
+		echo "[Makefile] Operation cancelled."; \
+		exit 0; \
+	fi; \
+	case $$current_env in \
+		development) \
+			echo "[Makefile] Restarting entire development environment (web + database)..."; \
+			docker-compose -f docker-compose.dev.yml down; \
+			docker-compose -f docker-compose.dev.yml build --no-cache reefdb-web-dev; \
+			docker-compose -f docker-compose.dev.yml up -d; \
+			echo "[Makefile] Development environment fully restarted on port 5000"; \
+			;; \
+		production) \
+			echo "[Makefile] Restarting entire production environment (web + database)..."; \
+			docker-compose -f docker-compose.prod.yml down; \
+			docker-compose -f docker-compose.prod.yml build --no-cache reefdb-web; \
+			docker-compose -f docker-compose.prod.yml up -d; \
+			echo "[Makefile] Production environment fully restarted on ports 5371 & 33812"; \
+			;; \
+		test) \
+			echo "[Makefile] Restarting test environment..."; \
+			pkill -f "flask run --host=0.0.0.0 --port=5001" || true; \
+			docker stop reef-sql-test 2>/dev/null || true; \
+			bash tests/scripts/test_mysql_ephemeral.sh start; \
+			echo "[Makefile] Test environment restarted. Use 'make start-test' to run Flask."; \
+			;; \
+		*) \
+			echo "[Makefile] ERROR: Unknown environment '$$current_env'. Expected: development, production, or test"; \
+			exit 1; \
+			;; \
+	esac
+
 # === SASS COMPILATION ===
 sass-dev sass-test:
 	sass --watch app/static/scss:app/static/css --sourcemap=none
@@ -82,9 +193,75 @@ sass-prod:
 	sass app/static/scss:app/static/css --style=compressed --no-source-map
 
 # === DATABASE MANAGEMENT ===
+# Development database (MySQL 9.3 with existing data)
+docker-dev-start:
+	@echo "[Makefile] Starting development database container (port 3306)..."
+	docker-compose -f docker-compose.dev.yml up -d
+	@echo "[Makefile] Development database ready on port 3306"
+
+docker-dev-stop:
+	@echo "[Makefile] Stopping development database container..."
+	docker-compose -f docker-compose.dev.yml down
+
+docker-dev-logs:
+	@echo "[Makefile] Showing development database logs..."
+	docker-compose -f docker-compose.dev.yml logs -f
+
+# Development web application logs
+dev-logs:
+	@echo "[Makefile] Showing development web application logs..."
+	docker-compose -f docker-compose.dev.yml logs -f reefdb-web-dev
+
+# Production containers (web app + MySQL)
+docker-prod-start:
+	@echo "[Makefile] Starting production containers (web + database)..."
+	docker-compose -f docker-compose.prod.yml up -d
+	@echo "[Makefile] Production containers ready - Web: ports 5371,33812; DB: port 3142"
+
+docker-prod-stop:
+	@echo "[Makefile] Stopping production containers..."
+	docker-compose -f docker-compose.prod.yml down
+
+docker-prod-logs:
+	@echo "[Makefile] Showing production container logs..."
+	docker-compose -f docker-compose.prod.yml logs -f
+
+# Production web application logs
+prod-logs:
+	@echo "[Makefile] Showing production web application logs..."
+	docker-compose -f docker-compose.prod.yml logs -f reefdb-web
+
+docker-prod-build:
+	@echo "[Makefile] Building production containers..."
+	docker-compose -f docker-compose.prod.yml build
+
+# Production deployment management
+docker-prod-deploy: docker-prod-build docker-prod-start
+	@echo "[Makefile] Deploying production environment..."
+	@echo "[Makefile] Waiting for containers to start..."
+	sleep 10
+	@echo "[Makefile] Checking production health..."
+	curl -s http://localhost:5371/health || echo "Health check failed - check logs"
+
+# Docker container status
+docker-status:
+	@echo "[Makefile] Docker Container Status:"
+	@echo "  Development Database:"
+	@docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}" | grep reef-sql-dev || echo "    Not running"
+	@echo "  Production Containers:"
+	@docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}" | grep reef | grep prod || echo "    Not running"
+	@echo "  Test Database:"
+	@docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}" | grep reef-sql-test || echo "    Not running"
+
+# Legacy test database support (keep for existing tests)
 test-db-start:
 	@echo "[Makefile] Starting ephemeral test database on port 3310..."
 	bash tests/scripts/test_mysql_ephemeral.sh start
+
+# Test database logs
+test-logs:
+	@echo "[Makefile] Showing test database logs..."
+	docker logs -f reef-sql-test 2>/dev/null || echo "[Makefile] Test database container not running. Start with 'make test-db-start'"
 
 test-db-stop:
 	@echo "[Makefile] Stopping ephemeral test database..."
@@ -96,10 +273,21 @@ test-db-status:
 
 test-db-restart: test-db-stop test-db-start
 
+# Alias commands for starting/stopping database containers
+.PHONY: start-db-dev stop-db-dev start-db-prod stop-db-prod
+start-db-dev: docker-dev-start
+	@echo "[Makefile] Alias: Started development DB container"
+stop-db-dev: docker-dev-stop
+	@echo "[Makefile] Alias: Stopped development DB container"
+start-db-prod: docker-prod-start
+	@echo "[Makefile] Alias: Started production DB container"
+stop-db-prod: docker-prod-stop
+	@echo "[Makefile] Alias: Stopped production DB container"
+
 # === TESTING ===
 test-unit:
 	@echo "[Makefile] Running unit tests only (no E2E)..."
-	cp evs/.flaskenv.test .flaskenv
+	cp evs/.env.test .env
 	pytest tests/ --ignore=tests/e2e/ -v
 
 test-e2e: test start-test
@@ -131,12 +319,16 @@ validate:
 # === DEVELOPMENT HELPERS ===
 status:
 	@echo "[Makefile] Environment Status:"
-	@echo "  Current .flaskenv:"
-	@if [ -f .flaskenv ]; then echo "    $(shell grep FLASK_ENV .flaskenv 2>/dev/null || echo 'Unknown')"; else echo "    No .flaskenv file"; fi
+	@echo "  Current .env:"
+	@if [ -f .env ]; then echo "    $(shell grep FLASK_ENV .env 2>/dev/null || echo 'Unknown')"; else echo "    No .env file"; fi
 	@echo "  Flask processes:"
 	@ps aux | grep "flask run" | grep -v grep || echo "    No Flask processes running"
-	@echo "  MySQL containers:"
-	@docker ps --format "table {{.Names}}\t{{.Ports}}" | grep mysql || echo "    No MySQL containers running"
+	@echo "  Docker containers:"
+	@docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}" | grep reef || echo "    No reef containers running"
+	@echo "  Database health status:"
+	@echo "    Development DB (port 3306): $(shell docker inspect reef-sql-dev --format='{{.State.Health.Status}}' 2>/dev/null || echo 'Container not found')"
+	@echo "    Production DB (port 3142): $(shell docker inspect reef-sql-prod --format='{{.State.Health.Status}}' 2>/dev/null || echo 'Container not found')"
+	@echo "    Test DB (port 3310): $(shell docker inspect reef-sql-test --format='{{.State.Health.Status}}' 2>/dev/null || echo 'Container not found')"
 
 help:
 	@echo "ReefDB Development Makefile"
@@ -144,14 +336,20 @@ help:
 	@echo "Environment Setup:"
 	@echo "  dev          - Set up development environment (port 5000)"
 	@echo "  test         - Set up test environment (port 5001)"
-	@echo "  prod         - Set up production environment (port 5000)"
+	@echo "  prod         - Set up production environment (port 5371 & 33812)"
 	@echo ""
 	@echo "Server Management:"
-	@echo "  start-dev    - Start development server with Sass watching"
-	@echo "  start-test   - Start test server with test database"
-	@echo "  start-prod   - Start production server"
+	@echo "  start-dev    - Start development (DB:3306, Web:5000)"
+	@echo "  start-test   - Start test (DB:3310, Web:5001)"
+	@echo "  start-prod   - Start production (DB:3142, Web:5371 & 33812)"
+	@echo "  restart      - Restart current web container with rebuild (keeps DB running)"
+	@echo "  restart-full - Restart entire environment including database (CAUTION)"
 	@echo "  stop-all     - Stop all servers and databases"
 	@echo "  kill-flask   - Force kill all Flask servers and clear ports"
+	@echo "  stop-flask-dev - Stop development Flask container only (leave DB)"
+	@echo "  stop-flask-prod - Stop production Flask container only (leave DB)"
+	@echo "  stop-flask-test - Stop test Flask container only (leave DB)"
+	@echo "  stop-flask   - Stop all Flask web services (dev, prod, test)"
 	@echo "  status       - Show current environment status"
 	@echo ""
 	@echo "Database Management:"
@@ -159,6 +357,15 @@ help:
 	@echo "  test-db-stop     - Stop test MySQL container"
 	@echo "  test-db-restart  - Restart test MySQL container"
 	@echo "  test-db-status   - Check test database status"
+	@echo "  start-db-dev - Start development database container"
+	@echo "  stop-db-dev  - Stop development database container"
+	@echo "  start-db-prod - Start production database container"
+	@echo "  stop-db-prod  - Stop production database container"
+	@echo ""
+	@echo "Log Management:"
+	@echo "  dev-logs     - Follow development web application logs"
+	@echo "  prod-logs    - Follow production web application logs"
+	@echo "  test-logs    - Follow test database logs"
 	@echo ""
 	@echo "Testing:"
 	@echo "  test-unit    - Run unit tests only"

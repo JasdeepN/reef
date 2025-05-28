@@ -1,21 +1,105 @@
 {% extends 'base.html' %}
 
-
-{% block page_title %} test {% endblock %}
-
+{% block page_title %}Reef Tank Dashboard{% endblock %}
 
 {% block scripts %}
   {{super()}}
 {% endblock %}
 
-
-  {% block content %} 
-
-
-  <div>
-    <h3>APP MAIN</h3>
+{% block content %}
+<div class="grid-container title-top">
+  <!-- Title Section -->
+  <div class="grid-item">
+    <h2>Tank Dashboard</h2>
+    <p class="text-muted">Welcome to your reef tank management system</p>
+  </div>
+  
+  <!-- Test Results Chart Card -->
+  <div class="grid-item">
+    <div class="card h-100">
+      <div class="card-header bg-primary text-white">
+        <h5 class="card-title mb-0">📊 Test Results Chart</h5>
+      </div>
+      <div class="card-body">
+        <p class="card-text">View your water parameter trends over time with interactive charts.</p>
+        <ul class="list-unstyled">
+          <li>• Alkalinity tracking</li>
+          <li>• Calcium & Magnesium trends</li>
+          <li>• Phosphate & Nitrate levels</li>
+          <li>• Specific Gravity monitoring</li>
+        </ul>
+      </div>
+      <div class="card-footer">
+        <a href="/chart" class="btn btn-primary">View Charts</a>
+        <a href="/test/add" class="btn btn-outline-secondary">Add Test</a>
+      </div>
+    </div>
   </div>
 
+  <!-- Quick Actions Card -->
+  <div class="grid-item">
+    <div class="card h-100">
+      <div class="card-header bg-success text-white">
+        <h5 class="card-title mb-0">⚡ Quick Actions</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-6 mb-2">
+            <a href="/test" class="btn btn-outline-primary btn-sm w-100">Test Results</a>
+          </div>
+          <div class="col-6 mb-2">
+            <a href="/coral/add" class="btn btn-outline-info btn-sm w-100">Add Coral</a>
+          </div>
+          <div class="col-6 mb-2">
+            <a href="/coral/view" class="btn btn-outline-warning btn-sm w-100">View Corals</a>
+          </div>
+          <div class="col-6 mb-2">
+            <a href="/doser/schedule" class="btn btn-outline-secondary btn-sm w-100">Dosing</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- System Status Card -->
+  <div class="grid-item">
+    <div class="card">
+      <div class="card-header bg-info text-white">
+        <h6 class="card-title mb-0">🔧 System</h6>
+      </div>
+      <div class="card-body text-center">
+        <p class="card-text">Tank: <strong>{{ session.get('tank_id', 'None Selected') }}</strong></p>
+        <a href="/metrics" class="btn btn-outline-info btn-sm">View Metrics</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Models Card -->
+  <div class="grid-item">
+    <div class="card">
+      <div class="card-header bg-warning text-white">
+        <h6 class="card-title mb-0">🤖 AI Models</h6>
+      </div>
+      <div class="card-body text-center">
+        <p class="card-text">Predictive dosing models</p>
+        <a href="/models/view" class="btn btn-outline-warning btn-sm">View Models</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Management Card -->
+  <div class="grid-item">
+    <div class="card">
+      <div class="card-header bg-secondary text-white">
+        <h6 class="card-title mb-0">💾 Data</h6>
+      </div>
+      <div class="card-body text-center">
+        <p class="card-text">Database management</p>
+        <a href="/test/db" class="btn btn-outline-secondary btn-sm">Manage Data</a>
+      </div>
+    </div>
+  </div>
+</div>
 
 
-  {% endblock %}
+{% endblock %}

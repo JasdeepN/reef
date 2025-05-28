@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # Production MySQL Database Service
+  reefdb-database:
+    image: mysql:latest
+    container_name: reef-sql-prod
+    ports:
+      - "3142:3306"  # Production database on port 3142
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-prodroot2025!}
+      - MYSQL_DATABASE=${DB_NAME:-reef}
+      - MYSQL_USER=${DB_USER:-admin}
+      - MYSQL_PASSWORD=${DB_PASS:-adminpassword}
+      - MYSQL_CHARACTER_SET_SERVER=utf8mb4
+      - MYSQL_COLLATION_SERVER=utf8mb4_unicode_ci
+    volumes:
+      # Persistent data storage
+      - mysql_prod_data:/var/lib/mysql
+
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-prodroot2025!}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - reefdb-network
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --innodb-buffer-pool-size=256M
+      --max-connections=100
+
+  # Web Application Service
+  reefdb-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: reefdb-web:prod
+    container_name: reefdb-web-prod
+    env_file:
+      - ./evs/.env.prod
+    ports:
+      - "5371:5371"
+      - "33812:33812"
+    environment:
+      # Database configuration - connected to production database
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASS=${DB_PASS:-adminpassword}
+      - DB_HOST=reefdb-database  # Connect to database service
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME:-reef}
+      # Security settings
+      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-this}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
+      # Application settings
+      - TIMEZONE=${TIMEZONE:-US/Eastern}
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
+    volumes:
+      # Persist logs
+      - ./logs:/app/logs
+      # Persist session data
+      - ./flask_session:/app/flask_session
+    restart: unless-stopped
+    depends_on:
+      reefdb-database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "health_check.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - reefdb-network
+
+networks:
+  reefdb-network:
+    driver: bridge
+
+volumes:
+  mysql_prod_data:
+    driver: local

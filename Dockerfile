@@ -1,25 +1,57 @@
-# Use an official Python runtime as a parent image
+# Production Dockerfile for ReefDB Flask Application
 FROM python:3.10-slim
 
-# Set environment variables to prevent Python from writing .pyc files and buffering stdout/stderr
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    FLASK_ENV=production \
+    FLASK_DEBUG=0
 
-# Set the working directory in the container
+# Create non-root user
+RUN groupadd -r reefdb && useradd -r -g reefdb reefdb
+
+# Install system dependencies including MySQL development libraries
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    default-libmysqlclient-dev \
+    net-tools \
+    netcat-traditional \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
 WORKDIR /app
 
-# Copy the requirements file into the container
+# Copy requirements and install dependencies
 COPY requirements.txt /app/
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir gunicorn[gevent]
 
-# Install dependencies
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
-
-# Copy the application code into the container
+# Copy application code and setup directories
 COPY . /app/
 
-# Expose the port that the app runs on
-EXPOSE 5000
+# Copy entrypoint script
+COPY entrypoint.sh /app/
+RUN chmod +x /app/entrypoint.sh
 
-# Set the entry point to run the app with Gunicorn and Gevent
-CMD ["gunicorn", "-w", "4", "-k", "gevent", "-b", "0.0.0.0:5000", "wsgi:app"]
+# Create necessary directories and copy production environment in one layer
+RUN mkdir -p /app/flask_session /app/static/temp /app/logs && \
+    cp evs/.env.prod .env && \
+    chown -R reefdb:reefdb /app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+    CMD curl -f http://localhost:5371/health || exit 1
+
+# Switch to non-root user
+USER reefdb
+
+# Expose port
+EXPOSE 5371
+
+# Start the application
+# Use entrypoint to initialize database and then start Gunicorn
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5371", "--workers", "4", "--worker-class", "gevent", "--timeout", "120", "--keep-alive", "2", "--max-requests", "1000", "--preload", "--log-level", "info", "--access-logfile", "/app/logs/access.log", "--error-logfile", "/app/logs/error.log", "wsgi:app"]
