@@ -117,13 +117,13 @@ def get_schedule_stats():
     if tank_id is None:
         return jsonify({'error': 'No tank id provided'}), 400
     
+    # Updated query to return ALL scheduled products, regardless of dosing history
     sql = """
         SELECT 
             products.id as product_id,
             products.name, 
             products.total_volume,
             products.used_amt,
-            products.total_volume,
             products.dry_refill,
             products.current_avail,
             products.uses,
@@ -132,30 +132,24 @@ def get_schedule_stats():
             d_schedule.last_refill,
             d_schedule.suspended,
             d_schedule.trigger_interval,
-            dosing.trigger_time as last_trigger,
-            dosing.amount as dosed_amount
-        FROM products 
-        LEFT JOIN d_schedule ON products.id = d_schedule.product_id
-        JOIN dosing ON dosing.id = (
-            SELECT max(ID) FROM dosing WHERE products.id = dosing.product_id
-        )
+            latest_dosing.trigger_time as last_trigger,
+            latest_dosing.amount as dosed_amount
+        FROM d_schedule 
+        LEFT JOIN products ON d_schedule.product_id = products.id
+        LEFT JOIN (
+            SELECT 
+                product_id,
+                trigger_time,
+                amount,
+                ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY trigger_time DESC) as rn
+            FROM dosing
+        ) latest_dosing ON products.id = latest_dosing.product_id AND latest_dosing.rn = 1
         WHERE d_schedule.tank_id = :tank_id
     """
     params = {}
     params['tank_id'] = tank_id
     result = db.session.execute(text(sql), params)
     rows = result.fetchall()
-    if not rows:
-        # Backup query: get schedule without dosing
-        backup_sql = """
-            SELECT 
-                * 
-                from d_schedule 
-                left join products on d_schedule.product_id=products.id 
-                where tank_id=:tank_id;
-        """
-        result = db.session.execute(text(backup_sql), params)
-        rows = result.fetchall()
     columns = result.keys()
     units = {
         'product_id': '',
@@ -230,4 +224,15 @@ def get_schedule_stats():
             stat['estimated_empty_datetime'] = ['Estimated Empty Date', None, '']
         stat.pop('name', None)
         stats.append(stat)
-    return jsonify(stats)
+    return jsonify({"success": True, "data": stats})
+
+@bp.route('/test/stats/<int:tank_id>', methods=['GET'])
+def test_schedule_stats(tank_id):
+    """Test endpoint to set tank_id and get schedule stats for testing purposes"""
+    from modules.tank_context import set_tank_id_for_testing
+    
+    # Set the tank_id for testing
+    set_tank_id_for_testing(tank_id)
+    
+    # Call the regular stats endpoint
+    return get_schedule_stats()

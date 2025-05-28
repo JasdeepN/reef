@@ -1,5 +1,6 @@
 from datetime import timedelta
 import urllib.parse
+import json
 from flask import jsonify, render_template, request, redirect, url_for, session, flash
 from app import app
 from modules.models import *  # Import your models
@@ -141,17 +142,12 @@ def db_doser():
 
 @app.route("/doser/schedule", methods=["GET", "POST"])
 def run_schedule():
-    tank_id = get_current_tank_id()
-    urls = {
-        "GET": "/web/fn/schedule/get/stats",  # always use the context, not a tank_id param
-        "DELETE": "/web/fn/ops/delete/d_schedule",
-        "POST": "/web/fn/ops/new/d_schedule",
-        "PUT": "/web/fn/ops/edit/d_schedule"
-    }
-    return render_template("doser/schedule.html", title="Schedule", api_urls=urls, tank_id=tank_id)
+    """Redirect to the new schedule manager with integrated stats"""
+    # Redirect legacy route to the new schedule manager
+    return redirect(url_for('schedule_new'))
     
 
-@app.route("/doser/schedule-new", methods=["GET", "POST"])
+@app.route("/doser/schedule/new", methods=["GET", "POST"])
 def schedule_new():
     """Enhanced dosing schedule page with granular time controls"""
     tank_id = get_current_tank_id()
@@ -181,15 +177,22 @@ def schedule_new():
             "last_refill": schedule.last_refill.isoformat() if schedule.last_refill else None
         })
     
+    # Stats API URLs for the integrated cards
+    stats_api_urls = {
+        "GET": "/web/fn/schedule/get/stats",
+        "DELETE": "/web/fn/ops/delete/d_schedule"
+    }
+    
     return render_template(
         "doser/schedule_new.html",
         title="Dosing Schedule Manager",
         tank_id=tank_id,
         products=products_list,
-        existing_schedules=schedules_data
+        existing_schedules=schedules_data,
+        stats_api_urls=stats_api_urls
     )
 
-@app.route("/doser/schedule-edit/<int:schedule_id>", methods=["GET", "POST"])
+@app.route("/doser/schedule/edit/<int:schedule_id>", methods=["GET", "POST"])
 def schedule_edit(schedule_id):
     """Edit existing dosing schedule with the same granular controls as new schedule page"""
     tank_id = get_current_tank_id()
@@ -236,13 +239,20 @@ def schedule_edit(schedule_id):
         "last_refill": schedule.last_refill.isoformat() if schedule.last_refill else None
     }
     
+    # Stats API URLs for the integrated cards
+    stats_api_urls = {
+        "GET": "/web/fn/schedule/get/stats",
+        "DELETE": "/web/fn/ops/delete/d_schedule"
+    }
+    
     return render_template(
         "doser/schedule_edit.html",
         title="Edit Dosing Schedule",
         tank_id=tank_id,
         products=products_list,
         existing_schedules=schedules_data,
-        schedule=schedule_data
+        schedule=schedule_data,
+        stats_api_urls=stats_api_urls
     )
 
 def handle_schedule_edit_submission(data, schedule_id, tank_id):
@@ -461,3 +471,5 @@ def get_products():
         "PUT": "/web/fn/ops/edit/products"
     }
     return render_template("doser/products.html", title="Products", api_urls=urls)
+
+

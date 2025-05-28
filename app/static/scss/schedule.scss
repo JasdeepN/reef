@@ -1,196 +1,6 @@
 // Schedule pages specific styles
 // Ensures text uses alice-blue color for schedule management pages
 
-.schedule-page {
-  color: var(--alice-blue);
-  
-  // Override Bootstrap text colors
-  .text-muted {
-    color: var(--text-muted) !important;
-  }
-  
-  .text-dark {
-    color: var(--alice-blue) !important;
-  }
-  
-  // Form elements
-  .form-label {
-    color: var(--alice-blue);
-    font-weight: 500;
-  }
-  
-  .form-text {
-    color: var(--text-muted);
-  }
-  
-  // Card headers
-  .card-header {
-    &.bg-primary {
-      background-color: var(--primary-color) !important;
-      color: var(--alice-blue) !important;
-    }
-    
-    &.bg-warning {
-      background-color: var(--warning-color) !important;
-      color: var(--alice-blue) !important;
-    }
-    
-    &.bg-success {
-      background-color: var(--success-color) !important;
-      color: var(--alice-blue) !important;
-    }
-    
-    &.bg-info {
-      background-color: var(--primary-color) !important;
-      color: var(--alice-blue) !important;
-    }
-    
-    &.bg-secondary {
-      background-color: var(--card-bg-secondary) !important;
-      color: var(--alice-blue) !important;
-    }
-  }
-  
-  // Card bodies
-  .card-body {
-    color: var(--alice-blue);
-    background-color: var(--card-bg);
-    
-    h6, .card-title {
-      color: var(--alice-blue);
-    }
-    
-    small {
-      color: var(--text-muted);
-    }
-  }
-  
-  // Schedule configuration cards
-  .schedule-config {
-    .card {
-      background-color: var(--form-background);
-      border-color: var(--form-border-color);
-      
-      .card-body {
-        background-color: var(--form-background);
-        color: var(--alice-blue);
-      }
-      
-      .card-title {
-        color: var(--alice-blue);
-      }
-    }
-  }
-  
-  // Form controls
-  .form-control, .form-select {
-    background-color: var(--form-background);
-    border-color: var(--form-border-color);
-    color: var(--alice-blue);
-    
-    &:focus {
-      background-color: var(--form-background);
-      border-color: var(--primary-color);
-      color: var(--alice-blue);
-      box-shadow: 0 0 0 0.2rem rgba(var(--primary-color), 0.25);
-    }
-    
-    &::placeholder {
-      color: var(--text-muted);
-    }
-  }
-  
-  // Radio buttons and checkboxes
-  .form-check-label {
-    color: var(--alice-blue);
-  }
-  
-  .form-check-input {
-    &:checked {
-      background-color: var(--primary-color);
-      border-color: var(--primary-color);
-    }
-  }
-  
-  // Buttons
-  .btn {
-    &.btn-warning {
-      background-color: var(--warning-color);
-      border-color: var(--warning-color);
-      color: var(--alice-blue);
-      
-      &:hover {
-        background-color: var(--button-hover);
-        border-color: var(--button-hover);
-        color: var(--alice-blue);
-      }
-    }
-    
-    &.btn-secondary {
-      background-color: var(--card-bg-secondary);
-      border-color: var(--card-bg-secondary);
-      color: var(--alice-blue);
-      
-      &:hover {
-        background-color: var(--button-hover);
-        border-color: var(--button-hover);
-        color: var(--alice-blue);
-      }
-    }
-    
-    &.btn-outline-primary {
-      border-color: var(--primary-color);
-      color: var(--alice-blue);
-      
-      &:hover {
-        background-color: var(--primary-color);
-        border-color: var(--primary-color);
-        color: var(--alice-blue);
-      }
-    }
-  }
-  
-  // Quick reference and tips
-  .quick-reference {
-    h6 {
-      color: var(--alice-blue);
-      font-weight: 600;
-    }
-    
-    ul li {
-      color: var(--alice-blue);
-      
-      strong {
-        color: var(--alice-blue);
-        font-weight: 600;
-      }
-    }
-  }
-  
-  // Badge styling
-  .badge {
-    &.bg-warning {
-      background-color: var(--warning-color) !important;
-      color: var(--alice-blue) !important;
-    }
-  }
-  
-  // Loading spinner text
-  .spinner-border + div {
-    color: var(--alice-blue);
-  }
-  
-  // Alert styling
-  .alert {
-    &.alert-warning {
-      background-color: var(--warning-color);
-      border-color: var(--warning-color);
-      color: var(--alice-blue);
-    }
-  }
-}
-
-// Apply to specific schedule pages
 .schedule-new-page,
 .schedule-edit-page {
   color: var(--alice-blue);
@@ -208,10 +18,12 @@
   .form-label {
     color: var(--alice-blue);
     font-weight: 500;
+    font-family: var(--font-heading);
   }
   
   .form-text {
     color: var(--text-muted);
+    font-family: var(--font-body);
   }
   
   // Card headers
@@ -240,259 +52,774 @@
       background-color: var(--card-bg-secondary) !important;
       color: var(--alice-blue) !important;
     }
-    
-    h1, h2, h3, h4, h5, h6 {
-      font-family: var(--font-heading);
-      font-weight: var(--font-weight-semibold);
-      letter-spacing: var(--letter-spacing-tight);
-      margin-bottom: 0;
-    }
-  }
-  
-  // Card bodies
-  .card-body {
-    color: var(--alice-blue);
-    background-color: var(--card-bg);
-    
-    h6, .card-title {
-      color: var(--alice-blue);
-    }
-    
-    small {
-      color: var(--text-muted);
-    }
-    
-    h6 {
-      font-family: var(--font-accent);
-      font-weight: var(--font-weight-medium);
-      font-size: var(--font-size-base);
-      letter-spacing: var(--letter-spacing-normal);
-    }
-    
-    small {
-      font-family: var(--font-body);
-      font-size: var(--font-size-xs);
-      line-height: var(--line-height-normal);
-    }
-  }
-  
-  .card-title {
-    font-family: var(--font-accent);
-    font-weight: var(--font-weight-medium);
-    font-size: var(--font-size-lg);
-    letter-spacing: var(--letter-spacing-normal);
-  }
-  
-  // Schedule configuration cards
-  .schedule-config {
-    .card {
-      background-color: var(--form-background);
-      border-color: var(--form-border-color);
-      
-      .card-body {
-        background-color: var(--form-background);
-        color: var(--alice-blue);
-      }
-      
-      .card-title {
-        color: var(--alice-blue);
-      }
-    }
   }
   
   // Form controls
-  .form-control, .form-select {
-    background-color: var(--form-background);
-    border-color: var(--form-border-color);
+  .form-control,
+  .form-select {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
     color: var(--alice-blue);
     
     &:focus {
-      background-color: var(--form-background);
+      background-color: var(--card-bg);
       border-color: var(--primary-color);
       color: var(--alice-blue);
-      box-shadow: 0 0 0 0.2rem rgba(var(--primary-color), 0.25);
+      box-shadow: 0 0 0 0.2rem rgba(var(--primary-color-rgb), 0.25);
     }
     
     &::placeholder {
       color: var(--text-muted);
     }
-    
-    font-family: var(--font-body);
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-regular);
-    line-height: var(--line-height-normal);
   }
   
   // Radio buttons and checkboxes
-  .form-check-label {
-    color: var(--alice-blue);
-  }
-  
   .form-check-input {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+    
     &:checked {
       background-color: var(--primary-color);
       border-color: var(--primary-color);
     }
+    
+    &:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 0.2rem rgba(var(--primary-color-rgb), 0.25);
+    }
+  }
+  
+  .form-check-label {
+    color: var(--alice-blue);
+    font-family: var(--font-body);
   }
   
   // Buttons
   .btn {
+    font-family: var(--font-accent);
+    
+    &.btn-primary {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+      color: var(--alice-blue);
+      
+      &:hover {
+        background-color: var(--primary-hover);
+        border-color: var(--primary-hover);
+      }
+    }
+    
+    &.btn-secondary {
+      background-color: var(--card-bg-secondary);
+      border-color: var(--border-color);
+      color: var(--alice-blue);
+      
+      &:hover {
+        background-color: var(--card-bg-hover);
+        border-color: var(--border-color);
+      }
+    }
+    
     &.btn-warning {
       background-color: var(--warning-color);
       border-color: var(--warning-color);
       color: var(--alice-blue);
       
       &:hover {
-        background-color: var(--button-hover);
-        border-color: var(--button-hover);
-        color: var(--alice-blue);
+        background-color: var(--warning-hover);
+        border-color: var(--warning-hover);
       }
     }
-    
-    &.btn-secondary {
-      background-color: var(--card-bg-secondary);
-      border-color: var(--card-bg-secondary);
-      color: var(--alice-blue);
-      
-      &:hover {
-        background-color: var(--button-hover);
-        border-color: var(--button-hover);
-        color: var(--alice-blue);
-      }
-    }
-    
-    &.btn-outline-primary {
-      border-color: var(--primary-color);
-      color: var(--alice-blue);
-      
-      &:hover {
-        background-color: var(--primary-color);
-        border-color: var(--primary-color);
-        color: var(--alice-blue);
-      }
-    }
-    
-    font-family: var(--font-accent);
-    font-weight: var(--font-weight-medium);
-    font-size: var(--font-size-sm);
-    letter-spacing: var(--letter-spacing-wide);
-    text-transform: uppercase;
   }
   
-  // Quick reference and tips
-  .quick-reference {
-    h6 {
+  // Cards
+  .card {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+    color: var(--alice-blue);
+    
+    .card-title {
       color: var(--alice-blue);
-      font-weight: 600;
-      
       font-family: var(--font-heading);
-      font-weight: var(--font-weight-semibold);
-      font-size: var(--font-size-base);
-      text-transform: uppercase;
-      letter-spacing: var(--letter-spacing-wider);
     }
     
-    ul li {
+    .card-text {
       color: var(--alice-blue);
-      
       font-family: var(--font-body);
-      font-size: var(--font-size-sm);
-      line-height: var(--line-height-relaxed);
+    }
+  }
+
+  // Stats cards positioned under main form
+  .col-lg-8 {
+    .card:last-of-type {
+      margin-bottom: 1.5rem;
+    }
+    
+    // Stats cards container when positioned after main form
+    .card.mb-3 {
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      border: 1px solid var(--border-color);
       
-      strong {
-        color: var(--alice-blue);
-        font-weight: 600;
-        
-        font-weight: var(--font-weight-semibold);
+      .card-header {
+        &.bg-info {
+          background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%) !important;
+          border-bottom: 1px solid var(--border-color);
+        }
       }
     }
   }
+}
+
+// Basic stats container styling without overflow restrictions
+.schedule-stats-container {
+  max-height: none !important; // Remove height restrictions to prevent clipping
+  overflow: visible !important; // Allow tooltips to appear outside container
+  position: relative !important; // Establish stacking context for tooltips
   
-  // Badge styling
-  .badge {
-    &.bg-warning {
-      background-color: var(--warning-color) !important;
-      color: var(--alice-blue) !important;
-    }
-    
-    font-family: var(--font-accent);
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-medium);
-    letter-spacing: var(--letter-spacing-wide);
-    text-transform: uppercase;
+  &::-webkit-scrollbar {
+    width: 6px;
   }
   
-  // Loading spinner text
-  .spinner-border + div {
-    color: var(--alice-blue);
-    
-    font-family: var(--font-body);
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
+  &::-webkit-scrollbar-track {
+    background: var(--card-bg);
   }
   
-  // Alert styling
-  .alert {
-    &.alert-warning {
-      background-color: var(--warning-color);
-      border-color: var(--warning-color);
-      color: var(--alice-blue);
-    }
-    
-    font-family: var(--font-body);
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-regular);
-    line-height: var(--line-height-normal);
-  }
-  
-  // Generic text elements
-  h1, h2, h3, h4, h5, h6 {
-    color: var(--alice-blue);
-  }
-  
-  p, div, span {
-    color: var(--alice-blue);
-  }
-  
-  // Table styling
-  .table {
-    color: var(--alice-blue);
-    
-    th, td {
-      color: var(--alice-blue);
-      border-color: var(--form-border-color);
-    }
-    
-    thead th {
-      background-color: var(--card-bg-secondary);
-      color: var(--alice-blue);
-    }
-  }
-  
-  // Links
-  a {
-    color: var(--primary-color);
+  &::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
     
     &:hover {
-      color: var(--button-hover);
+      background: var(--primary-color);
+    }
+  }
+
+  .fw-semibold {
+    color: var(--primary-color) !important;
+  }
+
+  .col-6 {
+    padding: 0.5rem;
+    position: relative !important; // Ensure tooltip positioning works
+    overflow: visible !important;
+    
+    &:hover {
+      background-color: var(--card-bg-secondary);
+      border-radius: var(--border-radius);
+    }
+  }
+}
+
+// Ensure vertical layout card containers don't clip tooltips
+// Covered by comprehensive overflow management below
+
+// 4x4 Grid Layout for New Schedule Page - 4 products per row
+.schedule-stats-container-columns {
+  max-height: none; // No height restrictions for grid layout
+  overflow: visible !important;  // allow items to overflow container
+  position: relative !important;
+  width: 100% !important;
+  max-width: none !important;
+
+  // ensure row does not cut off overflow
+  &.row,
+  .row {
+    overflow: visible !important;
+    position: relative !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  [class*="col-"] {
+    // Force Bootstrap column behavior - 4 columns per row
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 0 0 25% !important; // 4 columns = 25% each
+    max-width: 25% !important;
+    width: 25% !important;
+    flex-basis: 25% !important;
+    position: relative !important; // establish containing block for z-index
+    
+    padding: 0 0.25rem; // Tighter padding for 4-column layout
+    margin-bottom: 0.75rem;
+    
+    overflow: visible !important;
+
+    .card {
+      max-width: none !important;
+      width: 100% !important;
+      height: 100%; // Equal height cards
+      flex: 1 !important; // Make cards fill column height
+      transition: all 0.2s ease;
+      border: 1px solid var(--border-color);
+      overflow: visible !important;
+      position: relative !important;
+      
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-color: var(--primary-color);
+      }
+
+      .card-data-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        overflow: visible !important;          .data-item {
+            background-color: var(--card-bg-secondary);
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            overflow: visible !important;
+            position: relative !important;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+
+            &:hover {
+              background-color: var(--card-bg-hover);
+              border-color: var(--primary-color);
+              transform: scale(1.05);
+              box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            }
+
+            .fw-semibold {
+              color: var(--primary-color) !important;
+              font-weight: 600;
+            }
+
+            .small {
+              color: var(--text-muted);
+              font-family: var(--font-body);
+              font-size: 0.7rem; // Smaller text for compact layout
+              text-transform: uppercase;
+              letter-spacing: 0.025em;
+              margin-bottom: 0.25rem;
+            }
+          }
+      }
+
+      .card-header {
+        background-color: var(--card-bg-secondary) !important;
+        border-bottom: 1px solid var(--border-color);
+        width: 100%; // Full width title
+        overflow: visible !important;
+        
+        h6 {
+          color: var(--alice-blue);
+          font-family: var(--font-heading);
+          font-size: 0.85rem; // Slightly smaller for 4-column layout
+          margin: 0;
+          width: 100%; // Ensure title spans full width
+          text-align: center; // Center the title
+        }
+        
+        .btn-outline-danger {
+          border-color: var(--danger-color);
+          color: var(--danger-color);
+          font-size: 0.7rem; // Smaller button for tighter layout
+          padding: 0.25rem 0.4rem;
+          border-radius: 50%; // Circular button
+          width: 2rem;
+          height: 2rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          
+          &:hover {
+            background-color: var(--danger-color);
+            color: white;
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+          }
+          
+          i {
+            font-size: 0.8rem;
+          }
+        }
+      }
+      
+      .card-body {
+        padding: 0.75rem; // Tighter padding for 4-column layout
+        background-color: var(--card-bg);
+        overflow: visible !important;
+        position: relative !important;
+        
+        // 2-column data layout within each card
+        .card-data-grid {
+          display: grid !important;
+          grid-template-columns: 1fr 1fr !important; // 2 equal columns
+          gap: 0.5rem !important;
+          width: 100%;
+          overflow: visible !important;
+          
+          .data-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            overflow: visible !important;
+            position: relative !important;
+            
+            .small {
+              color: var(--text-muted);
+              font-family: var(--font-body);
+              font-size: 0.7rem; // Smaller text for compact layout
+              text-transform: uppercase;
+              letter-spacing: 0.025em;
+              margin-bottom: 0.25rem;
+            }
+            
+            .fw-semibold {
+              color: var(--alice-blue);
+              font-family: var(--font-accent);
+              font-size: 0.8rem; // Appropriate size for compact layout
+            }
+          }
+        }
+        
+        // Legacy support for existing badge/data layout
+        .badge {
+          font-size: 0.65em; // Smaller badges for 4-column
+          padding: 0.25em 0.5em;
+          font-weight: 500;
+          margin-bottom: 0.25rem;
+          
+          &.bg-danger {
+            background-color: var(--danger-color) !important;
+          }
+          
+          &.bg-warning {
+            background-color: var(--warning-color) !important;
+            color: var(--text-dark) !important;
+          }
+          
+          &.bg-success {
+            background-color: var(--success-color) !important;
+          }
+          
+          &.bg-secondary {
+            background-color: var(--border-color) !important;
+          }
+        }
+        
+        .small {
+          color: var(--text-muted);
+          font-family: var(--font-body);
+          font-size: 0.7rem;
+        }
+        
+        .fw-semibold {
+          color: var(--alice-blue);
+          font-family: var(--font-accent);
+          font-size: 0.8rem;
+        }
+      }
     }
   }
   
-  // Schedule info cards
-  .existing-schedule-card {
-    .card-body {
-      h6 {
-        font-family: var(--font-accent);
-        font-weight: var(--font-weight-medium);
-        font-size: var(--font-size-base);
-        letter-spacing: var(--letter-spacing-normal);
-      }
+  // Responsive design - maintain 4-column layout on large screens, adapt for smaller
+  @media (max-width: 1199px) {
+    [class*="col-"] {
+      flex: 0 0 33.333333% !important; // 3 columns on large tablets
+      max-width: 33.333333% !important;
+      width: 33.333333% !important;
+    }
+  }
+  
+  @media (max-width: 991px) {
+    [class*="col-"] {
+      flex: 0 0 50% !important; // 2 columns on tablets
+      max-width: 50% !important;
+      width: 50% !important;
+      padding: 0 0.375rem;
+    }
+  }
+  
+  @media (max-width: 767px) {
+    [class*="col-"] {
+      flex: 0 0 100% !important; // 1 column on mobile
+      max-width: 100% !important;
+      width: 100% !important;
+      padding: 0 0.5rem;
+      margin-bottom: 1rem;
       
-      small {
-        font-family: var(--font-body);
-        font-size: var(--font-size-xs);
-        line-height: var(--line-height-normal);
+      .card .card-body {
+        padding: 1rem; // More padding on mobile for better touch targets
+        
+        .card-data-grid {
+          gap: 0.75rem !important; // More space on mobile
+          
+          .data-item {
+            .small {
+              font-size: 0.75rem; // Larger text on mobile
+            }
+            
+            .fw-semibold {
+              font-size: 0.9rem; // Larger text on mobile
+            }
+          }
+        }
       }
     }
   }
+}
+
+// Remove hover effects from stat cards and apply scaling to individual stat items
+.schedule-stats-container-columns [class*="col-"] .card:hover,
+.schedule-stats-container-columns .card:hover {
+  transform: none !important;
+  box-shadow: none !important;
+  border-color: var(--border-color) !important;
+}
+
+// Establish stacking context for hover items
+.schedule-stats-container-columns,
+.schedule-stats-container {
+  position: relative;
+  z-index: 1;
+  
+  // Prevent scrollbars from appearing during expansion
+  overflow: visible !important;
+}
+
+// Enhanced tooltip system for stat items - appears above all content
+.stats-tooltip {
+  position: fixed !important;
+  background-color: var(--card-bg) !important;
+  border: 2px solid var(--primary-color) !important;
+  border-radius: var(--border-radius) !important;
+  padding: 1rem 1.5rem !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6) !important;
+  z-index: 9999999 !important;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.8) translateY(-5px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  max-width: 300px;
+  min-width: 200px;
+  
+  &.show {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  
+  .stats-tooltip-label {
+    color: var(--text-muted) !important;
+    font-size: 0.85rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    margin-bottom: 0.5rem !important;
+    font-family: var(--font-body);
+  }
+  
+  .stats-tooltip-value {
+    color: var(--primary-color) !important;
+    font-weight: 700 !important;
+    font-size: 1.5rem !important;
+    line-height: 1.3 !important;
+    font-family: var(--font-accent);
+  }
+}
+
+// Enhanced hover effects for data items with stronger visual feedback
+.schedule-stats-container-columns .data-item,
+.schedule-stats-container .col-6 {
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  border-radius: var(--border-radius);
+  border: 1px solid transparent;
+  
+  // Add subtle visual hint that items are clickable
+  &::after {
+    content: "👆";
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    font-size: 0.7rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  
+  &:hover {
+    background-color: var(--card-bg-secondary) !important;
+    border-color: var(--primary-color) !important;
+    transform: scale(1.08) !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2) !important;
+    z-index: 9999998 !important; // Ensure hovered item appears above siblings
+    position: relative !important;
+    
+    &::after {
+      opacity: 0.6;
+    }
+    
+    .fw-semibold {
+      color: var(--primary-color) !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+  }
+}
+
+// Enhanced tooltip system for stat item expansion
+.stats-tooltip {
+  position: fixed !important;
+  z-index: 10000000 !important;
+  background-color: var(--card-bg) !important;
+  color: var(--alice-blue) !important;
+  border: 3px solid var(--primary-color) !important;
+  border-radius: var(--border-radius) !important;
+  padding: 1.25rem 1.75rem !important;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.7) !important;
+  min-width: 220px !important;
+  max-width: 400px !important;
+  font-family: var(--font-body) !important;
+  opacity: 0;
+  transform: translateY(-15px) scale(0.9);
+  transition: all 0.25s ease;
+  pointer-events: none;
+  backdrop-filter: blur(5px);
+  
+  &.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  
+  .stats-tooltip-label {
+    color: var(--text-muted) !important;
+    font-size: 0.9rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    margin-bottom: 0.75rem !important;
+    font-weight: 600 !important;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+  }
+  
+  .stats-tooltip-value {
+    color: var(--primary-color) !important;
+    font-weight: 800 !important;
+    font-size: 1.6rem !important;
+    line-height: 1.2 !important;
+    font-family: var(--font-accent) !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.stats-card {
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background-color: var(--card-bg-hover);
+  }
+  
+  &:last-child {
+    border-bottom: none !important;
+  }
+}
+
+.stats-card-header {
+  background-color: var(--card-bg-secondary) !important;
+  border-bottom: 1px solid var(--border-color);
+  
+  h6 {
+    color: var(--alice-blue);
+    font-family: var(--font-heading);
+    margin: 0;
+  }
+}
+
+.stats-card-body {
+  .small {
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+  
+  .fw-semibold {
+    font-family: var(--font-accent);
+  }
+  
+  .badge {
+    font-size: 0.75em;
+    padding: 0.35em 0.65em;
+    font-family: var(--font-accent);
+    font-weight: 600;
+    
+    &.bg-success {
+      background-color: var(--success-color) !important;
+      color: var(--alice-blue);
+    }
+    
+    &.bg-warning {
+      background-color: var(--warning-color) !important;
+      color: var(--alice-blue);
+    }
+    
+    &.bg-danger {
+      background-color: var(--error-color) !important;
+      color: var(--alice-blue);
+    }
+    
+    &.bg-secondary {
+      background-color: var(--card-bg-secondary) !important;
+      color: var(--alice-blue);
+    }
+  }
+}
+
+.delete-product-btn {
+  opacity: 0.7;
+  transition: all 0.2s ease;
+  font-size: 1rem !important;
+  padding: 0.4rem 0.6rem !important;
+  min-width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  i {
+    font-size: 1.2rem !important;
+  }
+}
+
+// Loading states
+.spinner-border-sm {
+  color: var(--primary-color) !important;
+}
+
+// Schedule configuration sections
+.schedule-config {
+  transition: all 0.3s ease-in-out;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 0.375rem;
+  padding: 1rem;
+  margin-top: 0.5rem;
+  
+  .form-label {
+    font-weight: 600;
+  }
+}
+
+// Quick reference styling
+.list-unstyled {
+  li {
+    color: var(--alice-blue);
+    font-family: var(--font-body);
+    margin-bottom: 0.25rem;
+    
+    strong {
+      color: var(--primary-color);
+      font-family: var(--font-accent);
+    }
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .schedule-new-page,
+  .schedule-edit-page {
+    .col-lg-4 {
+      margin-top: 1.5rem;
+    }
+    
+    // Stats cards in mobile view
+    .col-lg-8 .card.mb-3 {
+      margin-top: 1rem;
+      margin-bottom: 1.5rem !important;
+    }
+  }
+  
+  .schedule-stats-container {
+    max-height: 300px;
+  }
+  
+  .stats-card-body {
+    .row {
+      .col-6 {
+        margin-bottom: 0.75rem;
+      }
+    }
+  }
+}
+
+// Animation for new cards
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stats-card {
+  animation: slideInUp 0.3s ease-out;
+}
+
+// Enhanced focus states for accessibility
+.schedule-new-page,
+.schedule-edit-page {
+  *:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+  
+  .btn:focus {
+    box-shadow: 0 0 0 0.2rem rgba(var(--primary-color-rgb), 0.5);
+  }
+}
+
+// Prevent page layout issues during hover expansion
+body {
+  position: relative !important;
+}
+
+// Ensure body and html don't interfere with fixed positioning
+html, body {
+  position: relative !important;
+}
+
+.container-fluid.schedule-new-page {
+  overflow: visible !important;
+  position: relative;
+}
+
+// Remove duplicate z-index rules - handled in main hover section
+// .schedule-stats-container-columns .data-item:hover,
+// .schedule-stats-container .col-6:hover {
+//   z-index: 999999 !important;
+// }
+
+// Comprehensive overflow management for both vertical and column layouts
+// Ensure all containers allow tooltips to appear outside boundaries
+.card.mb-4,
+.card.mb-3,
+.card.mb-4 > .card-body,
+.card.mb-3 > .card-body,
+.row.schedule-stats-container-columns,
+#schedule-stats-container,
+.col-lg-4,
+.col-lg-8 {
+  overflow: visible !important;
+}
+
+// Make columns static to allow absolute items positioned relative to the container
+.schedule-stats-container-columns [class*="col-"] {
+  position: static !important;
+}
+
+// Ensure stats container is relative for absolute children
+.schedule-stats-container-columns {
+  position: relative !important;
 }

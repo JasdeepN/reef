@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from "macros/schedule_stats_cards.html" import schedule_stats_cards %}
 
 {% block page_title %}Edit Dosing Schedule{% endblock %}
 
@@ -256,6 +257,9 @@
           {% endif %}
         </div>
       </div>
+
+      <!-- Product Statistics -->
+      {{ schedule_stats_cards(stats_api_urls["GET"], stats_api_urls["DELETE"], enable_tooltips=false, filter_product_id=schedule.product_id) }}
     </div>
   </div>
 </div>

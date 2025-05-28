@@ -83,3 +83,7 @@ app/user/**
 app/static/css/*
 
 **/*backup*
+
+
+.github/copilot-instructions.md
+cookies.txt

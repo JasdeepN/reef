@@ -1,0 +1,335 @@
+<!-- ReefDB Schedule Stats Cards Macro -->
+<!-- Supports both column layout (4x4 grid) and vertical layout (sidebar) -->
+{% macro schedule_stats_cards(stats_api_url, delete_api_url, layout='vertical', enable_tooltips=true, filter_product_id=none) %}
+  {% if layout == 'columns' %}
+  <!-- 4x4 Grid Layout for New Schedule Page -->
+  <div class="card mb-4">
+    <div class="card-header bg-info text-white">
+      <h5 class="mb-0">📊 Product Statistics</h5>
+    </div>
+    <div class="card-body">
+      <div class="row g-2 schedule-stats-container-columns" id="schedule-stats-container" data-layout="columns">
+        <!-- Loading state -->
+        <div class="col-12 text-center p-3" id="stats-loading">
+          <div class="spinner-border spinner-border-sm text-primary" role="status">
+            <span class="visually-hidden">Loading stats...</span>
+          </div>
+          <div class="mt-2 text-muted">Loading product statistics...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  {% else %}
+  <!-- Vertical Layout for Sidebar -->
+  <div class="card mb-3">
+    <div class="card-header bg-info text-white">
+      <h6 class="mb-0">📊 Product Statistics</h6>
+    </div>
+    <div class="card-body p-0">
+      <div class="schedule-stats-container" id="schedule-stats-container" data-layout="vertical">
+        <!-- Loading state -->
+        <div class="text-center p-3" id="stats-loading">
+          <div class="spinner-border spinner-border-sm text-primary" role="status">
+            <span class="visually-hidden">Loading stats...</span>
+          </div>
+          <div class="mt-2 text-muted">Loading product statistics...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- JavaScript for dynamic content loading -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Load statistics data
+      loadScheduleStats('{{ stats_api_url }}', '{{ delete_api_url }}', {{ 'true' if enable_tooltips else 'false' }}, {{ filter_product_id if filter_product_id else 'null' }});
+    });
+
+    function loadScheduleStats(statsUrl, deleteUrl, enableTooltips, filterProductId) {
+      const container = document.getElementById('schedule-stats-container');
+      const loadingDiv = document.getElementById('stats-loading');
+      
+      if (!container) return;
+      
+      fetch(statsUrl)
+        .then(response => response.json())
+        .then(data => {
+          if (!data.success) {
+            console.error('Failed to load stats:', data.message);
+            return;
+          }
+          
+          const stats = data.data;
+          if (!stats || stats.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted p-3">No scheduled products found.</div>';
+            return;
+          }
+          
+          // Filter stats if filterProductId is provided
+          let filteredStats = stats;
+          if (filterProductId && filterProductId !== null) {
+            filteredStats = stats.filter(stat => {
+              const productId = stat.product_id ? stat.product_id[1] : null;
+              return productId && productId.toString() === filterProductId.toString();
+            });
+          }
+          
+          // Check if this is the 4-column layout
+          const isColumns = container.hasAttribute('data-layout') && container.getAttribute('data-layout') === 'columns';
+          
+          if (isColumns) {
+            // Clear loading state and populate 4-column grid
+            container.innerHTML = '';
+            
+            filteredStats.forEach(function(stat, index) {
+              if (!stat) return; // skip None values
+              
+              const keys = Object.keys(stat);
+              const cardTitle = stat.card_title ? stat.card_title[1] : (stat[keys[0]] ? stat[keys[0]][1] : '');
+              const cardId = stat.product_id ? stat.product_id[1] : (stat[keys[0]] ? stat[keys[0]][1] : '');
+              
+              const statsCard = document.createElement('div');
+              statsCard.className = 'col-lg-3 col-md-6 col-sm-12 mb-3'; // col-lg-3 for 4 columns
+              statsCard.innerHTML = `
+                <input type="hidden" class="product-id-hidden" value="${cardId}">
+                <div class="card h-100">
+                  <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 text-center w-100">${cardTitle}</h6>
+                    <button type="button" class="btn btn-link p-0 delete-product-btn ms-2" 
+                            onclick="deleteSchedule('${cardId}', '${deleteUrl}')" 
+                            title="Delete Schedule">
+                      <i class="fas fa-trash-alt text-danger fs-5"></i>
+                    </button>
+                  </div>
+                  <div class="card-body">
+                    <div class="card-data-grid">
+                      ${generateDataItems(stat, ['card_title', 'product_id'], enableTooltips)}
+                    </div>
+                  </div>
+                </div>
+              `;
+              container.appendChild(statsCard);
+            });
+          } else {
+            // Vertical layout for sidebar
+            container.innerHTML = '';
+            
+            filteredStats.forEach(function(stat, index) {
+              if (!stat) return; // skip None values
+              
+              const keys = Object.keys(stat);
+              const cardTitle = stat.card_title ? stat.card_title[1] : (stat[keys[0]] ? stat[keys[0]][1] : '');
+              const cardId = stat.product_id ? stat.product_id[1] : (stat[keys[0]] ? stat[keys[0]][1] : '');
+              
+              const statsCard = document.createElement('div');
+              statsCard.className = 'stats-card border-bottom p-3';
+              statsCard.innerHTML = `
+                <input type="hidden" class="product-id-hidden" value="${cardId}">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <h6 class="mb-0">${cardTitle}</h6>
+                  <button type="button" class="btn btn-link p-0 delete-product-btn" 
+                          onclick="deleteSchedule('${cardId}', '${deleteUrl}')" 
+                          title="Delete Schedule">
+                    <i class="fas fa-trash-alt text-danger fs-5"></i>
+                  </button>
+                </div>
+                <div class="row">
+                  ${generateVerticalDataItems(stat, ['card_title', 'product_id'], enableTooltips)}
+                </div>
+              `;
+              container.appendChild(statsCard);
+            });
+          }
+        })
+        .catch(error => {
+          console.error('Error loading schedule stats:', error);
+          container.innerHTML = '<div class="text-center text-danger p-3">Error loading statistics.</div>';
+        });
+    }
+
+    function generateDataItems(stat, excludeKeys, enableTooltips) {
+      let html = '';
+      let itemCount = 0;
+      
+      Object.keys(stat).forEach(function(key) {
+        if (excludeKeys.includes(key)) return;
+        
+        const item = stat[key];
+        if (item && Array.isArray(item) && item.length >= 2) {
+          const tooltipEvents = enableTooltips ? 
+            `onmouseenter="showStatsTooltip(event, '${item[0]}', '${item[1]}')" onmouseleave="hideStatsTooltip()"` : '';
+          
+          html += `
+            <div class="data-item" ${tooltipEvents}>
+              <div class="small">${item[0]}</div>
+              <div class="fw-semibold">${item[1]}</div>
+            </div>
+          `;
+          itemCount++;
+        }
+      });
+      
+      return html;
+    }
+
+    function generateVerticalDataItems(stat, excludeKeys, enableTooltips) {
+      let html = '';
+      
+      Object.keys(stat).forEach(function(key) {
+        if (excludeKeys.includes(key)) return;
+        
+        const item = stat[key];
+        if (item && Array.isArray(item) && item.length >= 2) {
+          const tooltipEvents = enableTooltips ? 
+            `onmouseenter="showStatsTooltip(event, '${item[0]}', '${item[1]}')" onmouseleave="hideStatsTooltip()"` : '';
+          
+          html += `
+            <div class="col-6 mb-2" ${tooltipEvents}>
+              <div class="small text-muted">${item[0]}</div>
+              <div class="fw-semibold">${item[1]}</div>
+            </div>
+          `;
+        }
+      });
+      
+      return html;
+    }
+
+    function deleteSchedule(productId, deleteUrl) {
+      if (!confirm('Are you sure you want to delete this product schedule?')) {
+        return;
+      }
+      
+      fetch(deleteUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_id: productId
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Remove the card from DOM
+          const hiddenInput = document.querySelector(`input.product-id-hidden[value="${productId}"]`);
+          if (hiddenInput) {
+            const cardElement = hiddenInput.closest('.col-lg-3, .stats-card');
+            if (cardElement) {
+              cardElement.remove();
+            }
+          }
+          
+          // Show success message
+          if (typeof showFlashMessage === 'function') {
+            showFlashMessage('Schedule deleted successfully', 'success');
+          }
+        } else {
+          alert('Error deleting schedule: ' + (data.message || 'Unknown error'));
+        }
+      })
+      .catch(error => {
+        console.error('Error deleting schedule:', error);
+        alert('Error deleting schedule. Please try again.');
+      });
+    }
+
+    // Tooltip functionality for enhanced stat item display
+    let currentTooltip = null;
+    let currentHoveredElement = null;
+    let showTooltipTimeout = null;
+
+    function showStatsTooltip(event, label, value) {
+      // Clear any pending tooltip show
+      if (showTooltipTimeout) {
+        clearTimeout(showTooltipTimeout);
+        showTooltipTimeout = null;
+      }
+      
+      // Remove any existing tooltip immediately
+      hideStatsTooltip();
+      
+      // Add small delay to prevent tooltip spam on rapid mouse movement
+      showTooltipTimeout = setTimeout(() => {
+        // Create new tooltip element
+        const tooltip = document.createElement('div');
+        tooltip.className = 'stats-tooltip';
+        tooltip.innerHTML = `
+          <div class="stats-tooltip-label">${label}</div>
+          <div class="stats-tooltip-value">${value}</div>
+        `;
+        
+        // Track the currently hovered element for cleanup
+        currentHoveredElement = event.target.closest('.data-item, .col-6');
+        if (currentHoveredElement) {
+          currentHoveredElement.style.zIndex = '9999998';
+          currentHoveredElement.style.position = 'relative';
+        }
+        
+        // Add tooltip to body for proper positioning
+        document.body.appendChild(tooltip);
+        currentTooltip = tooltip;
+        
+        // Position tooltip near mouse cursor but ensure it stays in viewport
+        const tooltipRect = tooltip.getBoundingClientRect();
+        
+        let left = event.clientX + 15;
+        let top = event.clientY - tooltipRect.height - 10;
+        
+        // Ensure tooltip stays within viewport bounds
+        if (left + tooltipRect.width > window.innerWidth) {
+          left = event.clientX - tooltipRect.width - 15;
+        }
+        
+        if (top < 0) {
+          top = event.clientY + 15;
+        }
+        
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+        
+        // Trigger show animation
+        requestAnimationFrame(() => {
+          tooltip.classList.add('show');
+        });
+        
+        showTooltipTimeout = null;
+      }, 100); // Small delay to prevent tooltip spam
+    }
+
+    function hideStatsTooltip() {
+      // Clear any pending tooltip show
+      if (showTooltipTimeout) {
+        clearTimeout(showTooltipTimeout);
+        showTooltipTimeout = null;
+      }
+      
+      // Reset z-index of currently hovered element
+      if (currentHoveredElement) {
+        currentHoveredElement.style.zIndex = '';
+        if (currentHoveredElement.style.position === 'relative' && 
+            !currentHoveredElement.className.includes('position-relative')) {
+          currentHoveredElement.style.position = '';
+        }
+        currentHoveredElement = null;
+      }
+      
+      // Remove tooltip immediately without animation delay
+      if (currentTooltip) {
+        currentTooltip.classList.remove('show');
+        // Remove immediately to prevent stacking
+        if (currentTooltip.parentNode) {
+          currentTooltip.parentNode.removeChild(currentTooltip);
+        }
+        currentTooltip = null;
+      }
+    }
+
+    // Global event listeners for enhanced tooltip management
+    document.addEventListener('scroll', hideStatsTooltip);
+    document.addEventListener('resize', hideStatsTooltip);
+  </script>
+{% endmacro %}
