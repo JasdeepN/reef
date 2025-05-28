@@ -180,10 +180,22 @@ def delete_record(table_name):
         if not row_id:
             return jsonify({"error": "Missing 'id' or 'product_id' in request data."}), 400
 
-        # Find the record by ID
-        row = table_model.query.get(row_id)
-        if not row:
-            return jsonify({"error": f"Record with ID {row_id} not found in '{table_name}'."}), 404
+        # Get current tank context for multi-tank validation
+        tank_id = get_current_tank_id()
+        if not tank_id:
+            return jsonify({"error": "No tank selected. Please select a tank first."}), 400
+
+        # Check if the table has tank_id field and filter by tank if applicable
+        if hasattr(table_model, 'tank_id') or 'tank_id' in table_model.__table__.columns:
+            # Find the record by ID and tank_id for security
+            row = table_model.query.filter_by(id=row_id, tank_id=tank_id).first()
+            if not row:
+                return jsonify({"error": f"Record with ID {row_id} not found in '{table_name}' for current tank."}), 404
+        else:
+            # For tables without tank_id, use the original logic
+            row = table_model.query.get(row_id)
+            if not row:
+                return jsonify({"error": f"Record with ID {row_id} not found in '{table_name}'."}), 404
 
         # Delete the record
         db.session.delete(row)
@@ -191,6 +203,7 @@ def delete_record(table_name):
 
         return jsonify({'success': True, 'message': 'Record deleted successfully'}), 200
     except Exception as e:
+        db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
 @bp.route('/datatable/<table_name>', methods=['GET'])
