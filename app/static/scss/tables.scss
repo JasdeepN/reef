@@ -110,6 +110,45 @@
     background: transparent;
     padding: 1rem 0;
     text-align: center;
+    
+    h2 {
+      color: var(--alice-blue);
+    }
+    
+    p, .text-muted {
+      color: var(--alice-blue) !important;
+    }
+  }
+  
+  // Apply alice-blue color to all card text content
+  .grid-item {
+    .card-body {
+      color: var(--alice-blue);
+      
+      p, .card-text {
+        color: var(--alice-blue);
+      }
+      
+      ul, li {
+        color: var(--alice-blue);
+      }
+      
+      strong {
+        color: var(--alice-blue);
+      }
+    }
+    
+    .card-footer {
+      .btn-outline-secondary, .btn-outline-primary, .btn-outline-info, 
+      .btn-outline-warning, .btn-outline-secondary {
+        color: var(--alice-blue);
+        border-color: var(--powder-blue);
+        
+        &:hover {
+          color: var(--outer-space);
+        }
+      }
+    }
   }
   
   // Second and third items (large cards) - first row

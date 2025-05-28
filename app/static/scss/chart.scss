@@ -35,6 +35,14 @@
   text-align: center;
   margin-bottom: 0;
   padding: 0 0 1rem 0;
+  
+  h2 {
+    color: var(--alice-blue);
+  }
+  
+  p, .text-secondary {
+    color: var(--alice-blue) !important;
+  }
 }
 
 .controls-left {
@@ -52,14 +60,15 @@
   min-height: 500px;
   
   .card {
-    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-    border: 2px solid #007bff;
-    box-shadow: 0 8px 20px rgba(0,123,255,0.15);
+    // background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    // border: 2px solid #007bff;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
     height: 100%;
+    border: 2px solid rgb(0, 0, 0);
   }
   
   .card-body {
-    padding: 1.5rem;
+    // padding: 1.5rem;
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -82,10 +91,12 @@
   max-height: calc(100vh - 350px); /* Prevent footer overlap with more conservative padding */
   flex-grow: 1;
   overflow: hidden; /* Ensure no overflow from canvas */
+  background-color: var(--outer-space);
+  padding: 0.7rem;
   
   canvas {
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    // border-radius: 8px;
+    // box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     max-height: 100%;
     max-width: 100%;
   }
@@ -94,6 +105,11 @@
 /* Chart Legend Styles */
 .chart-legend-content {
   font-size: 0.85rem;
+  color: var(--alice-blue);
+  
+  div {
+    color: var(--alice-blue);
+  }
 }
 
 .parameter-color-dot {
@@ -131,6 +147,7 @@
   height: fit-content;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   border: 1px solid rgba(0,0,0,0.1);
+  color: var(--alice-blue);
   
   .card-header {
     padding: 0.75rem 1rem;
@@ -139,6 +156,7 @@
   
   .card-body {
     padding: 1rem;
+    color: var(--alice-blue);
   }
 }
 
@@ -156,6 +174,28 @@
   
   .form-check-label {
     font-size: 0.85rem;
+    color: var(--alice-blue);
+  }
+}
+
+/* Additional text elements in control cards */
+.control-card {
+  small, .fw-bold, strong {
+    color: var(--alice-blue);
+  }
+  
+  /* Button styles to maintain visibility */
+  .btn {
+    border-color: var(--powder-blue);
+  }
+  
+  .btn-outline-success, .btn-outline-danger, .btn-outline-info, .btn-outline-primary, .btn-outline-secondary {
+    color: var(--alice-blue);
+    border-color: var(--powder-blue);
+    
+    &:hover {
+      color: var(--outer-space);
+    }
   }
 }
 
