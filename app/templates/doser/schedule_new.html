@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Dosing Schedule Manager{% endblock %}
+
+{% block content %}
+<div class="container-fluid schedule-new-page">
+  <div class="row">
+    <!-- Create New Schedule Form -->
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0">📅 Create New Dosing Schedule - Tank {{ tank_id }}</h5>
+        </div>
+        <div class="card-body">
+          <form id="scheduleForm">
+            <!-- Product Selection -->
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="product_id" class="form-label">💊 Product *</label>
+                <select class="form-select" id="product_id" name="product_id" required>
+                  <option value="">Select a product...</option>
+                  {% for product in products %}
+                  <option value="{{ product.id }}" data-avail="{{ product.current_avail }}">
+                    {{ product.name }} (Available: {{ product.current_avail }}ml)
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label for="amount" class="form-label">📏 Amount (ml) *</label>
+                <input type="number" step="0.1" min="0.1" class="form-control" id="amount" name="amount" required>
+                <div class="form-text">Amount to dose each time</div>
+              </div>
+            </div>
+
+            <!-- Schedule Type Selection -->
+            <div class="mb-3">
+              <label class="form-label">⏰ Schedule Type *</label>
+              <div class="row">
+                <div class="col-md-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="schedule_type" id="type_interval" value="interval" checked>
+                    <label class="form-check-label" for="type_interval">
+                      Regular Intervals
+                    </label>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="schedule_type" id="type_daily" value="daily">
+                    <label class="form-check-label" for="type_daily">
+                      Daily Schedule
+                    </label>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="schedule_type" id="type_weekly" value="weekly">
+                    <label class="form-check-label" for="type_weekly">
+                      Weekly Schedule
+                    </label>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="schedule_type" id="type_custom" value="custom">
+                    <label class="form-check-label" for="type_custom">
+                      Custom (Advanced)
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Schedule Configuration -->
+            <div class="card mb-3">
+              <div class="card-body">
+                <!-- Interval Schedule -->
+                <div id="interval_config" class="schedule-config">
+                  <h6 class="card-title">Regular Interval Configuration</h6>
+                  <div class="row">
+                    <div class="col-md-6">
+                      <label for="interval_value" class="form-label">Every</label>
+                      <input type="number" min="1" max="10080" class="form-control" id="interval_value" name="interval_value" value="1">
+                    </div>
+                    <div class="col-md-6">
+                      <label for="interval_unit" class="form-label">Unit</label>
+                      <select class="form-select" id="interval_unit" name="interval_unit">
+                        <option value="minutes">Minutes (min 1, max 10080)</option>
+                        <option value="hours" selected>Hours (min 1, max 168)</option>
+                        <option value="days">Days (min 1, max 7)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-text mt-2">
+                    ⏱️ <strong>Example:</strong> "Every 2 hours" will dose the specified amount every 2 hours starting from when the schedule is activated.
+                  </div>
+                </div>
+
+                <!-- Daily Schedule -->
+                <div id="daily_config" class="schedule-config" style="display: none;">
+                  <h6 class="card-title">Daily Schedule Configuration</h6>
+                  <div class="row">
+                    <div class="col-md-6">
+                      <label for="times_per_day" class="form-label">Times per Day</label>
+                      <input type="number" min="1" max="1440" class="form-control" id="times_per_day" name="times_per_day" value="1">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Calculated Interval</label>
+                      <input type="text" class="form-control" id="daily_interval_display" readonly>
+                    </div>
+                  </div>
+                  <div class="form-text mt-2">
+                    📅 <strong>Example:</strong> "3 times per day" will dose every 8 hours. Maximum 1440 times (once per minute).
+                  </div>
+                </div>
+
+                <!-- Weekly Schedule -->
+                <div id="weekly_config" class="schedule-config" style="display: none;">
+                  <h6 class="card-title">Weekly Schedule Configuration</h6>
+                  <div class="row">
+                    <div class="col-md-6">
+                      <label for="times_per_week" class="form-label">Times per Week</label>
+                      <input type="number" min="1" max="10080" class="form-control" id="times_per_week" name="times_per_week" value="7">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Calculated Interval</label>
+                      <input type="text" class="form-control" id="weekly_interval_display" readonly>
+                    </div>
+                  </div>
+                  <div class="form-text mt-2">
+                    📊 <strong>Example:</strong> "14 times per week" will dose every 12 hours. Maximum 10080 times (once per minute).
+                  </div>
+                </div>
+
+                <!-- Custom Schedule -->
+                <div id="custom_config" class="schedule-config" style="display: none;">
+                  <h6 class="card-title">Custom Schedule Configuration</h6>
+                  <div class="row">
+                    <div class="col-md-6">
+                      <label for="custom_seconds" class="form-label">Interval (seconds)</label>
+                      <input type="number" min="60" class="form-control" id="custom_seconds" name="custom_seconds" value="3600">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Human Readable</label>
+                      <input type="text" class="form-control" id="custom_display" readonly>
+                    </div>
+                  </div>
+                  <div class="form-text mt-2">
+                    ⚙️ <strong>Advanced:</strong> Enter exact interval in seconds. Minimum 60 seconds (1 minute).
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Additional Options -->
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="suspended" name="suspended">
+                  <label class="form-check-label" for="suspended">
+                    ⏸️ Start Suspended
+                  </label>
+                </div>
+                <div class="form-text">Schedule will be created but not active until manually enabled</div>
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+              <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Create Schedule
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Existing Schedules -->
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-header bg-success text-white">
+          <h5 class="mb-0">📋 Current Schedules</h5>
+        </div>
+        <div class="card-body">
+          <div id="existingSchedules">
+            {% if existing_schedules %}
+              {% for schedule in existing_schedules %}
+              <div class="card mb-2">
+                <div class="card-body py-2">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                      <h6 class="card-title mb-1">{{ schedule.product_name }}</h6>
+                      <small class="text-muted">
+                        {{ schedule.amount }}ml every {{ (schedule.trigger_interval / 3600) | round(1) }} hours<br>
+                        {% if schedule.suspended %}<span class="badge bg-warning">Suspended</span>{% endif %}
+                        {% if schedule.last_refill %}Last refill: {{ schedule.last_refill[:10] }}{% endif %}
+                      </small>
+                    </div>
+                    <div class="btn-group-vertical btn-group-sm">
+                      <a href="{{ url_for('schedule_edit', schedule_id=schedule.id) }}" class="btn btn-outline-primary btn-sm">✏️ Edit</a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            {% else %}
+              <p class="text-muted">No existing schedules for this tank.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Reference -->
+      <div class="card mt-3">
+        <div class="card-header bg-info text-white">
+          <h6 class="mb-0">📖 Quick Reference</h6>
+        </div>
+        <div class="card-body py-2">
+          <small>
+            <strong>Common Intervals:</strong><br>
+            • Every 15 minutes = 96 times/day<br>
+            • Every hour = 24 times/day<br>
+            • Every 6 hours = 4 times/day<br>
+            • Twice daily = 12 hour intervals<br>
+            • Daily = 24 hour intervals<br>
+            <br>
+            <strong>Note:</strong> Minimum interval is 1 minute (60 seconds)
+          </small>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const scheduleTypeInputs = document.querySelectorAll('input[name="schedule_type"]');
+  const scheduleConfigs = document.querySelectorAll('.schedule-config');
+
+  // Handle schedule type changes
+  scheduleTypeInputs.forEach(input => {
+    input.addEventListener('change', function() {
+      // Hide all configs
+      scheduleConfigs.forEach(config => config.style.display = 'none');
+      
+      // Show selected config
+      const selectedConfig = document.getElementById(this.value + '_config');
+      if (selectedConfig) {
+        selectedConfig.style.display = 'block';
+      }
+    });
+  });
+
+  // Update interval calculations for daily/weekly schedules
+  document.getElementById('times_per_day').addEventListener('input', function() {
+    const times = parseInt(this.value) || 1;
+    const interval = Math.floor(86400 / times); // 86400 seconds in a day
+    const hours = Math.floor(interval / 3600);
+    const minutes = Math.floor((interval % 3600) / 60);
+    document.getElementById('daily_interval_display').value = `${hours}h ${minutes}m (${interval}s)`;
+  });
+
+  document.getElementById('times_per_week').addEventListener('input', function() {
+    const times = parseInt(this.value) || 1;
+    const interval = Math.floor(604800 / times); // 604800 seconds in a week
+    const days = Math.floor(interval / 86400);
+    const hours = Math.floor((interval % 86400) / 3600);
+    const minutes = Math.floor((interval % 3600) / 60);
+    document.getElementById('weekly_interval_display').value = `${days}d ${hours}h ${minutes}m (${interval}s)`;
+  });
+
+  document.getElementById('custom_seconds').addEventListener('input', function() {
+    const seconds = parseInt(this.value) || 60;
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    let display = '';
+    if (days > 0) display += `${days}d `;
+    if (hours > 0) display += `${hours}h `;
+    if (minutes > 0) display += `${minutes}m `;
+    if (secs > 0) display += `${secs}s`;
+    
+    document.getElementById('custom_display').value = display.trim();
+  });
+
+  // Initialize displays
+  document.getElementById('times_per_day').dispatchEvent(new Event('input'));
+  document.getElementById('times_per_week').dispatchEvent(new Event('input'));
+  document.getElementById('custom_seconds').dispatchEvent(new Event('input'));
+
+  // Handle form submission
+  document.getElementById('scheduleForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData);
+    
+    // Add the selected schedule type data
+    const scheduleType = document.querySelector('input[name="schedule_type"]:checked').value;
+    data.schedule_type = scheduleType;
+    
+    // Convert checkbox value
+    data.suspended = document.getElementById('suspended').checked;
+
+    fetch('/doser/schedule-new', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+      if (result.success) {
+        alert('✅ Dosing schedule created successfully!');
+        resetForm();
+        // Optionally reload the page to show the new schedule
+        location.reload();
+      } else {
+        alert('❌ Error creating schedule: ' + result.error);
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('❌ Network error occurred while creating schedule.');
+    });
+  });
+});
+
+function resetForm() {
+  document.getElementById('scheduleForm').reset();
+  document.querySelector('input[name="schedule_type"][value="interval"]').checked = true;
+  document.querySelector('input[name="schedule_type"][value="interval"]').dispatchEvent(new Event('change'));
+  
+  // Reset displays
+  document.getElementById('times_per_day').dispatchEvent(new Event('input'));
+  document.getElementById('times_per_week').dispatchEvent(new Event('input'));
+  document.getElementById('custom_seconds').dispatchEvent(new Event('input'));
+}
+</script>
+
+<style>
+.schedule-config {
+  transition: all 0.3s ease-in-out;
+}
+
+.card-title {
+  color: #495057;
+  font-weight: 600;
+}
+
+.form-text {
+  font-size: 0.875rem;
+}
+
+.badge {
+  font-size: 0.75rem;
+}
+
+#existingSchedules .card {
+  border-left: 4px solid #28a745;
+}
+
+#existingSchedules .card:has(.badge) {
+  border-left-color: #ffc107;
+}
+</style>
+{% endblock %}

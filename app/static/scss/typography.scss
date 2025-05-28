@@ -1,0 +1,319 @@
+// Typography - Modern Font Stack
+// Import Google Fonts: Poppins (headings), Inter (body), Manrope (accent)
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Manrope:wght@200;300;400;500;600;700;800&family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
+// Font stacks with fallbacks
+:root {
+  // Primary font families
+  --font-heading: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-accent: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  
+  // Font weights
+  --font-weight-thin: 100;
+  --font-weight-extralight: 200;
+  --font-weight-light: 300;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 900;
+  
+  // Font sizes (using a type scale)
+  --font-size-xs: 0.75rem;    // 12px
+  --font-size-sm: 0.875rem;   // 14px
+  --font-size-base: 1rem;     // 16px
+  --font-size-lg: 1.125rem;   // 18px
+  --font-size-xl: 1.25rem;    // 20px
+  --font-size-2xl: 1.5rem;    // 24px
+  --font-size-3xl: 1.875rem;  // 30px
+  --font-size-4xl: 2.25rem;   // 36px
+  --font-size-5xl: 3rem;      // 48px
+  --font-size-6xl: 3.75rem;   // 60px
+  
+  // Line heights
+  --line-height-tight: 1.25;
+  --line-height-snug: 1.375;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
+  --line-height-loose: 2;
+  
+  // Letter spacing
+  --letter-spacing-tighter: -0.05em;
+  --letter-spacing-tight: -0.025em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.025em;
+  --letter-spacing-wider: 0.05em;
+  --letter-spacing-widest: 0.1em;
+}
+
+// Base typography styles
+body {
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: var(--letter-spacing-normal);
+}
+
+// Heading styles using Poppins
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+  margin-top: 0;
+  margin-bottom: 0.5em;
+}
+
+h1 {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-tighter);
+}
+
+h2 {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+h3 {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+h4 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-medium);
+}
+
+h5 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+}
+
+h6 {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+// Body text styles
+p {
+  margin-top: 0;
+  margin-bottom: 1em;
+  line-height: var(--line-height-normal);
+}
+
+// Small text
+small, .text-sm {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+// Large text
+.text-lg {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-normal);
+}
+
+.text-xl {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-snug);
+}
+
+// Font weight utilities
+.font-thin { font-weight: var(--font-weight-thin); }
+.font-extralight { font-weight: var(--font-weight-extralight); }
+.font-light { font-weight: var(--font-weight-light); }
+.font-normal { font-weight: var(--font-weight-regular); }
+.font-medium { font-weight: var(--font-weight-medium); }
+.font-semibold { font-weight: var(--font-weight-semibold); }
+.font-bold { font-weight: var(--font-weight-bold); }
+.font-extrabold { font-weight: var(--font-weight-extrabold); }
+.font-black { font-weight: var(--font-weight-black); }
+
+// Font family utilities
+.font-heading { font-family: var(--font-heading); }
+.font-body { font-family: var(--font-body); }
+.font-accent { font-family: var(--font-accent); }
+
+// Letter spacing utilities
+.tracking-tighter { letter-spacing: var(--letter-spacing-tighter); }
+.tracking-tight { letter-spacing: var(--letter-spacing-tight); }
+.tracking-normal { letter-spacing: var(--letter-spacing-normal); }
+.tracking-wide { letter-spacing: var(--letter-spacing-wide); }
+.tracking-wider { letter-spacing: var(--letter-spacing-wider); }
+.tracking-widest { letter-spacing: var(--letter-spacing-widest); }
+
+// Line height utilities
+.leading-tight { line-height: var(--line-height-tight); }
+.leading-snug { line-height: var(--line-height-snug); }
+.leading-normal { line-height: var(--line-height-normal); }
+.leading-relaxed { line-height: var(--line-height-relaxed); }
+.leading-loose { line-height: var(--line-height-loose); }
+
+// Special typography classes using Manrope for accent elements
+.card-title,
+.nav-brand,
+.btn,
+.badge,
+.alert {
+  font-family: var(--font-accent);
+  font-weight: var(--font-weight-medium);
+}
+
+// Form elements using Inter for optimal readability
+.form-control,
+.form-select,
+.form-label,
+.form-text {
+  font-family: var(--font-body);
+}
+
+.form-label {
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+// Table headers using Manrope for distinction
+th {
+  font-family: var(--font-accent);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+// Navigation using Poppins for prominence
+.navbar-brand,
+.nav-link {
+  font-family: var(--font-heading);
+  font-weight: var(--font-weight-medium);
+}
+
+// Code and monospace (keeping monospace for code)
+code, pre, .code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-size: 0.9em;
+}
+
+// Responsive typography
+@media (max-width: 768px) {
+  :root {
+    --font-size-4xl: 1.875rem;  // 30px (reduced from 36px)
+    --font-size-3xl: 1.5rem;    // 24px (reduced from 30px)
+    --font-size-2xl: 1.25rem;   // 20px (reduced from 24px)
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    line-height: var(--line-height-snug);
+  }
+}
+
+// Typography demonstration utilities
+.typography-showcase {
+  .font-heading-demo {
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-semibold);
+  }
+  
+  .font-body-demo {
+    font-family: var(--font-body);
+    font-weight: var(--font-weight-regular);
+  }
+  
+  .font-accent-demo {
+    font-family: var(--font-accent);
+    font-weight: var(--font-weight-medium);
+  }
+}
+
+// Enhanced navigation typography
+.navbar {
+  .navbar-brand {
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-bold);
+    font-size: var(--font-size-xl);
+    letter-spacing: var(--letter-spacing-tight);
+  }
+  
+  .nav-link {
+    font-family: var(--font-body);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-sm);
+    letter-spacing: var(--letter-spacing-normal);
+  }
+  
+  .dropdown-item {
+    font-family: var(--font-body);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-regular);
+  }
+}
+
+// Enhanced table typography
+.table {
+  th {
+    font-family: var(--font-accent);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-sm);
+    letter-spacing: var(--letter-spacing-wide);
+    text-transform: uppercase;
+  }
+  
+  td {
+    font-family: var(--font-body);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-regular);
+    line-height: var(--line-height-normal);
+  }
+}
+
+// Enhanced card typography
+.card {
+  .card-header {
+    font-family: var(--font-accent);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-base);
+    letter-spacing: var(--letter-spacing-normal);
+  }
+  
+  .card-title {
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: var(--letter-spacing-tight);
+  }
+  
+  .card-subtitle {
+    font-family: var(--font-body);
+    font-weight: var(--font-weight-regular);
+    font-size: var(--font-size-sm);
+  }
+  
+  .card-text {
+    font-family: var(--font-body);
+    font-weight: var(--font-weight-regular);
+    line-height: var(--line-height-normal);
+  }
+}
+
+// Enhanced button typography
+.btn {
+  font-family: var(--font-accent);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-normal);
+  
+  &.btn-lg {
+    font-size: var(--font-size-base);
+    letter-spacing: var(--letter-spacing-wide);
+  }
+  
+  &.btn-sm {
+    font-size: var(--font-size-xs);
+    letter-spacing: var(--letter-spacing-wide);
+    text-transform: uppercase;
+  }
+}

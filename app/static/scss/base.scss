@@ -1,7 +1,6 @@
-// Box sizing and font family for all elements
+// Box sizing for all elements
 *, *::before, *::after {
   box-sizing: border-box !important;
-  font-family: var(--font-body);
 }
 
 // Body styles

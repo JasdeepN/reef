@@ -95,6 +95,34 @@
         </div>
       </div>
     </div>
+
+    <div class="card control-card">
+      <div class="card-header bg-primary text-white py-2">
+        <h6 class="card-title mb-0">📅 Date Range Filter</h6>
+      </div>
+      <div class="card-body p-3">
+        <div class="mb-2">
+          <label for="date-from" class="form-label form-label-sm">From:</label>
+          <input type="date" class="form-control form-control-sm" id="date-from">
+        </div>
+        <div class="mb-2">
+          <label for="date-to" class="form-label form-label-sm">To:</label>
+          <input type="date" class="form-control form-control-sm" id="date-to">
+        </div>
+        <div class="d-grid gap-1">
+          <button class="btn btn-primary btn-sm" id="apply-date-filter">Apply Filter</button>
+          <button class="btn btn-outline-secondary btn-sm" id="clear-date-filter">Clear Filter</button>
+        </div>
+        <div class="mt-2">
+          <small class="text-muted">Quick ranges:</small>
+          <div class="d-grid gap-1 mt-1">
+            <button class="btn btn-outline-info btn-sm" id="last-7-days">Last 7 Days</button>
+            <button class="btn btn-outline-info btn-sm" id="last-30-days">Last 30 Days</button>
+            <button class="btn btn-outline-info btn-sm" id="last-90-days">Last 90 Days</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Main Chart Area -->
@@ -378,35 +406,6 @@ const chartConfig = {
   }
 };
 
-function loadChartData() {
-  console.log('Loading chart data...');
-  fetch('/api/test-results-data')
-    .then(response => {
-      console.log('Response status:', response.status);
-      return response.json();
-    })
-    .then(data => {
-      console.log('Received data:', data);
-      if (data.error) {
-        console.error('Error loading chart data:', data.error);
-        return;
-      }
-      
-      chartConfig.data.labels = data.labels;
-      chartConfig.data.datasets = data.datasets;
-      
-      if (testChart) {
-        testChart.destroy();
-      }
-      
-      const ctx = document.getElementById('testResultsChart').getContext('2d');
-      testChart = new Chart(ctx, chartConfig);
-    })
-    .catch(error => {
-      console.error('Error loading chart data:', error);
-    });
-}
-
 function toggleDataset(datasetIndex, show) {
   if (!testChart) return;
   
@@ -415,6 +414,64 @@ function toggleDataset(datasetIndex, show) {
   } else {
     testChart.hide(datasetIndex);
   }
+}
+
+// Global variables for date filtering
+let originalData = null; // Store original chart data
+
+// Date filter functions (moved to global scope)
+function setDateRange(fromDate, toDate) {
+  const fromInput = document.getElementById('date-from');
+  const toInput = document.getElementById('date-to');
+  
+  if (fromDate) {
+    fromInput.value = fromDate.toISOString().split('T')[0];
+  }
+  if (toDate) {
+    toInput.value = toDate.toISOString().split('T')[0];
+  }
+}
+
+function filterChartByDateRange(fromDate, toDate) {
+  if (!testChart || !originalData) {
+    console.log('Chart or original data not available:', { testChart: !!testChart, originalData: !!originalData });
+    return;
+  }
+  
+  if (!fromDate && !toDate) {
+    // Clear filter - restore original data
+    testChart.data.labels = [...originalData.labels];
+    testChart.data.datasets = originalData.datasets.map(dataset => ({
+      ...dataset,
+      data: [...dataset.data]
+    }));
+    testChart.update();
+    console.log('Date filter cleared, restored original data');
+    return;
+  }
+  
+  const filteredLabels = [];
+  const filteredDatasets = originalData.datasets.map(dataset => ({
+    ...dataset,
+    data: []
+  }));
+  
+  originalData.labels.forEach((label, index) => {
+    const date = new Date(label);
+    const passesFilter = (!fromDate || date >= fromDate) && (!toDate || date <= toDate);
+    
+    if (passesFilter) {
+      filteredLabels.push(label);
+      originalData.datasets.forEach((dataset, datasetIndex) => {
+        filteredDatasets[datasetIndex].data.push(dataset.data[index]);
+      });
+    }
+  });
+  
+  testChart.data.labels = filteredLabels;
+  testChart.data.datasets = filteredDatasets;
+  testChart.update();
+  console.log(`Date filter applied: ${filteredLabels.length} data points from ${fromDate || 'start'} to ${toDate || 'end'}`);
 }
 
 // Event listeners
@@ -514,6 +571,94 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   });
+
+  // Date filter event listeners
+  document.getElementById('apply-date-filter').addEventListener('click', function() {
+    console.log('Apply date filter clicked');
+    const fromDate = document.getElementById('date-from').value ? new Date(document.getElementById('date-from').value) : null;
+    const toDate = document.getElementById('date-to').value ? new Date(document.getElementById('date-to').value) : null;
+    
+    console.log('Date range:', { fromDate, toDate });
+    filterChartByDateRange(fromDate, toDate);
+  });
+  
+  document.getElementById('clear-date-filter').addEventListener('click', function() {
+    console.log('Clear date filter clicked');
+    document.getElementById('date-from').value = '';
+    document.getElementById('date-to').value = '';
+    filterChartByDateRange(null, null);
+  });
+  
+  document.getElementById('last-7-days').addEventListener('click', function() {
+    console.log('Last 7 days clicked');
+    const toDate = new Date();
+    const fromDate = new Date();
+    fromDate.setDate(toDate.getDate() - 7);
+    
+    setDateRange(fromDate, toDate);
+    filterChartByDateRange(fromDate, toDate);
+  });
+  
+  document.getElementById('last-30-days').addEventListener('click', function() {
+    console.log('Last 30 days clicked');
+    const toDate = new Date();
+    const fromDate = new Date();
+    fromDate.setDate(toDate.getDate() - 30);
+    
+    setDateRange(fromDate, toDate);
+    filterChartByDateRange(fromDate, toDate);
+  });
+  
+  document.getElementById('last-90-days').addEventListener('click', function() {
+    console.log('Last 90 days clicked');
+    const toDate = new Date();
+    const fromDate = new Date();
+    fromDate.setDate(toDate.getDate() - 90);
+    
+    setDateRange(fromDate, toDate);
+    filterChartByDateRange(fromDate, toDate);
+  });
 });
+
+// Modified loadChartData function to store original data
+function loadChartData() {
+  console.log('Loading chart data...');
+  fetch('/api/test-results-data')
+    .then(response => {
+      console.log('Response status:', response.status);
+      return response.json();
+    })
+    .then(data => {
+      console.log('Received data:', data);
+      if (data.error) {
+        console.error('Error loading chart data:', data.error);
+        return;
+      }
+      
+      // Store original data for filtering (deep copy to avoid reference issues)
+      originalData = {
+        labels: [...data.labels],
+        datasets: data.datasets.map(dataset => ({
+          ...dataset,
+          data: [...dataset.data]
+        }))
+      };
+      console.log('Original data stored for filtering:', originalData);
+      
+      chartConfig.data.labels = data.labels;
+      chartConfig.data.datasets = data.datasets;
+      
+      if (testChart) {
+        testChart.destroy();
+      }
+      
+      const ctx = document.getElementById('testResultsChart').getContext('2d');
+      testChart = new Chart(ctx, chartConfig);
+      console.log('Chart created/updated successfully');
+    })
+    .catch(error => {
+      console.error('Error loading chart data:', error);
+    });
+}
 </script>
 {% endblock %}

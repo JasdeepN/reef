@@ -1,0 +1,498 @@
+// Schedule pages specific styles
+// Ensures text uses alice-blue color for schedule management pages
+
+.schedule-page {
+  color: var(--alice-blue);
+  
+  // Override Bootstrap text colors
+  .text-muted {
+    color: var(--text-muted) !important;
+  }
+  
+  .text-dark {
+    color: var(--alice-blue) !important;
+  }
+  
+  // Form elements
+  .form-label {
+    color: var(--alice-blue);
+    font-weight: 500;
+  }
+  
+  .form-text {
+    color: var(--text-muted);
+  }
+  
+  // Card headers
+  .card-header {
+    &.bg-primary {
+      background-color: var(--primary-color) !important;
+      color: var(--alice-blue) !important;
+    }
+    
+    &.bg-warning {
+      background-color: var(--warning-color) !important;
+      color: var(--alice-blue) !important;
+    }
+    
+    &.bg-success {
+      background-color: var(--success-color) !important;
+      color: var(--alice-blue) !important;
+    }
+    
+    &.bg-info {
+      background-color: var(--primary-color) !important;
+      color: var(--alice-blue) !important;
+    }
+    
+    &.bg-secondary {
+      background-color: var(--card-bg-secondary) !important;
+      color: var(--alice-blue) !important;
+    }
+  }
+  
+  // Card bodies
+  .card-body {
+    color: var(--alice-blue);
+    background-color: var(--card-bg);
+    
+    h6, .card-title {
+      color: var(--alice-blue);
+    }
+    
+    small {
+      color: var(--text-muted);
+    }
+  }
+  
+  // Schedule configuration cards
+  .schedule-config {
+    .card {
+      background-color: var(--form-background);
+      border-color: var(--form-border-color);
+      
+      .card-body {
+        background-color: var(--form-background);
+        color: var(--alice-blue);
+      }
+      
+      .card-title {
+        color: var(--alice-blue);
+      }
+    }
+  }
+  
+  // Form controls
+  .form-control, .form-select {
+    background-color: var(--form-background);
+    border-color: var(--form-border-color);
+    color: var(--alice-blue);
+    
+    &:focus {
+      background-color: var(--form-background);
+      border-color: var(--primary-color);
+      color: var(--alice-blue);
+      box-shadow: 0 0 0 0.2rem rgba(var(--primary-color), 0.25);
+    }
+    
+    &::placeholder {
+      color: var(--text-muted);
+    }
+  }
+  
+  // Radio buttons and checkboxes
+  .form-check-label {
+    color: var(--alice-blue);
+  }
+  
+  .form-check-input {
+    &:checked {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+  }
+  
+  // Buttons
+  .btn {
+    &.btn-warning {
+      background-color: var(--warning-color);
+      border-color: var(--warning-color);
+      color: var(--alice-blue);
+      
+      &:hover {
+        background-color: var(--button-hover);
+        border-color: var(--button-hover);
+        color: var(--alice-blue);
+      }
+    }
+    
+    &.btn-secondary {
+      background-color: var(--card-bg-secondary);
+      border-color: var(--card-bg-secondary);
+      color: var(--alice-blue);
+      
+      &:hover {
+        background-color: var(--button-hover);
+        border-color: var(--button-hover);
+        color: var(--alice-blue);
+      }
+    }
+    
+    &.btn-outline-primary {
+      border-color: var(--primary-color);
+      color: var(--alice-blue);
+      
+      &:hover {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+        color: var(--alice-blue);
+      }
+    }
+  }
+  
+  // Quick reference and tips
+  .quick-reference {
+    h6 {
+      color: var(--alice-blue);
+      font-weight: 600;
+    }
+    
+    ul li {
+      color: var(--alice-blue);
+      
+      strong {
+        color: var(--alice-blue);
+        font-weight: 600;
+      }
+    }
+  }
+  
+  // Badge styling
+  .badge {
+    &.bg-warning {
+      background-color: var(--warning-color) !important;
+      color: var(--alice-blue) !important;
+    }
+  }
+  
+  // Loading spinner text
+  .spinner-border + div {
+    color: var(--alice-blue);
+  }
+  
+  // Alert styling
+  .alert {
+    &.alert-warning {
+      background-color: var(--warning-color);
+      border-color: var(--warning-color);
+      color: var(--alice-blue);
+    }
+  }
+}
+
+// Apply to specific schedule pages
+.schedule-new-page,
+.schedule-edit-page {
+  color: var(--alice-blue);
+  
+  // Override Bootstrap text colors
+  .text-muted {
+    color: var(--text-muted) !important;
+  }
+  
+  .text-dark {
+    color: var(--alice-blue) !important;
+  }
+  
+  // Form elements
+  .form-label {
+    color: var(--alice-blue);
+    font-weight: 500;
+  }
+  
+  .form-text {
+    color: var(--text-muted);
+  }
+  
+  // Card headers
+  .card-header {
+    &.bg-primary {
+      background-color: var(--primary-color) !important;
+      color: var(--alice-blue) !important;
+    }
+    
+    &.bg-warning {
+      background-color: var(--warning-color) !important;
+      color: var(--alice-blue) !important;
+    }
+    
+    &.bg-success {
+      background-color: var(--success-color) !important;
+      color: var(--alice-blue) !important;
+    }
+    
+    &.bg-info {
+      background-color: var(--primary-color) !important;
+      color: var(--alice-blue) !important;
+    }
+    
+    &.bg-secondary {
+      background-color: var(--card-bg-secondary) !important;
+      color: var(--alice-blue) !important;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+      font-family: var(--font-heading);
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: var(--letter-spacing-tight);
+      margin-bottom: 0;
+    }
+  }
+  
+  // Card bodies
+  .card-body {
+    color: var(--alice-blue);
+    background-color: var(--card-bg);
+    
+    h6, .card-title {
+      color: var(--alice-blue);
+    }
+    
+    small {
+      color: var(--text-muted);
+    }
+    
+    h6 {
+      font-family: var(--font-accent);
+      font-weight: var(--font-weight-medium);
+      font-size: var(--font-size-base);
+      letter-spacing: var(--letter-spacing-normal);
+    }
+    
+    small {
+      font-family: var(--font-body);
+      font-size: var(--font-size-xs);
+      line-height: var(--line-height-normal);
+    }
+  }
+  
+  .card-title {
+    font-family: var(--font-accent);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-lg);
+    letter-spacing: var(--letter-spacing-normal);
+  }
+  
+  // Schedule configuration cards
+  .schedule-config {
+    .card {
+      background-color: var(--form-background);
+      border-color: var(--form-border-color);
+      
+      .card-body {
+        background-color: var(--form-background);
+        color: var(--alice-blue);
+      }
+      
+      .card-title {
+        color: var(--alice-blue);
+      }
+    }
+  }
+  
+  // Form controls
+  .form-control, .form-select {
+    background-color: var(--form-background);
+    border-color: var(--form-border-color);
+    color: var(--alice-blue);
+    
+    &:focus {
+      background-color: var(--form-background);
+      border-color: var(--primary-color);
+      color: var(--alice-blue);
+      box-shadow: 0 0 0 0.2rem rgba(var(--primary-color), 0.25);
+    }
+    
+    &::placeholder {
+      color: var(--text-muted);
+    }
+    
+    font-family: var(--font-body);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-regular);
+    line-height: var(--line-height-normal);
+  }
+  
+  // Radio buttons and checkboxes
+  .form-check-label {
+    color: var(--alice-blue);
+  }
+  
+  .form-check-input {
+    &:checked {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+  }
+  
+  // Buttons
+  .btn {
+    &.btn-warning {
+      background-color: var(--warning-color);
+      border-color: var(--warning-color);
+      color: var(--alice-blue);
+      
+      &:hover {
+        background-color: var(--button-hover);
+        border-color: var(--button-hover);
+        color: var(--alice-blue);
+      }
+    }
+    
+    &.btn-secondary {
+      background-color: var(--card-bg-secondary);
+      border-color: var(--card-bg-secondary);
+      color: var(--alice-blue);
+      
+      &:hover {
+        background-color: var(--button-hover);
+        border-color: var(--button-hover);
+        color: var(--alice-blue);
+      }
+    }
+    
+    &.btn-outline-primary {
+      border-color: var(--primary-color);
+      color: var(--alice-blue);
+      
+      &:hover {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+        color: var(--alice-blue);
+      }
+    }
+    
+    font-family: var(--font-accent);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-sm);
+    letter-spacing: var(--letter-spacing-wide);
+    text-transform: uppercase;
+  }
+  
+  // Quick reference and tips
+  .quick-reference {
+    h6 {
+      color: var(--alice-blue);
+      font-weight: 600;
+      
+      font-family: var(--font-heading);
+      font-weight: var(--font-weight-semibold);
+      font-size: var(--font-size-base);
+      text-transform: uppercase;
+      letter-spacing: var(--letter-spacing-wider);
+    }
+    
+    ul li {
+      color: var(--alice-blue);
+      
+      font-family: var(--font-body);
+      font-size: var(--font-size-sm);
+      line-height: var(--line-height-relaxed);
+      
+      strong {
+        color: var(--alice-blue);
+        font-weight: 600;
+        
+        font-weight: var(--font-weight-semibold);
+      }
+    }
+  }
+  
+  // Badge styling
+  .badge {
+    &.bg-warning {
+      background-color: var(--warning-color) !important;
+      color: var(--alice-blue) !important;
+    }
+    
+    font-family: var(--font-accent);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: var(--letter-spacing-wide);
+    text-transform: uppercase;
+  }
+  
+  // Loading spinner text
+  .spinner-border + div {
+    color: var(--alice-blue);
+    
+    font-family: var(--font-body);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+  }
+  
+  // Alert styling
+  .alert {
+    &.alert-warning {
+      background-color: var(--warning-color);
+      border-color: var(--warning-color);
+      color: var(--alice-blue);
+    }
+    
+    font-family: var(--font-body);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-regular);
+    line-height: var(--line-height-normal);
+  }
+  
+  // Generic text elements
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--alice-blue);
+  }
+  
+  p, div, span {
+    color: var(--alice-blue);
+  }
+  
+  // Table styling
+  .table {
+    color: var(--alice-blue);
+    
+    th, td {
+      color: var(--alice-blue);
+      border-color: var(--form-border-color);
+    }
+    
+    thead th {
+      background-color: var(--card-bg-secondary);
+      color: var(--alice-blue);
+    }
+  }
+  
+  // Links
+  a {
+    color: var(--primary-color);
+    
+    &:hover {
+      color: var(--button-hover);
+    }
+  }
+  
+  // Schedule info cards
+  .existing-schedule-card {
+    .card-body {
+      h6 {
+        font-family: var(--font-accent);
+        font-weight: var(--font-weight-medium);
+        font-size: var(--font-size-base);
+        letter-spacing: var(--letter-spacing-normal);
+      }
+      
+      small {
+        font-family: var(--font-body);
+        font-size: var(--font-size-xs);
+        line-height: var(--line-height-normal);
+      }
+    }
+  }
+}

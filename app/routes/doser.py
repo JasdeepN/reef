@@ -99,45 +99,45 @@ def db_doser():
 
     return render_template('doser/dosing_db.html', tables=tables)
 
-@app.route("/doser/modify", methods=["GET", "POST"])
-def modify_doser():
-    tank_id = get_current_tank_id()
-    if not tank_id:
-        flash("No tank selected.", "warning")
-        return redirect(url_for('index'))
-    # Define columns for d_schedule table using the actual model fields
-    cols = ['id', 'tank_id', 'product_id', 'trigger_interval', 'suspended', 'last_refill', 'amount']
-    columns = generate_columns(cols)
-    # Only show schedules for the current tank context
-    schedules = DSchedule.query.filter_by(tank_id=tank_id).all()
-    # Convert schedules to dicts for JSON serialization (if needed by frontend)
-    schedules_dicts = [s.__dict__.copy() for s in schedules]
-    for s in schedules_dicts:
-        s.pop('_sa_instance_state', None)
-    d_schedule_table = {
-        "id": "d_schedule",
-        "api_url": "/web/fn/ops/get/d_schedule",
-        "title": "Edit Dosing Schedules",
-        "columns": columns,
-        "datatable_options": {
-            "dom": "Bfrtip",
-            "buttons": [
-                {"text": "Edit", "action": "edit"},
-                {"text": "Delete", "action": "delete"}
-            ],
-            "serverSide": True,
-            "processing": True,
-        },
-        "initial_data": schedules_dicts,
-    }
-    form = CombinedDosingScheduleForm()
-    return render_template(
-        "doser/modify.html",
-        forms=form,
-        selector=form.options(),
-        title="Modify Dosing",
-        d_schedule_table=d_schedule_table
-    )
+# @app.route("/doser/modify", methods=["GET", "POST"])
+# def modify_doser():
+#     tank_id = get_current_tank_id()
+#     if not tank_id:
+#         flash("No tank selected.", "warning")
+#         return redirect(url_for('index'))
+#     # Define columns for d_schedule table using the actual model fields
+#     cols = ['id', 'tank_id', 'product_id', 'trigger_interval', 'suspended', 'last_refill', 'amount']
+#     columns = generate_columns(cols)
+#     # Only show schedules for the current tank context
+#     schedules = DSchedule.query.filter_by(tank_id=tank_id).all()
+#     # Convert schedules to dicts for JSON serialization (if needed by frontend)
+#     schedules_dicts = [s.__dict__.copy() for s in schedules]
+#     for s in schedules_dicts:
+#         s.pop('_sa_instance_state', None)
+#     d_schedule_table = {
+#         "id": "d_schedule",
+#         "api_url": "/web/fn/ops/get/d_schedule",
+#         "title": "Edit Dosing Schedules",
+#         "columns": columns,
+#         "datatable_options": {
+#             "dom": "Bfrtip",
+#             "buttons": [
+#                 {"text": "Edit", "action": "edit"},
+#                 {"text": "Delete", "action": "delete"}
+#             ],
+#             "serverSide": True,
+#             "processing": True,
+#         },
+#         "initial_data": schedules_dicts,
+#     }
+#     form = CombinedDosingScheduleForm()
+#     return render_template(
+#         "doser/modify.html",
+#         forms=form,
+#         selector=form.options(),
+#         title="Modify Dosing",
+#         d_schedule_table=d_schedule_table
+#     )
 
 @app.route("/doser/schedule", methods=["GET", "POST"])
 def run_schedule():
@@ -151,7 +151,229 @@ def run_schedule():
     return render_template("doser/schedule.html", title="Schedule", api_urls=urls, tank_id=tank_id)
     
 
+@app.route("/doser/schedule-new", methods=["GET", "POST"])
+def schedule_new():
+    """Enhanced dosing schedule page with granular time controls"""
+    tank_id = get_current_tank_id()
+    if not tank_id:
+        flash("No tank selected. Please select a tank before creating dosing schedules.", "warning")
+        return redirect(url_for('index'))
+    
+    if request.method == "POST":
+        data = request.get_json()
+        return handle_schedule_submission(data, tank_id)
+    
+    # GET request - show the form
+    # Fetch available products for the dropdown
+    products = Products.query.all()
+    products_list = [{"id": p.id, "name": p.name, "current_avail": p.current_avail} for p in products]
+    
+    # Fetch existing schedules for the current tank
+    existing_schedules = DSchedule.query.filter_by(tank_id=tank_id).all()
+    schedules_data = []
+    for schedule in existing_schedules:
+        schedules_data.append({
+            "id": schedule.id,
+            "product_name": schedule.product.name if schedule.product else "Unknown",
+            "amount": schedule.amount,
+            "trigger_interval": schedule.trigger_interval,
+            "suspended": schedule.suspended,
+            "last_refill": schedule.last_refill.isoformat() if schedule.last_refill else None
+        })
+    
+    return render_template(
+        "doser/schedule_new.html",
+        title="Dosing Schedule Manager",
+        tank_id=tank_id,
+        products=products_list,
+        existing_schedules=schedules_data
+    )
 
+@app.route("/doser/schedule-edit/<int:schedule_id>", methods=["GET", "POST"])
+def schedule_edit(schedule_id):
+    """Edit existing dosing schedule with the same granular controls as new schedule page"""
+    tank_id = get_current_tank_id()
+    if not tank_id:
+        flash("No tank selected. Please select a tank before editing dosing schedules.", "warning")
+        return redirect(url_for('index'))
+    
+    # Get the schedule to edit
+    schedule = DSchedule.query.filter_by(id=schedule_id, tank_id=tank_id).first()
+    if not schedule:
+        flash("Schedule not found or access denied.", "error")
+        return redirect(url_for('schedule_new'))
+    
+    if request.method == "POST":
+        data = request.get_json()
+        return handle_schedule_edit_submission(data, schedule_id, tank_id)
+    
+    # GET request - show the form with pre-populated data
+    # Fetch available products for the dropdown
+    products = Products.query.all()
+    products_list = [{"id": p.id, "name": p.name, "current_avail": p.current_avail} for p in products]
+    
+    # Fetch existing schedules for the current tank (excluding current one)
+    existing_schedules = DSchedule.query.filter(DSchedule.tank_id == tank_id, DSchedule.id != schedule_id).all()
+    schedules_data = []
+    for s in existing_schedules:
+        schedules_data.append({
+            "id": s.id,
+            "product_name": s.product.name if s.product else "Unknown",
+            "amount": s.amount,
+            "trigger_interval": s.trigger_interval,
+            "suspended": s.suspended,
+            "last_refill": s.last_refill.isoformat() if s.last_refill else None
+        })
+    
+    # Convert schedule data for form pre-population
+    schedule_data = {
+        "id": schedule.id,
+        "product_id": schedule.product_id,
+        "product_name": schedule.product.name if schedule.product else "Unknown",
+        "amount": schedule.amount,
+        "trigger_interval": schedule.trigger_interval,
+        "suspended": schedule.suspended,
+        "last_refill": schedule.last_refill.isoformat() if schedule.last_refill else None
+    }
+    
+    return render_template(
+        "doser/schedule_edit.html",
+        title="Edit Dosing Schedule",
+        tank_id=tank_id,
+        products=products_list,
+        existing_schedules=schedules_data,
+        schedule=schedule_data
+    )
+
+def handle_schedule_edit_submission(data, schedule_id, tank_id):
+    """Handle the submission of schedule edit"""
+    try:
+        # Get the existing schedule
+        schedule = DSchedule.query.filter_by(id=schedule_id, tank_id=tank_id).first()
+        if not schedule:
+            return jsonify({"success": False, "error": "Schedule not found"}), 404
+        
+        # Extract and validate data
+        product_id = data.get('product_id')
+        amount = float(data.get('amount', 0))
+        schedule_type = data.get('schedule_type')  # 'interval', 'daily', 'weekly', 'custom'
+        suspended = data.get('suspended', False)
+        
+        if not product_id or amount <= 0:
+            return jsonify({"success": False, "error": "Product and positive amount are required"}), 400
+        
+        # Calculate trigger_interval based on schedule_type and user input
+        trigger_interval = calculate_trigger_interval(data, schedule_type)
+        if trigger_interval is None:
+            return jsonify({"success": False, "error": "Invalid schedule configuration"}), 400
+        
+        # Update existing schedule
+        schedule.product_id = product_id
+        schedule.amount = amount
+        schedule.trigger_interval = trigger_interval
+        schedule.suspended = suspended
+        
+        db.session.commit()
+        
+        return jsonify({
+            "success": True, 
+            "message": "Dosing schedule updated successfully",
+            "schedule_id": schedule.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+def handle_schedule_submission(data, tank_id):
+    """Handle the submission of a new dosing schedule"""
+    try:
+        # Extract and validate data
+        product_id = data.get('product_id')
+        amount = float(data.get('amount', 0))
+        schedule_type = data.get('schedule_type')  # 'interval', 'daily', 'weekly', 'custom'
+        suspended = data.get('suspended', False)
+        
+        if not product_id or amount <= 0:
+            return jsonify({"success": False, "error": "Product and positive amount are required"}), 400
+        
+        # Calculate trigger_interval based on schedule_type and user input
+        trigger_interval = calculate_trigger_interval(data, schedule_type)
+        if trigger_interval is None:
+            return jsonify({"success": False, "error": "Invalid schedule configuration"}), 400
+        
+        # Create new schedule
+        new_schedule = DSchedule(
+            trigger_interval=trigger_interval,
+            suspended=suspended,
+            amount=amount,
+            tank_id=tank_id,
+            product_id=product_id
+        )
+        
+        db.session.add(new_schedule)
+        db.session.commit()
+        
+        return jsonify({
+            "success": True, 
+            "message": "Dosing schedule created successfully",
+            "schedule_id": new_schedule.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+def calculate_trigger_interval(data, schedule_type):
+    """Calculate trigger interval in seconds based on schedule type and user input"""
+    try:
+        if schedule_type == 'interval':
+            return _calculate_interval_schedule(data)
+        elif schedule_type == 'daily':
+            return _calculate_daily_schedule(data)
+        elif schedule_type == 'weekly':
+            return _calculate_weekly_schedule(data)
+        elif schedule_type == 'custom':
+            return _calculate_custom_schedule(data)
+    except (ValueError, TypeError):
+        return None
+    return None
+
+def _calculate_interval_schedule(data):
+    """Calculate interval for direct interval input"""
+    interval_value = int(data.get('interval_value', 0))
+    interval_unit = data.get('interval_unit', 'minutes')
+    
+    if interval_value <= 0:
+        return None
+        
+    unit_multipliers = {
+        'minutes': 60,
+        'hours': 3600, 
+        'days': 86400
+    }
+    return interval_value * unit_multipliers.get(interval_unit, 60)
+
+def _calculate_daily_schedule(data):
+    """Calculate interval for daily schedule"""
+    times_per_day = int(data.get('times_per_day', 1))
+    if times_per_day <= 0 or times_per_day > 1440:  # Max once per minute
+        return None
+    return 86400 // times_per_day
+
+def _calculate_weekly_schedule(data):
+    """Calculate interval for weekly schedule"""
+    times_per_week = int(data.get('times_per_week', 1))
+    if times_per_week <= 0 or times_per_week > 10080:  # Max once per minute for a week
+        return None
+    return 604800 // times_per_week  # 604800 seconds in a week
+
+def _calculate_custom_schedule(data):
+    """Calculate interval for custom schedule"""
+    custom_seconds = int(data.get('custom_seconds', 0))
+    if custom_seconds < 60:  # Minimum 1 minute
+        return None
+    return custom_seconds
 
 
 @app.route("/doser/submit", methods=["POST"])
