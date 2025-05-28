@@ -10,8 +10,8 @@ import sqlalchemy
 # Set the default asyncio fixture loop scope explicitly to avoid warnings
 pytest_plugins = ["pytest_asyncio"]
 
-# Load test environment variables
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env.test'))
+# Load test environment variables with override=True to ensure test values take precedence
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env.test'), override=True)
 
 # Detect environment and set appropriate database host
 # Priority: explicit env vars > ACT detection > CI detection > default
