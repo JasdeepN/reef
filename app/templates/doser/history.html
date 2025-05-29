@@ -1,0 +1,556 @@
+{% extends 'base.html' %}
+{% from "macros/schedule_stats_cards.html" import schedule_stats_cards %}
+
+{% block page_title %}Dosing History{% endblock %}
+
+{% block styles %}
+  {{ super() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <style>
+    .history-dashboard {
+      background-color: var(--background-color);
+      min-height: 100vh;
+      padding: 1.5rem 0;
+    }
+    
+    .dashboard-header {
+      padding: 2rem 1.5rem;
+      margin-bottom: 2rem;
+      text-align: center;
+      color: var(--text-color);
+    }
+    
+    .dashboard-header h1 {
+      color: inherit;
+      margin-bottom: 0.5rem;
+    }
+    
+    .dashboard-header p {
+      color: var(--text-muted);
+      margin-bottom: 0;
+    }
+    
+    .history-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    
+    .history-stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+      text-align: center;
+      color: var(--text-color);
+    }
+    
+    .history-stat-value {
+      font-size: 2rem;
+      font-weight: bold;
+      font-family: var(--font-heading);
+      margin-bottom: 0.5rem;
+    }
+    
+    .history-stat-label {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      font-family: var(--font-body);
+    }
+    
+    .history-controls {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .history-cards-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+      gap: 1rem;
+    }
+    
+    .history-dose-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+      color: var(--text-color);
+      transition: transform 0.2s ease;
+    }
+    
+    .history-dose-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--powder-blue);
+    }
+    
+    .dose-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 1rem;
+    }
+    
+    .dose-product {
+      font-family: var(--font-heading);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+    
+    .dose-time {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: right;
+    }
+    
+    .dose-details {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .dose-amount {
+      text-align: center;
+      padding: 0.75rem;
+      background: var(--outer-space);
+      border-radius: 6px;
+      border: 1px solid var(--cool-gray);
+    }
+    
+    .dose-amount-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--alice-blue);
+      margin-bottom: 0.25rem;
+    }
+    
+    .dose-amount-label {
+      font-size: 0.8rem;
+      color: var(--powder-blue);
+    }
+    
+    .dose-schedule {
+      text-align: center;
+      padding: 0.75rem;
+      background: var(--outer-space);
+      border-radius: 6px;
+      border: 1px solid var(--cool-gray);
+    }
+    
+    .dose-schedule-value {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--alice-blue);
+      margin-bottom: 0.25rem;
+    }
+    
+    .dose-schedule-label {
+      font-size: 0.8rem;
+      color: var(--powder-blue);
+    }
+    
+    .dose-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 1rem;
+      border-top: 1px solid var(--cool-gray);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    
+    .dose-uses {
+      background: var(--shadow-blue);
+      color: var(--alice-blue);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+    
+    .load-more-container {
+      text-align: center;
+      margin-top: 2rem;
+      padding: 2rem;
+    }
+    
+    .btn-load-more {
+      background: var(--powder-blue);
+      color: var(--outer-space);
+      border: none;
+      padding: 0.75rem 2rem;
+      border-radius: 6px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-load-more:hover {
+      background: var(--alice-blue);
+      transform: translateY(-1px);
+    }
+    
+    .filter-controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    
+    .filter-input {
+      background: var(--outer-space);
+      border: 1px solid var(--cool-gray);
+      color: var(--text-color);
+      padding: 0.5rem;
+      border-radius: 4px;
+    }
+    
+    .filter-input:focus {
+      border-color: var(--powder-blue);
+      outline: none;
+    }
+    
+    .btn-export {
+      background: var(--light-slate-gray);
+      color: var(--alice-blue);
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      transition: background 0.2s ease;
+    }
+    
+    .btn-export:hover {
+      background: var(--shadow-blue);
+    }
+    
+    @media (max-width: 768px) {
+      .history-cards-container {
+        grid-template-columns: 1fr;
+      }
+      
+      .history-controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      .filter-controls {
+        justify-content: center;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid history-dashboard">
+  <!-- Dashboard Header -->
+  <div class="dashboard-header">
+    <h1 class="mb-2">📜 Dosing History</h1>
+    <p class="mb-0">Track and analyze your reef tank dosing events - Tank {{ tank_id }}</p>
+  </div>
+  
+  <!-- History Stats Overview -->
+  <div class="history-stats" id="history-overview">
+    <div class="history-stat-card">
+      <div class="history-stat-value" id="total-doses">-</div>
+      <div class="history-stat-label">Total Doses</div>
+    </div>
+    <div class="history-stat-card">
+      <div class="history-stat-value" id="recent-doses">-</div>
+      <div class="history-stat-label">Last 24 Hours</div>
+    </div>
+    <div class="history-stat-card">
+      <div class="history-stat-value" id="total-volume">-</div>
+      <div class="history-stat-label">Total Volume (ml)</div>
+    </div>
+    <div class="history-stat-card">
+      <div class="history-stat-value" id="active-products">-</div>
+      <div class="history-stat-label">Active Products</div>
+    </div>
+  </div>
+  
+  <!-- History Controls -->
+  <div class="history-controls">
+    <div class="filter-controls">
+      <input type="text" id="product-filter" class="filter-input" placeholder="Filter by product...">
+      <select id="timeframe-filter" class="filter-input">
+        <option value="24">Last 24 hours</option>
+        <option value="168">Last week</option>
+        <option value="720">Last month</option>
+        <option value="all" selected>All time</option>
+      </select>
+      <button class="btn-export" onclick="exportHistory()">📊 Export CSV</button>
+    </div>
+    <div>
+      <button class="btn-export" onclick="refreshHistory()">🔄 Refresh</button>
+    </div>
+  </div>
+  
+  <!-- History Cards Container -->
+  <div class="history-cards-container" id="history-cards-container">
+    <!-- Loading state -->
+    <div class="col-12 text-center p-5" id="loading-indicator" style="grid-column: 1 / -1;">
+      <div class="spinner-border spinner-border-lg text-primary" aria-label="Loading">
+        <span class="visually-hidden">Loading dosing history...</span>
+      </div>
+      <div class="mt-3 text-muted">Loading your dosing history...</div>
+    </div>
+  </div>
+  
+  <!-- Load More Button -->
+  <div class="load-more-container" id="load-more-container" style="display: none;">
+    <button class="btn-load-more" onclick="loadMoreHistory()">Load More History</button>
+  </div>
+  
+  <!-- Product Statistics Section -->
+  <div class="mt-4">
+    {{ schedule_stats_cards(api_urls["stats"], api_urls["delete"], 'columns') }}
+  </div>
+</div>
+
+<script>
+// Global variables
+let historyData = [];
+let currentOffset = 0;
+const limit = 20;
+let isLoading = false;
+let filteredData = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+  loadDosingHistory();
+  
+  // Set up filter event listeners
+  document.getElementById('product-filter').addEventListener('input', filterHistory);
+  document.getElementById('timeframe-filter').addEventListener('change', filterHistory);
+});
+
+function loadDosingHistory(offset = 0, append = false) {
+  if (isLoading) return;
+  isLoading = true;
+  
+  const loadingIndicator = document.getElementById('loading-indicator');
+  if (!append) {
+    loadingIndicator.style.display = 'block';
+  }
+  
+  fetch(`{{ api_urls["history"] }}?limit=${limit}&offset=${offset}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        if (append) {
+          historyData = [...historyData, ...data.data];
+        } else {
+          historyData = data.data;
+          currentOffset = 0;
+        }
+        
+        currentOffset = offset + limit;
+        
+        // Update stats overview
+        updateHistoryOverview(data);
+        
+        // Apply current filters
+        filterHistory();
+        
+        // Show/hide load more button
+        const loadMoreContainer = document.getElementById('load-more-container');
+        if (data.data.length === limit && data.total > currentOffset) {
+          loadMoreContainer.style.display = 'block';
+        } else {
+          loadMoreContainer.style.display = 'none';
+        }
+      } else {
+        showError('Failed to load dosing history: ' + (data.error || 'Unknown error'));
+      }
+    })
+    .catch(error => {
+      console.error('Error loading history:', error);
+      showError('Network error while loading history');
+    })
+    .finally(() => {
+      isLoading = false;
+      loadingIndicator.style.display = 'none';
+    });
+}
+
+function updateHistoryOverview(data) {
+  // Calculate stats from current data
+  const totalDoses = data.total || historyData.length;
+  
+  // Calculate recent doses (last 24 hours)
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const recentDoses = historyData.filter(dose => {
+    if (!dose.trigger_time) return false;
+    const doseTime = new Date(dose.trigger_time);
+    return doseTime >= yesterday;
+  }).length;
+  
+  // Calculate total volume
+  const totalVolume = historyData.reduce((sum, dose) => sum + (dose.amount || 0), 0);
+  
+  // Count active products
+  const activeProducts = new Set(historyData.map(dose => dose.product_id)).size;
+  
+  document.getElementById('total-doses').textContent = totalDoses;
+  document.getElementById('recent-doses').textContent = recentDoses;
+  document.getElementById('total-volume').textContent = totalVolume.toFixed(1);
+  document.getElementById('active-products').textContent = activeProducts;
+}
+
+function filterHistory() {
+  const productFilter = document.getElementById('product-filter').value.toLowerCase();
+  const timeframeFilter = document.getElementById('timeframe-filter').value;
+  
+  let filtered = [...historyData];
+  
+  // Filter by product name
+  if (productFilter) {
+    filtered = filtered.filter(dose => 
+      dose.product_name.toLowerCase().includes(productFilter)
+    );
+  }
+  
+  // Filter by timeframe
+  if (timeframeFilter !== 'all') {
+    const hours = parseInt(timeframeFilter);
+    const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
+    filtered = filtered.filter(dose => {
+      if (!dose.trigger_time) return false;
+      const doseTime = new Date(dose.trigger_time);
+      return doseTime >= cutoff;
+    });
+  }
+  
+  filteredData = filtered;
+  renderHistoryCards(filteredData);
+}
+
+function renderHistoryCards(data) {
+  const container = document.getElementById('history-cards-container');
+  
+  if (data.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-muted);">
+        <h5>No dosing history found</h5>
+        <p>No doses match your current filters, or no dosing history exists for this tank.</p>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = data.map(dose => createHistoryCard(dose)).join('');
+}
+
+function createHistoryCard(dose) {
+  const triggerTime = dose.trigger_time ? new Date(dose.trigger_time) : null;
+  const timeDisplay = triggerTime ? 
+    triggerTime.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }) : 'Unknown time';
+  
+  return `
+    <div class="history-dose-card">
+      <div class="dose-header">
+        <div class="dose-product">${dose.product_name}</div>
+        <div class="dose-time">
+          ${timeDisplay}<br>
+          <small>${dose.trigger_time_display}</small>
+        </div>
+      </div>
+      
+      <div class="dose-details">
+        <div class="dose-amount">
+          <div class="dose-amount-value">${dose.amount}ml</div>
+          <div class="dose-amount-label">Amount Dosed</div>
+        </div>
+        <div class="dose-schedule">
+          <div class="dose-schedule-value">${dose.interval_display}</div>
+          <div class="dose-schedule-label">Schedule</div>
+        </div>
+      </div>
+      
+      <div class="dose-meta">
+        <div>
+          ${dose.product_uses ? `<span class="dose-uses">${dose.product_uses}</span>` : ''}
+        </div>
+        <div>
+          <small>Schedule ID: ${dose.schedule_id || 'N/A'}</small>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function loadMoreHistory() {
+  loadDosingHistory(currentOffset, true);
+}
+
+function refreshHistory() {
+  currentOffset = 0;
+  loadDosingHistory(0, false);
+}
+
+function exportHistory() {
+  if (filteredData.length === 0) {
+    alert('No data to export');
+    return;
+  }
+  
+  // Create CSV content
+  const headers = ['Date', 'Time', 'Product', 'Amount (ml)', 'Uses', 'Schedule ID'];
+  const csvRows = [headers.join(',')];
+  
+  filteredData.forEach(dose => {
+    const triggerTime = dose.trigger_time ? new Date(dose.trigger_time) : null;
+    const dateStr = triggerTime ? triggerTime.toLocaleDateString() : 'Unknown';
+    const timeStr = triggerTime ? triggerTime.toLocaleTimeString() : 'Unknown';
+    
+    const row = [
+      dateStr,
+      timeStr,
+      `"${dose.product_name}"`,
+      dose.amount || 0,
+      `"${dose.product_uses || ''}"`,
+      dose.schedule_id || 'N/A'
+    ];
+    csvRows.push(row.join(','));
+  });
+  
+  // Download CSV
+  const csvContent = csvRows.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `dosing-history-tank-{{ tank_id }}-${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
+function showError(message) {
+  const container = document.getElementById('history-cards-container');
+  container.innerHTML = `
+    <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-color);">
+      <h5 style="color: #ff6b6b;">⚠️ Error Loading History</h5>
+      <p style="color: var(--text-muted);">${message}</p>
+      <button class="btn-load-more" onclick="refreshHistory()">Try Again</button>
+    </div>
+  `;
+}
+</script>
+{% endblock %}
