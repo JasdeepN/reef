@@ -64,9 +64,6 @@
             <button id="refresh-dashboard" class="btn btn-outline-primary">
               <i class="fas fa-sync-alt"></i> Refresh Dashboard
             </button>
-            <button id="dose-all-active" class="btn btn-success">
-              <i class="fas fa-play"></i> Dose All Active
-            </button>
           </div>
         </div>
       </div>
@@ -89,38 +86,80 @@ document.addEventListener('DOMContentLoaded', function() {
   // Refresh button handler
   document.getElementById('refresh-dashboard').addEventListener('click', loadDosingDashboard);
   
-  // Dose all active schedules handler
-  document.getElementById('dose-all-active').addEventListener('click', doseAllActive);
-  
   function loadDosingDashboard() {
     const container = document.getElementById('dosing-cards-container');
     const loadingIndicator = document.getElementById('loading-indicator');
     
-    // Show loading
-    loadingIndicator.style.display = 'block';
+    if (!container) {
+      console.error('Dashboard container not found');
+      return;
+    }
     
-    fetch(apiUrls.stats)
-      .then(response => response.json())
-      .then(data => {
-        if (!data.success) {
-          throw new Error(data.message || 'Failed to load dosing data');
-        }
-        
-        dosingData = data.data || [];
-        
-        // Hide loading
-        loadingIndicator.style.display = 'none';
-        
-        // Update dashboard overview
-        updateDashboardOverview();
-        
-        // Generate schedule cards
-        generateScheduleCards();
-        
-      })
-      .catch(error => {
-        console.error('Error loading dosing dashboard:', error);
-        loadingIndicator.innerHTML = `
+    // Create loading indicator if it doesn't exist or is null
+    if (!loadingIndicator) {
+      const newLoadingIndicator = document.createElement('div');
+      newLoadingIndicator.id = 'loading-indicator';
+      newLoadingIndicator.className = 'col-12 text-center p-5';
+      newLoadingIndicator.innerHTML = `
+        <div class="spinner-border spinner-border-lg text-primary" role="status">
+          <span class="visually-hidden">Loading dosing schedules...</span>
+        </div>
+        <div class="mt-3 text-muted">Loading your dosing schedules...</div>
+      `;
+      container.innerHTML = '';
+      container.appendChild(newLoadingIndicator);
+    } else {
+      // Show existing loading indicator
+      loadingIndicator.style.display = 'block';
+    }
+    
+    // Create a completely fresh URL to bypass any caching
+    const timestamp = new Date().getTime();
+    const statsUrl = apiUrls.stats + '?_=' + timestamp + '&bust=' + Math.random();
+    
+    fetch(statsUrl, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok: ' + response.status);
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to load dosing data');
+      }
+      
+      dosingData = data.data || [];
+      
+      // Hide loading indicator safely
+      const currentLoadingIndicator = document.getElementById('loading-indicator');
+      if (currentLoadingIndicator) {
+        currentLoadingIndicator.style.display = 'none';
+      }
+      
+      // Force DOM to reflow before updating
+      container.offsetHeight;
+      
+      // Update dashboard overview
+      updateDashboardOverview();
+      
+      // Generate schedule cards
+      generateScheduleCards();
+      
+    })
+    .catch(error => {
+      console.error('Error loading dosing dashboard:', error);
+      const errorLoadingIndicator = document.getElementById('loading-indicator');
+      if (errorLoadingIndicator) {
+        errorLoadingIndicator.innerHTML = `
           <div class="text-center text-danger">
             <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
             <h5>Error Loading Dashboard</h5>
@@ -128,7 +167,18 @@ document.addEventListener('DOMContentLoaded', function() {
             <button class="btn btn-primary" onclick="loadDosingDashboard()">Try Again</button>
           </div>
         `;
-      });
+      } else {
+        // Fallback if even the error indicator is missing
+        container.innerHTML = `
+          <div class="col-12 text-center text-danger p-5">
+            <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+            <h5>Error Loading Dashboard</h5>
+            <p>${error.message}</p>
+            <button class="btn btn-primary" onclick="loadDosingDashboard()">Try Again</button>
+          </div>
+        `;
+      }
+    });
   }
   
   function updateDashboardOverview() {
@@ -372,6 +422,9 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     
+    // Store the function reference to avoid scope issues
+    const refreshDashboard = loadDosingDashboard;
+    
     fetch(apiUrls.dose, {
       method: 'POST',
       headers: {
@@ -386,8 +439,11 @@ document.addEventListener('DOMContentLoaded', function() {
     .then(data => {
       if (data.success) {
         showNotification(`✅ ${productName} dosed successfully!`, 'success');
-        // Refresh the dashboard to reflect updated product levels
-        setTimeout(loadDosingDashboard, 1000);
+        
+        // Wait a moment for database to update, then refresh once
+        setTimeout(function() {
+          refreshDashboard();
+        }, 1000);
       } else {
         showNotification('❌ Dosing failed: ' + (data.error || 'Unknown error'), 'error');
       }
@@ -427,64 +483,6 @@ document.addEventListener('DOMContentLoaded', function() {
       showNotification('❌ Network error during refill', 'error');
     });
   };
-  
-  function doseAllActive() {
-    const activeSchedules = dosingData.filter(item => 
-      !item.suspended || item.suspended[1] !== true
-    );
-    
-    if (activeSchedules.length === 0) {
-      showNotification('No active schedules to dose', 'warning');
-      return;
-    }
-    
-    if (!confirm(`Dose all ${activeSchedules.length} active schedules now?`)) {
-      return;
-    }
-    
-    let completed = 0;
-    let errors = 0;
-    
-    activeSchedules.forEach(schedule => {
-      const scheduleId = schedule.schedule_id && schedule.schedule_id[1];
-      if (!scheduleId) return;
-      
-      fetch(apiUrls.dose, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          schedule_id: scheduleId,
-          tank_id: tankId
-        })
-      })
-      .then(response => response.json())
-      .then(data => {
-        completed++;
-        if (!data.success) errors++;
-        
-        if (completed === activeSchedules.length) {
-          if (errors === 0) {
-            showNotification(`✅ All ${activeSchedules.length} schedules dosed successfully!`, 'success');
-          } else {
-            showNotification(`⚠️ Dosed ${activeSchedules.length - errors}/${activeSchedules.length} schedules (${errors} errors)`, 'warning');
-          }
-          setTimeout(loadDosingDashboard, 1000);
-        }
-      })
-      .catch(error => {
-        completed++;
-        errors++;
-        console.error('Error dosing schedule:', error);
-        
-        if (completed === activeSchedules.length) {
-          showNotification(`❌ Failed to dose ${errors}/${activeSchedules.length} schedules`, 'error');
-          setTimeout(loadDosingDashboard, 1000);
-        }
-      });
-    });
-  }
   
   function showNotification(message, type) {
     // Create notification element

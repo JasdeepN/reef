@@ -68,6 +68,7 @@ def create_dosing():
                 'trigger_time': trigger_time
             }
         )
+        db.session.flush()  # Force write to database
         db.session.commit()
         return jsonify({'success': True}), 201
     except Exception as e:
