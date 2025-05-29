@@ -87,7 +87,7 @@ def process_dosing_data(input):
 def process_product_data(input):
     output = {}
     # Only allow fields that exist in Products (excluding computed/relationship fields)
-    allowed = {'name', 'dose_amt', 'total_volume', 'current_avail', 'dry_refill', 'last_refill'}
+    allowed = {'name', 'dose_amt', 'total_volume', 'current_avail', 'dry_refill'}
     for key, value in input.items():
         if key not in allowed:
             continue
@@ -97,19 +97,6 @@ def process_product_data(input):
         if key in ['dose_amt', 'total_volume', 'current_avail', 'dry_refill']:
             try:
                 output[key] = float(value)
-            except Exception:
-                output[key] = None
-        elif key == 'last_refill':
-            # Accept both date and datetime strings
-            try:
-                if isinstance(value, (datetime, date)):
-                    output[key] = value
-                else:
-                    # Try parsing as datetime first, then date
-                    try:
-                        output[key] = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-                    except Exception:
-                        output[key] = datetime.strptime(value, "%Y-%m-%d")
             except Exception:
                 output[key] = None
         else:

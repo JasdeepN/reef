@@ -111,13 +111,27 @@ def refill_product():
     tz = pytz.timezone(tzname)
     last_refill = datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
-    update_sql = """
+    # Update product current_avail only (last_refill belongs to schedules, not products)
+    update_product_sql = """
         UPDATE products
-        SET current_avail = :new_avail, last_refill = :last_refill
+        SET current_avail = :new_avail
         WHERE id = :prod_id
     """
+    
+    # Update last_refill for all dosing schedules that use this product
+    update_schedules_sql = """
+        UPDATE d_schedule
+        SET last_refill = :last_refill
+        WHERE product_id = :prod_id
+    """
+    
     try:
-        db.session.execute(text(update_sql), {'new_avail': new_avail, 'last_refill': last_refill, 'prod_id': prod_id})
+        # Update the product's current availability
+        db.session.execute(text(update_product_sql), {'new_avail': new_avail, 'prod_id': prod_id})
+        
+        # Update last_refill for all schedules using this product
+        db.session.execute(text(update_schedules_sql), {'last_refill': last_refill, 'prod_id': prod_id})
+        
         db.session.commit()
         return jsonify({'success': True, 'current_avail': new_avail, 'last_refill': last_refill}), 200
     except Exception as e:

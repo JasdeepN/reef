@@ -347,6 +347,170 @@
     }
   }
   
+  // Dosing Database Table Styles
+  .grid-container.single-table {
+    background: transparent;
+    border: none;
+    padding: 0;
+    
+    .grid-item {
+      background: var(--card-bg, #56666B);
+      border-radius: 12px;
+      border: 1px solid var(--border-color, #8f91a2ff);
+      overflow: hidden;
+      
+      .title {
+        background: var(--davys-gray, #505a5bff);
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border-color, #8f91a2ff);
+        
+        h3 {
+          color: var(--text-color, #dcedffff);
+          margin: 0;
+          font-size: 1.25rem;
+          font-weight: 600;
+        }
+      }
+      
+      .table-container {
+        padding: 1.5rem;
+        background: var(--card-bg, #56666B);
+        
+        // DataTables wrapper styling
+        .dataTables_wrapper {
+          background: transparent;
+          color: var(--text-color, #dcedffff);
+          
+          // Table header
+          table.dataTable thead th {
+            background: var(--davys-gray, #505a5bff);
+            color: var(--text-color, #dcedffff);
+            border-bottom: 2px solid var(--border-color, #8f91a2ff);
+            padding: 0.75rem;
+            font-weight: 600;
+            
+            &:hover {
+              background: var(--cool-gray, #8f91a2ff);
+            }
+          }
+          
+          // Table body
+          table.dataTable tbody {
+            tr {
+              background: var(--card-bg, #56666B);
+              color: var(--text-color, #dcedffff);
+              
+              &:hover {
+                background: var(--davys-gray, #505a5bff);
+              }
+              
+              &.selected {
+                background: var(--powder-blue, #94b0daff) !important;
+                color: var(--outer-space, #343f3eff) !important;
+              }
+              
+              td {
+                padding: 0.75rem;
+                border-top: 1px solid var(--border-color, #8f91a2ff);
+                color: inherit;
+              }
+            }
+          }
+          
+          // DataTables controls
+          .dataTables_filter,
+          .dataTables_length,
+          .dataTables_info,
+          .dataTables_paginate {
+            color: var(--text-color, #dcedffff);
+            
+            label {
+              color: var(--text-muted, #94b0daff);
+            }
+            
+            input,
+            select {
+              background: var(--davys-gray, #505a5bff);
+              border: 1px solid var(--border-color, #8f91a2ff);
+              color: var(--text-color, #dcedffff);
+              border-radius: 4px;
+              padding: 0.375rem 0.75rem;
+              
+              &:focus {
+                border-color: var(--powder-blue, #94b0daff);
+                outline: none;
+                box-shadow: 0 0 0 2px rgba(148, 176, 218, 0.25);
+              }
+            }
+          }
+          
+          // Pagination buttons
+          .dataTables_paginate {
+            .paginate_button {
+              background: var(--davys-gray, #505a5bff);
+              color: var(--text-color, #dcedffff) !important;
+              border: 1px solid var(--border-color, #8f91a2ff);
+              margin: 0 2px;
+              padding: 0.375rem 0.75rem;
+              border-radius: 4px;
+              
+              &:hover {
+                background: var(--powder-blue, #94b0daff) !important;
+                color: var(--outer-space, #343f3eff) !important;
+                border-color: var(--powder-blue, #94b0daff);
+              }
+              
+              &.current {
+                background: var(--powder-blue, #94b0daff) !important;
+                color: var(--outer-space, #343f3eff) !important;
+                border-color: var(--powder-blue, #94b0daff);
+              }
+              
+              &.disabled {
+                background: var(--cool-gray, #8f91a2ff) !important;
+                color: var(--text-muted, #94b0daff) !important;
+                cursor: not-allowed;
+              }
+            }
+          }
+          
+          // DataTables buttons
+          .dt-buttons {
+            margin-bottom: 1rem;
+            
+            .dt-button {
+              background: var(--doser-primary, #007bff);
+              color: white;
+              border: 1px solid var(--doser-primary, #007bff);
+              padding: 0.375rem 0.75rem;
+              border-radius: 4px;
+              margin-right: 0.5rem;
+              font-size: 0.875rem;
+              
+              &:hover {
+                background: var(--doser-info, #17a2b8);
+                border-color: var(--doser-info, #17a2b8);
+              }
+              
+              &:focus {
+                outline: none;
+                box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Dashboard header styling for dosing database
+  .dashboard-header {
+    background: linear-gradient(135deg, var(--outer-space, #343f3eff), var(--davys-gray, #505a5bff));
+    border-radius: 12px;
+    margin: 1.5rem;
+    border: 1px solid var(--border-color, #8f91a2ff);
+  }
+  
   // Quick Actions Section
   .card {
     border-radius: 12px;

@@ -37,89 +37,98 @@ def doser_main():
 
 @app.route("/doser/db", methods=['GET'])
 def db_doser():
+    """Display dosing database with schedule and dosing history join"""
     from sqlalchemy import text
+    
     tank_id = get_current_tank_id()
-    sql = """
-        SELECT dosing.*, d_schedule.id AS schedule_id
-        FROM dosing
-        JOIN d_schedule ON dosing.schedule_id = d_schedule.id
-        WHERE d_schedule.tank_id = :tank_id;
-    """
-    result = db.session.execute(text(sql), {'tank_id': tank_id}).mappings()
-    rows = []
-    for row in result:
-        row_dict = dict(row)
-        # Convert timedelta fields to string or seconds
-        for k, v in row_dict.items():
-            if isinstance(v, timedelta):
-                row_dict[k] = str(v)
-            # Convert boolean/int fields to "Yes"/"No" for booleans (including 0/1)
-            if k == "suspended":
-                row_dict[k] = "Yes" if bool(v) else "No"
-        rows.append(row_dict)
+    if not tank_id:
+        flash("No tank selected.", "warning")
+        return redirect(url_for('index'))
+    
+    try:
+        # Enhanced SQL query to include product information
+        sql = """
+            SELECT 
+                dosing.id,
+                dosing.trigger_time,
+                dosing.amount,
+                dosing.product_id,
+                dosing.schedule_id,
+                d_schedule.id AS schedule_id_check,
+                d_schedule.trigger_interval,
+                d_schedule.suspended,
+                d_schedule.amount AS scheduled_amount,
+                products.name AS product_name,
+                products.uses AS product_uses
+            FROM dosing
+            JOIN d_schedule ON dosing.schedule_id = d_schedule.id
+            LEFT JOIN products ON dosing.product_id = products.id
+            WHERE d_schedule.tank_id = :tank_id
+            ORDER BY dosing.trigger_time DESC;
+        """
+        
+        result = db.session.execute(text(sql), {'tank_id': tank_id}).mappings()
+        rows = []
+        
+        for row in result:
+            row_dict = dict(row)
+            # Convert datetime fields to string
+            for k, v in row_dict.items():
+                if isinstance(v, timedelta):
+                    row_dict[k] = str(v)
+                elif k == "trigger_time" and v:
+                    row_dict[k] = v.strftime("%Y-%m-%d %H:%M:%S") if hasattr(v, 'strftime') else str(v)
+                # Convert boolean/int fields to "Yes"/"No" for booleans (including 0/1)
+                elif k == "suspended":
+                    row_dict[k] = "Yes" if bool(v) else "No"
+            rows.append(row_dict)
 
-    columns = generate_columns(rows[0].keys()) if rows else []
+        # Generate columns from the first row if available, otherwise use defaults
+        if rows:
+            columns = generate_columns(rows[0].keys())
+        else:
+            # Default columns if no data
+            default_cols = ['id', 'trigger_time', 'amount', 'product_name', 'suspended']
+            columns = generate_columns(default_cols)
 
-    tables = [
-        {
-            "id": "products_dosing_schedule_join",
-            "api_url": None,
-            "title": "Products & Dosing Schedule Join",
-            "columns": columns,
-            "initial_data": rows,
-            "datatable_options": {
-                "dom": "Bfrtip",
-                "buttons": [
-                    {"text": "Edit", "action": "edit"},
-                    {"text": "Delete", "action": "delete"}
-                ],
-                "serverSide": False,
-                "processing": False,
-            },
-        }
-    ]
+        tables = [
+            {
+                "id": "dosing_history_table",
+                "api_url": None,
+                "title": f"Dosing History for Tank {tank_id}",
+                "columns": columns,
+                "initial_data": rows,
+                "datatable_options": {
+                    "dom": "Bfrtip",
+                    "buttons": [
+                        {"text": "Edit", "action": "edit"},
+                        {"text": "Delete", "action": "delete"}
+                    ],
+                    "serverSide": False,
+                    "processing": False,
+                    "order": [[1, "desc"]],  # Sort by trigger_time descending
+                },
+            }
+        ]
 
-    return render_template('doser/dosing_db.html', tables=tables)
+        return render_template('doser/dosing_db.html', tables=tables)
+        
+    except Exception as e:
+        flash(f"Database error: {str(e)}", "error")
+        return redirect(url_for('doser_main'))
 
-# @app.route("/doser/modify", methods=["GET", "POST"])
-# def modify_doser():
-#     tank_id = get_current_tank_id()
-#     if not tank_id:
-#         flash("No tank selected.", "warning")
-#         return redirect(url_for('index'))
-#     # Define columns for d_schedule table using the actual model fields
-#     cols = ['id', 'tank_id', 'product_id', 'trigger_interval', 'suspended', 'last_refill', 'amount']
-#     columns = generate_columns(cols)
-#     # Only show schedules for the current tank context
-#     schedules = DSchedule.query.filter_by(tank_id=tank_id).all()
-#     # Convert schedules to dicts for JSON serialization (if needed by frontend)
-#     schedules_dicts = [s.__dict__.copy() for s in schedules]
-#     for s in schedules_dicts:
-#         s.pop('_sa_instance_state', None)
-#     d_schedule_table = {
-#         "id": "d_schedule",
-#         "api_url": "/web/fn/ops/get/d_schedule",
-#         "title": "Edit Dosing Schedules",
-#         "columns": columns,
-#         "datatable_options": {
-#             "dom": "Bfrtip",
-#             "buttons": [
-#                 {"text": "Edit", "action": "edit"},
-#                 {"text": "Delete", "action": "delete"}
-#             ],
-#             "serverSide": True,
-#             "processing": True,
-#         },
-#         "initial_data": schedules_dicts,
-#     }
-#     form = CombinedDosingScheduleForm()
-#     return render_template(
-#         "doser/modify.html",
-#         forms=form,
-#         selector=form.options(),
-#         title="Modify Dosing",
-#         d_schedule_table=d_schedule_table
-#     )
+
+@app.route("/doser/db/test/<int:tank_id>", methods=['GET'])
+def test_db_doser(tank_id):
+    """Test endpoint to set tank_id and view dosing database for testing purposes"""
+    from modules.tank_context import set_tank_id_for_testing
+    
+    # Set the tank_id for testing
+    set_tank_id_for_testing(tank_id)
+    
+    # Call the regular db_doser function
+    return db_doser()
+
 
 @app.route("/doser/schedule", methods=["GET", "POST"])
 def run_schedule():
@@ -452,5 +461,24 @@ def get_products():
         "PUT": "/web/fn/ops/edit/products"
     }
     return render_template("doser/products.html", title="Products", api_urls=urls)
+
+
+@app.route("/doser/history")
+def doser_history():
+    """Display dosing history with latest dose events, amounts, times, and products"""
+    tank_id = get_current_tank_id()
+    if not tank_id:
+        flash("No tank selected.", "warning")
+        return redirect(url_for('index'))
+    
+    # API URLs for the history dashboard
+    api_urls = {
+        "history": "/web/fn/schedule/get/history",
+        "stats": "/web/fn/schedule/get/stats",
+        "delete": "/web/fn/ops/delete/dosing"
+    }
+    
+    return render_template("doser/history.html", 
+                         tank_id=tank_id, api_urls=api_urls)
 
 
