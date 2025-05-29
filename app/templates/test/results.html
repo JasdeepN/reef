@@ -1,41 +1,408 @@
 {% extends 'base.html' %}
 {% block page_title %}Test Results{% endblock %}
 
+{% block styles %}
+  {{ super() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-  <h2>Test Results for Tank: {{ tank_id }}</h2>
-  <table class="table table-striped">
-    <thead>
-      <tr>
-        <th>Date</th>
-        <th>Time</th>
-        <th>Alk</th>
-        <th>PO4 (ppm)</th>
-        <th>PO4 (ppb)</th>
-        <th>NO3 (ppm)</th>
-        <th>Ca</th>
-        <th>Mg</th>
-        <th>SG</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for t in tests %}
-      <tr>
-        <td>{{ t.test_date }}</td>
-        <td>{{ t.test_time }}</td>
-        <td>{{ t.alk }}</td>
-        <td>{{ t.po4_ppm }}</td>
-        <td>{{ t.po4_ppb }}</td>
-        <td>{{ t.no3_ppm }}</td>
-        <td>{{ t.cal }}</td>
-        <td>{{ t.mg }}</td>
-        <td>{{ t.sg }}</td>
-      </tr>
+<div class="container-fluid test-results-dashboard">
+  <!-- Dashboard Header -->
+  <div class="dashboard-header">
+    <h1 class="mb-2">🧪 Test Results Dashboard</h1>
+    <p class="mb-0">Water parameter testing history for Tank {{ tank_id }}</p>
+  </div>
+
+  <!-- Quick Stats Overview -->
+  <div class="dashboard-stats mb-4" id="test-overview">
+    <div class="dashboard-stat-card">
+      <div class="dashboard-stat-value">{{ tests|length }}</div>
+      <div class="dashboard-stat-label">Total Tests</div>
+    </div>
+    <div class="dashboard-stat-card">
+      <div class="dashboard-stat-value">
+        {% if tests %}{{ tests[0].test_date.strftime('%m/%d') }}{% else %}N/A{% endif %}
+      </div>
+      <div class="dashboard-stat-label">Latest Test</div>
+    </div>
+    <div class="dashboard-stat-card">
+      <div class="dashboard-stat-value">
+        {% if tests %}{{ tests[0].alk or 'N/A' }}{% else %}N/A{% endif %}
+      </div>
+      <div class="dashboard-stat-label">Latest Alk</div>
+    </div>
+    <div class="dashboard-stat-card">
+      <div class="dashboard-stat-value">
+        {% if tests %}{{ tests[0].po4_ppm or 'N/A' }}{% else %}N/A{% endif %}
+      </div>
+      <div class="dashboard-stat-label">Latest PO₄</div>
+    </div>
+  </div>
+
+  <!-- Test Results Cards -->
+  <div class="row g-3" id="test-results-container">
+    {% if tests %}
+      {% for test in tests %}
+        <div class="col-lg-6 col-xl-4">
+          <div class="test-result-card card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <div class="test-date-info">
+                <h6 class="mb-0">{{ test.test_date.strftime('%B %d, %Y') }}</h6>
+                <small class="text-muted">{{ test.test_time.strftime('%I:%M %p') if test.test_time else 'No time recorded' }}</small>
+              </div>
+              <span class="badge bg-primary">Test #{{ test.id }}</span>
+            </div>
+            
+            <div class="card-body p-3">
+              <!-- Major Elements Section -->
+              <div class="parameter-section mb-3">
+                <h6 class="section-title">🏗️ Major Elements</h6>
+                <div class="parameter-grid">
+                  <div class="parameter-item">
+                    <div class="parameter-label">Alkalinity</div>
+                    <div class="parameter-value {{ get_alk_status(test.alk) }}">
+                      {{ test.alk or 'N/A' }}
+                      {% if test.alk %}<span class="unit">dKH</span>{% endif %}
+                    </div>
+                  </div>
+                  <div class="parameter-item">
+                    <div class="parameter-label">Calcium</div>
+                    <div class="parameter-value {{ get_cal_status(test.cal) }}">
+                      {{ test.cal or 'N/A' }}
+                      {% if test.cal %}<span class="unit">ppm</span>{% endif %}
+                    </div>
+                  </div>
+                  <div class="parameter-item">
+                    <div class="parameter-label">Magnesium</div>
+                    <div class="parameter-value {{ get_mg_status(test.mg) }}">
+                      {{ test.mg or 'N/A' }}
+                      {% if test.mg %}<span class="unit">ppm</span>{% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Nutrients Section -->
+              <div class="parameter-section mb-3">
+                <h6 class="section-title">🌱 Nutrients</h6>
+                <div class="parameter-grid">
+                  <div class="parameter-item">
+                    <div class="parameter-label">Phosphate</div>
+                    <div class="parameter-value {{ get_po4_status(test.po4_ppm) }}">
+                      {{ test.po4_ppm or 'N/A' }}
+                      {% if test.po4_ppm %}<span class="unit">ppm</span>{% endif %}
+                    </div>
+                    {% if test.po4_ppb %}
+                      <div class="parameter-subvalue">({{ test.po4_ppb }} ppb)</div>
+                    {% endif %}
+                  </div>
+                  <div class="parameter-item">
+                    <div class="parameter-label">Nitrate</div>
+                    <div class="parameter-value {{ get_no3_status(test.no3_ppm) }}">
+                      {{ test.no3_ppm or 'N/A' }}
+                      {% if test.no3_ppm %}<span class="unit">ppm</span>{% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Other Parameters Section -->
+              <div class="parameter-section">
+                <h6 class="section-title">⚖️ Other Parameters</h6>
+                <div class="parameter-grid">
+                  <div class="parameter-item">
+                    <div class="parameter-label">Specific Gravity</div>
+                    <div class="parameter-value {{ get_sg_status(test.sg) }}">
+                      {{ test.sg or 'N/A' }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="card-footer p-2">
+              <div class="test-actions d-flex gap-2">
+                <button class="btn btn-outline-secondary btn-sm flex-fill" onclick="compareTest({{ test.id }})">
+                  <i class="fas fa-chart-line"></i> Compare
+                </button>
+                <button class="btn btn-outline-info btn-sm flex-fill" onclick="copyTest({{ test.id }})">
+                  <i class="fas fa-copy"></i> Copy Values
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       {% endfor %}
-    </tbody>
-  </table>
-  {% if tests|length == 0 %}
-    <div class="alert alert-info">No test results for this tank.</div>
-  {% endif %}
+    {% else %}
+      <div class="col-12">
+        <div class="card text-center p-5">
+          <div class="card-body">
+            <i class="fas fa-flask fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No Test Results Found</h5>
+            <p class="text-muted">Start by adding your first water parameter test</p>
+            <a href="/test/add" class="btn btn-primary">
+              <i class="fas fa-plus"></i> Add First Test
+            </a>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-info text-white">
+          <h5 class="mb-0">⚡ Quick Actions</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex gap-2 flex-wrap">
+            <a href="/test/add" class="btn btn-primary">
+              <i class="fas fa-plus"></i> Add New Test
+            </a>
+            <a href="/chart" class="btn btn-secondary">
+              <i class="fas fa-chart-line"></i> View Charts
+            </a>
+            <a href="/test/db" class="btn btn-outline-secondary">
+              <i class="fas fa-table"></i> Manage Data
+            </a>
+            <button id="export-data" class="btn btn-outline-primary">
+              <i class="fas fa-download"></i> Export Data
+            </button>
+            <button id="compare-mode" class="btn btn-outline-info">
+              <i class="fas fa-balance-scale"></i> Compare Mode
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
+
+<!-- Jinja2 Template Functions for Parameter Status -->
+{% set get_alk_status = get_alk_status %}
+{% set get_cal_status = get_cal_status %}
+{% set get_mg_status = get_mg_status %}
+{% set get_po4_status = get_po4_status %}
+{% set get_no3_status = get_no3_status %}
+{% set get_sg_status = get_sg_status %}
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  let compareMode = false;
+  let selectedTests = [];
+  
+  // Compare test functionality
+  window.compareTest = function(testId) {
+    if (compareMode) {
+      toggleTestSelection(testId);
+    } else {
+      // Single test comparison - redirect to chart with filter
+      window.location.href = `/chart?highlight=${testId}`;
+    }
+  };
+  
+  // Copy test values to clipboard
+  window.copyTest = function(testId) {
+    const testCard = document.querySelector(`[onclick*="${testId}"]`).closest('.test-result-card');
+    const values = extractTestValues(testCard);
+    
+    const textToCopy = `Test #${testId} Values:\n` +
+      `Alkalinity: ${values.alk || 'N/A'}\n` +
+      `Calcium: ${values.cal || 'N/A'}\n` +
+      `Magnesium: ${values.mg || 'N/A'}\n` +
+      `Phosphate: ${values.po4 || 'N/A'}\n` +
+      `Nitrate: ${values.no3 || 'N/A'}\n` +
+      `Specific Gravity: ${values.sg || 'N/A'}`;
+    
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      showNotification('Test values copied to clipboard!', 'success');
+    }).catch(() => {
+      showNotification('Failed to copy values', 'error');
+    });
+  };
+  
+  // Compare mode toggle
+  document.getElementById('compare-mode').addEventListener('click', function() {
+    compareMode = !compareMode;
+    this.classList.toggle('active', compareMode);
+    this.innerHTML = compareMode ? 
+      '<i class="fas fa-times"></i> Exit Compare' : 
+      '<i class="fas fa-balance-scale"></i> Compare Mode';
+    
+    // Reset selections when exiting compare mode
+    if (!compareMode) {
+      selectedTests = [];
+      document.querySelectorAll('.test-result-card.selected').forEach(card => {
+        card.classList.remove('selected');
+      });
+    }
+    
+    showNotification(
+      compareMode ? 'Compare mode enabled - click tests to select' : 'Compare mode disabled', 
+      'info'
+    );
+  });
+  
+  // Export data functionality
+  document.getElementById('export-data').addEventListener('click', function() {
+    // Create CSV export
+    const tests = extractAllTestData();
+    const csv = generateCSV(tests);
+    downloadCSV(csv, `tank-{{ tank_id }}-test-results.csv`);
+    showNotification('Test results exported successfully!', 'success');
+  });
+  
+  function toggleTestSelection(testId) {
+    const testCard = document.querySelector(`[onclick*="${testId}"]`).closest('.test-result-card');
+    const isSelected = testCard.classList.contains('selected');
+    
+    if (isSelected) {
+      testCard.classList.remove('selected');
+      selectedTests = selectedTests.filter(id => id !== testId);
+    } else {
+      if (selectedTests.length >= 5) {
+        showNotification('Maximum 5 tests can be selected for comparison', 'warning');
+        return;
+      }
+      testCard.classList.add('selected');
+      selectedTests.push(testId);
+    }
+    
+    // Show comparison summary if tests are selected
+    updateComparisonSummary();
+  }
+  
+  function updateComparisonSummary() {
+    let summaryElement = document.getElementById('comparison-summary');
+    
+    if (selectedTests.length === 0) {
+      if (summaryElement) summaryElement.remove();
+      return;
+    }
+    
+    if (!summaryElement) {
+      summaryElement = document.createElement('div');
+      summaryElement.id = 'comparison-summary';
+      summaryElement.className = 'alert alert-info position-fixed';
+      summaryElement.style.cssText = 'bottom: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+      document.body.appendChild(summaryElement);
+    }
+    
+    summaryElement.innerHTML = `
+      <strong>${selectedTests.length} tests selected for comparison</strong>
+      <div class="mt-2">
+        <button class="btn btn-primary btn-sm me-2" onclick="viewComparison()">
+          <i class="fas fa-chart-bar"></i> View Comparison
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="clearSelection()">
+          <i class="fas fa-times"></i> Clear
+        </button>
+      </div>
+    `;
+  }
+  
+  window.viewComparison = function() {
+    if (selectedTests.length < 2) {
+      showNotification('Select at least 2 tests to compare', 'warning');
+      return;
+    }
+    
+    // Redirect to chart with selected tests highlighted
+    const testIds = selectedTests.join(',');
+    window.location.href = `/chart?compare=${testIds}`;
+  };
+  
+  window.clearSelection = function() {
+    selectedTests = [];
+    document.querySelectorAll('.test-result-card.selected').forEach(card => {
+      card.classList.remove('selected');
+    });
+    updateComparisonSummary();
+  };
+  
+  function extractTestValues(testCard) {
+    const getValue = (label) => {
+      const element = Array.from(testCard.querySelectorAll('.parameter-label'))
+        .find(el => el.textContent.trim() === label);
+      return element ? element.nextElementSibling.textContent.replace(/[^\d.]/g, '') : null;
+    };
+    
+    return {
+      alk: getValue('Alkalinity'),
+      cal: getValue('Calcium'),
+      mg: getValue('Magnesium'),
+      po4: getValue('Phosphate'),
+      no3: getValue('Nitrate'),
+      sg: getValue('Specific Gravity')
+    };
+  }
+  
+  function extractAllTestData() {
+    const tests = [];
+    document.querySelectorAll('.test-result-card').forEach(card => {
+      const date = card.querySelector('.card-header h6').textContent.trim();
+      const time = card.querySelector('.card-header small').textContent.trim();
+      const values = extractTestValues(card);
+      
+      tests.push({
+        date,
+        time,
+        ...values
+      });
+    });
+    return tests;
+  }
+  
+  function generateCSV(tests) {
+    const headers = ['Date', 'Time', 'Alkalinity', 'Calcium', 'Magnesium', 'Phosphate', 'Nitrate', 'Specific Gravity'];
+    const rows = tests.map(test => [
+      test.date,
+      test.time,
+      test.alk || '',
+      test.cal || '',
+      test.mg || '',
+      test.po4 || '',
+      test.no3 || '',
+      test.sg || ''
+    ]);
+    
+    return [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+  }
+  
+  function downloadCSV(csv, filename) {
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  }
+  
+  function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : type === 'warning' ? 'warning' : 'info'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+      ${message}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 5000);
+  }
+});
+</script>
 {% endblock %}
