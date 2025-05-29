@@ -1,0 +1,567 @@
+// ReefDB Doser Dashboard Styles
+// Enhanced dosing control panel with schedule cards and real-time controls
+// Trigger recompile
+
+// Import variables if available
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --doser-primary: #007bff;
+  --doser-success: #28a745;
+  --doser-warning: #ffc107;
+  --doser-danger: #dc3545;
+  --doser-info: #17a2b8;
+  --doser-light: #f8f9fa;
+  --doser-dark: #343a40;
+}
+
+// Dashboard Layout
+.doser-dashboard {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+//   min-height: 100vh;
+  background: var(--background-color, #f8f9fa);
+  
+  // Add padding to the main container
+  &.container-fluid {
+    padding: 0;
+  }
+  
+  // Content padding for all sections except header
+  > .dashboard-stats,
+  > .row {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+  
+  .dashboard-header {
+    padding: 2rem 1.5rem;
+    margin-bottom: 2rem;
+    text-align: center;
+    color: var(--text-color, #dcedffff);
+    
+    h1 {
+      margin-bottom: 0.5rem;
+      color: inherit;
+    }
+    
+    p, h6 {
+      margin-bottom: 0;
+      color: var(--text-muted, #94b0daff);
+    }
+  }
+  
+  // Dashboard Stats Cards
+  .dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    padding: 1rem 0;
+    
+    .dashboard-stat-card {
+      background: var(--card-bg, #fff);
+      position: relative;
+      overflow: hidden;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      border: 1px solid var(--border-color, #dee2e6);
+      
+      &:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--doser-primary), var(--doser-info));
+      }
+      
+      .dashboard-stat-value {
+        background: linear-gradient(135deg, var(--doser-primary), #6610f2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.5rem;
+        display: block;
+      }
+      
+      .dashboard-stat-label {
+        color: var(--text-muted, #6c757d);
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin: 0;
+      }
+    }
+  }
+  
+  // Dosing Schedule Cards
+  .doser-dashboard-card {
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border-color, #dee2e6);
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+
+    div.card-header > h6 {
+        color: var(--alice-blue, #007bff);
+    }
+    
+    .card-header {
+      background: linear-gradient(135deg, var(--doser-light) 0%, #e9ecef 100%);
+      border-bottom: 1px solid var(--border-color, #dee2e6);
+      
+      .badge {
+        font-size: 0.75rem;
+        padding: 0.4em 0.8em;
+        border-radius: 20px;
+        
+        &.bg-success {
+          background: linear-gradient(135deg, var(--doser-success), #20c997) !important;
+          box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+        }
+        
+        &.bg-warning {
+          background: linear-gradient(135deg, var(--doser-warning), #fd7e14) !important;
+          color: #000 !important;
+          box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+        }
+      }
+    }
+    
+    // Next Dose Information
+    .next-dose-info {
+      background: linear-gradient(135deg, var(--doser-info) 0%, #6610f2 100%);
+      border-radius: 8px;
+      color: white;
+      position: relative;
+      overflow: hidden;
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+      
+      &:before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+        animation: pulse 3s ease-in-out infinite;
+      }
+      
+      .small, .fw-bold {
+        position: relative;
+        z-index: 1;
+      }
+    }
+    
+    // Product Level Progress Bar
+    .progress-container {
+      background: var(--doser-light);
+      border: 1px solid var(--border-color, #dee2e6);
+      border-radius: 8px;
+      padding: 0.75rem;
+      margin: 0.75rem 0;
+
+      .product-level-bar {
+        position: relative;
+        background: #e9ecef;
+        border-radius: 10px;
+        overflow: hidden;
+        height: 20px;
+        
+        .product-level-fill {
+          background: linear-gradient(90deg, 
+            var(--doser-danger) 0%, 
+            var(--doser-warning) 40%, 
+            var(--doser-success) 80%,
+            #20c997 100%
+          );
+          height: 100%;
+          border-radius: 10px;
+          position: relative;
+          transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+          
+          &:after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, 
+              transparent 0%, 
+              rgba(255, 255, 255, 0.3) 50%, 
+              transparent 100%
+            );
+            animation: shimmer 2s ease-in-out infinite;
+          }
+        }
+        
+        .product-level-text {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #fff;
+          text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+          z-index: 2;
+          white-space: nowrap;
+        }
+      }
+    }
+    
+    // Toggle Switch Styling
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+
+      input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 34px;
+
+        &:before {
+          position: absolute;
+          content: "";
+          height: 26px;
+          width: 26px;
+          left: 4px;
+          bottom: 4px;
+          background-color: white;
+          transition: .4s;
+          border-radius: 50%;
+        }
+      }
+
+      input:checked + .toggle-slider {
+        background-color: #28a745;
+
+        &:before {
+          transform: translateX(26px);
+        }
+      }
+    }
+    
+    // Action Buttons
+    .schedule-control-buttons {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+
+      .btn {
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        
+        &:before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, 
+            transparent, 
+            rgba(255, 255, 255, 0.3), 
+            transparent
+          );
+          transition: left 0.5s ease;
+        }
+        
+        &:hover:before {
+          left: 100%;
+        }
+      }
+      
+      .btn-dose-now {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        color: white;
+        transition: all 0.3s ease;
+
+        &:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+          color: white;
+        }
+
+        &:active {
+          transform: translateY(0);
+          box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+        }
+      }
+      
+      .btn-refill {
+        background: linear-gradient(135deg, #007bff 0%, #6610f2 100%);
+        border: none;
+        color: white;
+        transition: all 0.3s ease;
+
+        &:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+          color: white;
+        }
+
+        &:active {
+          transform: translateY(0);
+          box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+        }
+      }
+    }
+
+    // Schedule Status
+    .schedule-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+  }
+  
+  // Quick Actions Section
+  .card {
+    border-radius: 12px;
+    
+    .card-header.bg-info {
+      background: linear-gradient(135deg, var(--doser-info), #6610f2) !important;
+      border-radius: 12px 12px 0 0;
+    }
+    
+    .btn {
+      border-radius: 8px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      
+      &.btn-primary {
+        background: linear-gradient(135deg, var(--doser-primary), #6610f2);
+        border: none;
+        
+        &:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        }
+      }
+      
+      &.btn-success {
+        background: linear-gradient(135deg, var(--doser-success), #20c997);
+        border: none;
+        
+        &:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+      }
+      
+      &.btn-secondary {
+        background: linear-gradient(135deg, #6c757d, #495057);
+        border: none;
+        
+        &:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+        }
+      }
+      
+      &.btn-outline-primary {
+        border: 2px solid var(--doser-primary);
+        color: var(--doser-primary);
+        background: transparent;
+        
+        &:hover {
+          background: var(--doser-primary);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        }
+      }
+    }
+  }
+}
+
+// Animations
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+// Loading States
+.loading-indicator {
+  .spinner-border-lg {
+    width: 3rem;
+    height: 3rem;
+  }
+}
+
+// Responsive Design
+@media (max-width: 1200px) {
+  .doser-dashboard {
+    .dashboard-stats {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+}
+
+@media (max-width: 992px) {
+  .doser-dashboard {
+    .dashboard-stats {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .doser-dashboard {
+    .dashboard-header {
+      padding: 1.5rem !important;
+      
+      h1 {
+        font-size: 1.75rem;
+      }
+    }
+    
+    .dashboard-stats {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+    
+    .schedule-control-buttons {
+      flex-direction: column;
+      
+      .btn {
+        margin-bottom: 0.5rem;
+      }
+    }
+    
+    .d-flex.gap-2.flex-wrap {
+      flex-direction: column;
+      
+      .btn {
+        margin-bottom: 0.5rem;
+      }
+    }
+  }
+}
+
+@media (max-width: 576px) {
+  .doser-dashboard {
+    .dashboard-stats {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+    
+    .dashboard-stat-card {
+      padding: 1rem !important;
+    }
+    
+    .dashboard-stat-value {
+      font-size: 1.5rem !important;
+    }
+    
+    .product-level-text {
+      font-size: 0.6rem !important;
+    }
+  }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+  .doser-dashboard {
+    .doser-dashboard-card {
+      background: #2d3748;
+      border-color: #4a5568;
+      
+      .card-header {
+        background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+        border-bottom-color: #4a5568;
+      }
+    }
+    
+    .progress-container {
+      background: #2d3748;
+      border-color: #4a5568;
+      
+      .product-level-text {
+        color: #fff;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+      }
+    }
+    
+    .dashboard-stat-card {
+      background: #2d3748;
+      border-color: #4a5568;
+    }
+  }
+}
+
+// High contrast mode
+@media (prefers-contrast: high) {
+  .doser-dashboard {
+    .btn {
+      border: 2px solid currentColor !important;
+    }
+    
+    .toggle-slider {
+      border: 2px solid #000 !important;
+    }
+    
+    .product-level-fill {
+      background: #000 !important;
+    }
+  }
+}
+
+// Reduced motion support
+@media (prefers-reduced-motion: reduce) {
+  .doser-dashboard {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

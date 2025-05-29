@@ -1,20 +1,510 @@
-{% extends 'dt-base.html' %}
+{% extends 'base.html' %}
 
-{% block page_title %} {{ super() }} {% endblock %}
+{% block page_title %} {{ title }} {% endblock %}
 
 {% block styles %}
   {{ super() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 {% endblock %}
 
-
 {% block content %}
-
-  {{ generate(table) }}
-
+<div class="container-fluid doser-dashboard">
+  <!-- Dashboard Header -->
+  <div class="dashboard-header">
+    <h1 class="mb-2">🧪 Dosing Control Panel</h1>
+    <p class="mb-0">Monitor and control your reef tank dosing schedules</p>
+  </div>
+  
+  <!-- Dashboard Stats Overview -->
+  <div class="dashboard-stats" id="dashboard-overview">
+    <div class="dashboard-stat-card">
+      <div class="dashboard-stat-value" id="total-schedules">-</div>
+      <div class="dashboard-stat-label">Active Schedules</div>
+    </div>
+    <div class="dashboard-stat-card">
+      <div class="dashboard-stat-value" id="suspended-schedules">-</div>
+      <div class="dashboard-stat-label">Suspended</div>
+    </div>
+    <div class="dashboard-stat-card">
+      <div class="dashboard-stat-value" id="low-products">-</div>
+      <div class="dashboard-stat-label">Low Products</div>
+    </div>
+    <div class="dashboard-stat-card">
+      <div class="dashboard-stat-value" id="next-dose-time">-</div>
+      <div class="dashboard-stat-label">Next Dose</div>
+    </div>
+  </div>
+  
+  <!-- Dosing Schedule Cards Container -->
+  <div class="row g-3" id="dosing-cards-container">
+    <!-- Loading state -->
+    <div class="col-12 text-center p-5" id="loading-indicator">
+      <div class="spinner-border spinner-border-lg text-primary" role="status">
+        <span class="visually-hidden">Loading dosing schedules...</span>
+      </div>
+      <div class="mt-3 text-muted">Loading your dosing schedules...</div>
+    </div>
+  </div>
+  
+  <!-- Quick Actions -->
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-info text-white">
+          <h5 class="mb-0">⚡ Quick Actions</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex gap-2 flex-wrap">
+          <a href="{{ url_for('schedule_new') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add New Schedule
+          </a>
+          <a href="{{ url_for('get_products') }}" class="btn btn-secondary">
+            <i class="fas fa-flask"></i> Manage Products
+          </a>
+            <button id="refresh-dashboard" class="btn btn-outline-primary">
+              <i class="fas fa-sync-alt"></i> Refresh Dashboard
+            </button>
+            <button id="dose-all-active" class="btn btn-success">
+              <i class="fas fa-play"></i> Dose All Active
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block page_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const apiUrls = {{ api_urls | tojson }};
+  const tankId = {{ tank_id }};
   
-  {{ super() }}
-
+  let dosingData = [];
+  
+  // Load the dashboard on page load
+  loadDosingDashboard();
+  
+  // Refresh button handler
+  document.getElementById('refresh-dashboard').addEventListener('click', loadDosingDashboard);
+  
+  // Dose all active schedules handler
+  document.getElementById('dose-all-active').addEventListener('click', doseAllActive);
+  
+  function loadDosingDashboard() {
+    const container = document.getElementById('dosing-cards-container');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    
+    // Show loading
+    loadingIndicator.style.display = 'block';
+    
+    fetch(apiUrls.stats)
+      .then(response => response.json())
+      .then(data => {
+        if (!data.success) {
+          throw new Error(data.message || 'Failed to load dosing data');
+        }
+        
+        dosingData = data.data || [];
+        
+        // Hide loading
+        loadingIndicator.style.display = 'none';
+        
+        // Update dashboard overview
+        updateDashboardOverview();
+        
+        // Generate schedule cards
+        generateScheduleCards();
+        
+      })
+      .catch(error => {
+        console.error('Error loading dosing dashboard:', error);
+        loadingIndicator.innerHTML = `
+          <div class="text-center text-danger">
+            <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+            <h5>Error Loading Dashboard</h5>
+            <p>${error.message}</p>
+            <button class="btn btn-primary" onclick="loadDosingDashboard()">Try Again</button>
+          </div>
+        `;
+      });
+  }
+  
+  function updateDashboardOverview() {
+    const totalSchedules = dosingData.length;
+    const suspendedSchedules = dosingData.filter(item => 
+      item.suspended && item.suspended[1] === true
+    ).length;
+    const lowProducts = dosingData.filter(item => {
+      const percentRemaining = item.percent_remaining && item.percent_remaining[1];
+      return percentRemaining !== null && percentRemaining < 20;
+    }).length;
+    
+    // Calculate next dose time (simplified - using trigger_interval)
+    let nextDoseText = 'N/A';
+    const activeSchedules = dosingData.filter(item => 
+      !item.suspended || item.suspended[1] !== true
+    );
+    
+    if (activeSchedules.length > 0) {
+      const intervals = activeSchedules
+        .map(item => item.trigger_interval && item.trigger_interval[1])
+        .filter(interval => interval !== null)
+        .sort((a, b) => a - b);
+      
+      if (intervals.length > 0) {
+        const nextInterval = intervals[0];
+        if (nextInterval < 3600) {
+          nextDoseText = Math.round(nextInterval / 60) + 'm';
+        } else if (nextInterval < 86400) {
+          nextDoseText = Math.round(nextInterval / 3600) + 'h';
+        } else {
+          nextDoseText = Math.round(nextInterval / 86400) + 'd';
+        }
+      }
+    }
+    
+    document.getElementById('total-schedules').textContent = totalSchedules;
+    document.getElementById('suspended-schedules').textContent = suspendedSchedules;
+    document.getElementById('low-products').textContent = lowProducts;
+    document.getElementById('next-dose-time').textContent = nextDoseText;
+  }
+  
+  function generateScheduleCards() {
+    const container = document.getElementById('dosing-cards-container');
+    
+    if (dosingData.length === 0) {
+      container.innerHTML = `
+        <div class="col-12 text-center p-5">
+          <i class="fas fa-flask fa-3x text-muted mb-3"></i>
+          <h5 class="text-muted">No Dosing Schedules Found</h5>
+          <p class="text-muted">Create your first dosing schedule to get started</p>
+          <a href="/doser/schedule/new" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add First Schedule
+          </a>
+        </div>
+      `;
+      return;
+    }
+    
+    // Clear container
+    container.innerHTML = '';
+    
+    dosingData.forEach(function(schedule, index) {
+      const card = generateScheduleCard(schedule);
+      container.appendChild(card);
+    });
+  }
+  
+  function generateScheduleCard(schedule) {
+    const col = document.createElement('div');
+    col.className = 'col-lg-4 col-md-6 col-sm-12';
+    
+    const productName = schedule.card_title && schedule.card_title[1] || 'Unknown Product';
+    const scheduleId = schedule.schedule_id && schedule.schedule_id[1];
+    const productId = schedule.product_id && schedule.product_id[1];
+    const suspended = schedule.suspended && schedule.suspended[1] === true;
+    const amount = schedule.set_amount && schedule.set_amount[1] || 0;
+    const currentAvail = schedule.current_avail && schedule.current_avail[1] || 0;
+    const totalVolume = schedule.total_volume && schedule.total_volume[1] || 1;
+    const percentRemaining = schedule.percent_remaining && schedule.percent_remaining[1] || 0;
+    const triggerInterval = schedule.trigger_interval && schedule.trigger_interval[1] || 0;
+    const lastRefill = schedule.last_refill && schedule.last_refill[1] || 'Never';
+    const dosesRemaining = schedule.doses_remaining && schedule.doses_remaining[1] || 0;
+    
+    // Calculate next dose time more accurately
+    let nextDoseText = 'Unknown';
+    if (triggerInterval > 0 && !suspended) {
+      const lastTrigger = schedule.last_trigger && schedule.last_trigger[1];
+      
+      if (lastTrigger) {
+        try {
+          const lastTriggerDate = new Date(lastTrigger);
+          const nextDoseDate = new Date(lastTriggerDate.getTime() + (triggerInterval * 1000));
+          const now = new Date();
+          
+          if (nextDoseDate > now) {
+            const diffMs = nextDoseDate - now;
+            const diffMinutes = Math.floor(diffMs / (1000 * 60));
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            
+            if (diffMinutes < 60) {
+              nextDoseText = `${diffMinutes} minutes`;
+            } else if (diffHours < 24) {
+              nextDoseText = `${diffHours} hours, ${diffMinutes % 60} min`;
+            } else {
+              nextDoseText = `${diffDays} days, ${diffHours % 24} hrs`;
+            }
+          } else {
+            nextDoseText = 'Overdue';
+          }
+        } catch (e) {
+          // Fallback to interval-based calculation
+          if (triggerInterval < 3600) {
+            nextDoseText = Math.round(triggerInterval / 60) + ' minutes';
+          } else if (triggerInterval < 86400) {
+            nextDoseText = Math.round(triggerInterval / 3600) + ' hours';
+          } else {
+            nextDoseText = Math.round(triggerInterval / 86400) + ' days';
+          }
+        }
+      } else {
+        // No last trigger, show interval
+        if (triggerInterval < 3600) {
+          nextDoseText = 'Next: ' + Math.round(triggerInterval / 60) + ' min';
+        } else if (triggerInterval < 86400) {
+          nextDoseText = 'Next: ' + Math.round(triggerInterval / 3600) + ' hrs';
+        } else {
+          nextDoseText = 'Next: ' + Math.round(triggerInterval / 86400) + ' days';
+        }
+      }
+    } else if (suspended) {
+      nextDoseText = 'Suspended';
+    }
+    
+    col.innerHTML = `
+      <div class="doser-dashboard-card card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="mb-0">${productName}</h6>
+          <span class="badge ${suspended ? 'bg-warning' : 'bg-success'}">${suspended ? 'Suspended' : 'Active'}</span>
+        </div>
+        <div class="card-body">
+          <!-- Next Dose Info -->
+          <div class="next-dose-info">
+            <div class="small">Next Dose In:</div>
+            <div class="fw-bold">${nextDoseText}</div>
+          </div>
+          
+          <!-- Product Level -->
+          <div class="progress-container">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <small class="text-dark">Product Level</small>
+              <small class="fw-bold">${Math.round(percentRemaining)}%</small>
+            </div>
+            <div class="product-level-bar">
+              <div class="product-level-fill" style="width: ${Math.max(0, Math.min(100, percentRemaining))}%"></div>
+              <div class="product-level-text">${currentAvail}ml / ${totalVolume}ml</div>
+            </div>
+            <div class="d-flex justify-content-between mt-1">
+              <small class="text-dark">~${Math.round(dosesRemaining)} doses left</small>
+              <small class="text-dark">Last refill: ${lastRefill}</small>
+            </div>
+          </div>
+          
+          <!-- Schedule Controls -->
+          <div class="schedule-status">
+            <label class="toggle-switch">
+              <input type="checkbox" ${suspended ? '' : 'checked'} onchange="toggleSchedule(${scheduleId}, this)">
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="small text-muted">Schedule ${suspended ? 'Off' : 'On'}</span>
+          </div>
+          
+          <!-- Action Buttons -->
+          <div class="schedule-control-buttons">
+            <button class="btn btn-dose-now btn-sm flex-fill" onclick="doseNow(${scheduleId}, '${productName}')">
+              <i class="fas fa-play"></i> Dose Now (${amount}ml)
+            </button>
+            <button class="btn btn-refill btn-sm flex-fill" onclick="refillProduct(${productId}, '${productName}')">
+              <i class="fas fa-fill-drip"></i> Refill
+            </button>
+          </div>
+          
+          <!-- Additional Info -->
+          <div class="mt-2 small text-muted">
+            <div>Amount: ${amount}ml every ${formatInterval(triggerInterval)}</div>
+            <div>Schedule ID: ${scheduleId}</div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    return col;
+  }
+  
+  function formatInterval(seconds) {
+    if (seconds < 3600) {
+      return Math.round(seconds / 60) + ' min';
+    } else if (seconds < 86400) {
+      return Math.round(seconds / 3600) + ' hrs';
+    } else {
+      return Math.round(seconds / 86400) + ' days';
+    }
+  }
+  
+  window.toggleSchedule = function(scheduleId, checkbox) {
+    const originalState = checkbox.checked;
+    
+    fetch(apiUrls.toggle, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sched_id: scheduleId
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Show success message
+        showNotification(`Schedule ${originalState ? 'activated' : 'suspended'} successfully`, 'success');
+        // Refresh the dashboard to reflect changes
+        setTimeout(loadDosingDashboard, 1000);
+      } else {
+        // Revert checkbox state
+        checkbox.checked = !originalState;
+        showNotification('Error toggling schedule: ' + (data.error || 'Unknown error'), 'error');
+      }
+    })
+    .catch(error => {
+      console.error('Error toggling schedule:', error);
+      // Revert checkbox state
+      checkbox.checked = !originalState;
+      showNotification('Network error while toggling schedule', 'error');
+    });
+  };
+  
+  window.doseNow = function(scheduleId, productName) {
+    if (!confirm(`Dose ${productName} now?`)) {
+      return;
+    }
+    
+    fetch(apiUrls.dose, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        schedule_id: scheduleId,
+        tank_id: tankId
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        showNotification(`✅ ${productName} dosed successfully!`, 'success');
+        // Refresh the dashboard to reflect updated product levels
+        setTimeout(loadDosingDashboard, 1000);
+      } else {
+        showNotification('❌ Dosing failed: ' + (data.error || 'Unknown error'), 'error');
+      }
+    })
+    .catch(error => {
+      console.error('Error dosing:', error);
+      showNotification('❌ Network error during dosing', 'error');
+    });
+  };
+  
+  window.refillProduct = function(productId, productName) {
+    if (!confirm(`Refill ${productName} to maximum capacity?`)) {
+      return;
+    }
+    
+    fetch(apiUrls.refill, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prod_id: productId
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        showNotification(`✅ ${productName} refilled successfully!`, 'success');
+        // Refresh the dashboard to reflect updated product levels
+        setTimeout(loadDosingDashboard, 1000);
+      } else {
+        showNotification('❌ Refill failed: ' + (data.error || 'Unknown error'), 'error');
+      }
+    })
+    .catch(error => {
+      console.error('Error refilling:', error);
+      showNotification('❌ Network error during refill', 'error');
+    });
+  };
+  
+  function doseAllActive() {
+    const activeSchedules = dosingData.filter(item => 
+      !item.suspended || item.suspended[1] !== true
+    );
+    
+    if (activeSchedules.length === 0) {
+      showNotification('No active schedules to dose', 'warning');
+      return;
+    }
+    
+    if (!confirm(`Dose all ${activeSchedules.length} active schedules now?`)) {
+      return;
+    }
+    
+    let completed = 0;
+    let errors = 0;
+    
+    activeSchedules.forEach(schedule => {
+      const scheduleId = schedule.schedule_id && schedule.schedule_id[1];
+      if (!scheduleId) return;
+      
+      fetch(apiUrls.dose, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          schedule_id: scheduleId,
+          tank_id: tankId
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        completed++;
+        if (!data.success) errors++;
+        
+        if (completed === activeSchedules.length) {
+          if (errors === 0) {
+            showNotification(`✅ All ${activeSchedules.length} schedules dosed successfully!`, 'success');
+          } else {
+            showNotification(`⚠️ Dosed ${activeSchedules.length - errors}/${activeSchedules.length} schedules (${errors} errors)`, 'warning');
+          }
+          setTimeout(loadDosingDashboard, 1000);
+        }
+      })
+      .catch(error => {
+        completed++;
+        errors++;
+        console.error('Error dosing schedule:', error);
+        
+        if (completed === activeSchedules.length) {
+          showNotification(`❌ Failed to dose ${errors}/${activeSchedules.length} schedules`, 'error');
+          setTimeout(loadDosingDashboard, 1000);
+        }
+      });
+    });
+  }
+  
+  function showNotification(message, type) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'warning'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+      ${message}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 5000);
+  }
+});
+</script>
 {% endblock %}

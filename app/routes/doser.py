@@ -16,42 +16,23 @@ from wtforms.validators import DataRequired
 
 @app.route("/doser")
 def doser_main():
+    """Enhanced dosing dashboard with schedule cards and control buttons"""
     tank_id = get_current_tank_id()
     if not tank_id:
         flash("No tank selected.", "warning")
-    # Define columns for the doser table
-    columns = [
-        {"data": "id", "label": "ID"},
-        # {"data": "tank_id", "label": "Tank ID"},
-        {"data": "name", "label": "Product Name"},
-        {"data": "trigger_interval", "label": "Interval"},
-        {"data": "suspended", "label": "Suspended"},
-        {"data": "last_refill", "label": "Last Refill"},
-        {"data": "amount", "label": "Amount"},
-    ]
-    config = {
-        "id": "doser_table",
-        "title": "Dosing Schedules",
-        "columns": columns,
-        "api_urls": {
-            "get": "/web/fn/schedule/get/all",
-            "delete": "/web/fn/schedule/delete/",
-            "post": "/web/fn/schedule/new/",
-            "put": "/web/fn/schedule/edit/",
-        },
-        "datatable_options": {
-            "dom": "Bfrtip",
-            "buttons": [
-                {"text": "Add", "action": "add"},
-                {"text": "Edit", "action": "edit"},
-                {"text": "Delete", "action": "delete"}
-            ],
-            "serverSide": True,
-            "processing": True,
-        },
-        "initial_data": [],
+        return redirect(url_for('index'))
+    
+    # API URLs for the enhanced dashboard
+    api_urls = {
+        "stats": "/web/fn/schedule/get/stats",
+        "dose": "/api/v1/controller/dose",
+        "refill": "/api/v1/controller/refill", 
+        "toggle": "/api/v1/controller/toggle/schedule",
+        "delete": "/web/fn/ops/delete/d_schedule"
     }
-    return render_template("doser/main.html", title="Doser", table=config)
+    
+    return render_template("doser/main.html", 
+                         tank_id=tank_id, api_urls=api_urls)
 
 
 @app.route("/doser/db", methods=['GET'])

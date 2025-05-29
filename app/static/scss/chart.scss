@@ -22,7 +22,7 @@
   gap: 1rem;
   min-height: calc(100vh - 150px); /* Reduced from 200px to allow more space for controls */
   max-height: none; /* Remove max-height constraint to allow scrolling if needed */
-  padding: 20px;
+  // padding: 20px;
   margin: 0;
   box-sizing: border-box;
   width: 100%;
@@ -228,9 +228,7 @@
     }
   }
   
-  .text-muted {
-    color: rgba(220, 237, 255, 0.7) !important;
-  }
+ 
 }
 
 /* Responsive Design */
@@ -238,7 +236,7 @@
   .chart-layout {
     grid-template-columns: 200px 1fr 200px;
     gap: 1rem;
-    padding: 15px;
+    // padding: 15px;
   }
 }
 
@@ -254,7 +252,7 @@
     grid-template-rows: auto auto 1fr auto;
     height: auto;
     min-height: auto;
-    padding: 10px;
+    // padding: 10px;
   }
   
   .chart-title {
@@ -285,7 +283,7 @@
 
 @media (max-width: 768px) {
   .chart-layout {
-    padding: 5px;
+    // padding: 5px;
     gap: 0.5rem;
   }
   
