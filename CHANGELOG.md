@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Duplicate API routes removed from main route files (`overdue.py`, `home.py`)
 - Frontend templates updated to use correct `/api/v1/` URLs for all API calls
 - **Code Cleanup**: Removed test implementation files and temporary development artifacts
+- **Database Schema**: Missing `overdue_dose_requests` table created to support overdue management functionality
+- **UI/UX**: Overdue management page dark theme styling fixed - removed white backgrounds, improved text readability
+- **User Experience**: Added comprehensive configuration guide and tooltips explaining overdue handling options
 
 ### Changed  
 - **BREAKING**: Tank context JavaScript completely rewritten from complex class-based system to simple event-driven modal
@@ -107,6 +110,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scheduler dashboard updated with upcoming doses functionality - now displays next 3 doses with countdown timers
 - **Database Migration**: Added missing overdue handling columns to resolve scheduler startup errors
 - Circular import issue in `/app/routes/api/tests.py` resolved with delayed imports
+- **UI/UX**: Overdue management page dark theme styling fixed - removed white backgrounds, improved text readability
+- **User Experience**: Added comprehensive configuration guide and tooltips explaining overdue handling options
 
 ### Technical Details
 - **Global Tank Context Architecture**: Implemented TankContextManager JavaScript class for centralized tank management

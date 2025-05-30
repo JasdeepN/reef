@@ -56,8 +56,37 @@
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-cog"></i> Overdue Handling Configuration</h5>
+                    <small class="text-muted d-block mt-1">Configure how each dosing schedule should handle missed doses</small>
                 </div>
                 <div class="card-body">
+                    <!-- Configuration Help Section -->
+                    <div class="alert alert-info mb-4">
+                        <h6><i class="fas fa-info-circle"></i> Configuration Guide</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Overdue Strategies:</strong>
+                                <ul class="mb-2">
+                                    <li><strong>Alert Only:</strong> Skip missed doses, show notifications only</li>
+                                    <li><strong>Grace Period:</strong> Allow dosing within specified hours after missed time</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <ul class="mb-2">
+                                    <li><strong>Catch-up:</strong> Dose immediately if within limits (max doses in time window)</li>
+                                    <li><strong>Manual Approval:</strong> Require user confirmation for each overdue dose</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-6">
+                                <strong>Grace Period:</strong> Hours after scheduled time to allow automatic dosing (1-72 hours)
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Max Catch-up:</strong> Maximum consecutive doses to give when catching up (1-10 doses)
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
@@ -65,9 +94,9 @@
                                     <th>Product</th>
                                     <th>Amount</th>
                                     <th>Interval</th>
-                                    <th>Overdue Strategy</th>
-                                    <th>Grace Period</th>
-                                    <th>Max Catch-up</th>
+                                    <th>Overdue Strategy <i class="fas fa-question-circle text-muted" title="How to handle missed doses"></i></th>
+                                    <th>Grace Period (hours) <i class="fas fa-question-circle text-muted" title="Hours after scheduled time to allow dosing"></i></th>
+                                    <th>Max Catch-up <i class="fas fa-question-circle text-muted" title="Maximum consecutive doses when catching up"></i></th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -99,10 +128,10 @@
                                                min="1" max="10" step="1">
                                     </td>
                                     <td>
-                                        <button class="btn btn-primary btn-sm save-config-btn" data-schedule-id="{{ schedule.id }}">
+                                        <button class="btn btn-primary btn-sm save-config-btn" data-schedule-id="{{ schedule.id }}" title="Save overdue configuration for this schedule">
                                             <i class="fas fa-save"></i> Save
                                         </button>
-                                        <button class="btn btn-info btn-sm analyze-btn" data-schedule-id="{{ schedule.id }}">
+                                        <button class="btn btn-info btn-sm analyze-btn" data-schedule-id="{{ schedule.id }}" title="Analyze current overdue status and recommended action">
                                             <i class="fas fa-search"></i> Analyze
                                         </button>
                                     </td>
@@ -118,16 +147,19 @@
 
     <!-- Analysis Results Modal -->
     <div class="modal fade" id="analysisModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Overdue Analysis</h5>
+                    <h5 class="modal-title"><i class="fas fa-search"></i> Overdue Analysis Results</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="analysis-results">
                     <!-- Analysis results will be loaded here -->
                 </div>
                 <div class="modal-footer">
+                    <div class="text-muted small me-auto">
+                        <i class="fas fa-info-circle"></i> Analysis shows what action the system would take based on current configuration
+                    </div>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
@@ -280,31 +312,91 @@ function analyzeSchedule(scheduleId) {
     .then(data => {
         if (data.success) {
             const analysis = data.data;
+            
+            // Get strategy explanation
+            const strategyExplanations = {
+                'alert_only': 'Skip missed doses and continue with next scheduled dose',
+                'grace_period': 'Allow dosing within the configured grace period window',
+                'catch_up': 'Dose immediately if within catch-up limits',
+                'manual_approval': 'Require manual approval for each overdue dose'
+            };
+            
+            // Get action color based on action type
+            const actionColors = {
+                'skip': 'text-warning',
+                'dose_now': 'text-success',
+                'dose_in_grace': 'text-info',
+                'require_approval': 'text-primary',
+                'expired': 'text-danger'
+            };
+            
+            const actionColor = actionColors[analysis.action] || 'text-muted';
+            
             const resultsHtml = `
                 <div class="analysis-result">
-                    <h6>Schedule Analysis</h6>
+                    <div class="alert alert-primary">
+                        <h6><i class="fas fa-chart-line"></i> Analysis Summary</h6>
+                        <p class="mb-1"><strong>Recommended Action:</strong> <span class="${actionColor}">${analysis.action.replace('_', ' ').toUpperCase()}</span></p>
+                        <p class="mb-0"><strong>Explanation:</strong> ${analysis.reason}</p>
+                    </div>
+                    
                     <div class="row">
-                        <div class="col-6"><strong>Action:</strong></div>
-                        <div class="col-6">${analysis.action}</div>
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Current Status</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row mb-2">
+                                        <div class="col-6"><strong>Should Dose:</strong></div>
+                                        <div class="col-6">
+                                            <span class="badge ${analysis.should_dose ? 'bg-success' : 'bg-secondary'}">
+                                                ${analysis.should_dose ? 'Yes' : 'No'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-6"><strong>Hours Overdue:</strong></div>
+                                        <div class="col-6">${analysis.hours_overdue ? analysis.hours_overdue.toFixed(1) : '0.0'}h</div>
+                                    </div>
+                                    ${analysis.missed_dose_time ? `
+                                    <div class="row mb-2">
+                                        <div class="col-12"><strong>Missed Dose Time:</strong></div>
+                                        <div class="col-12 text-muted small">${new Date(analysis.missed_dose_time).toLocaleString()}</div>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Configuration Impact</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row mb-2">
+                                        <div class="col-12"><strong>Current Strategy:</strong></div>
+                                        <div class="col-12 text-muted small">${strategyExplanations[analysis.action] || 'Unknown strategy'}</div>
+                                    </div>
+                                    ${analysis.immediate_doses_count > 0 ? `
+                                    <div class="row mb-2">
+                                        <div class="col-6"><strong>Catch-up Doses:</strong></div>
+                                        <div class="col-6"><span class="badge bg-info">${analysis.immediate_doses_count}</span></div>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="row">
-                        <div class="col-6"><strong>Should Dose:</strong></div>
-                        <div class="col-6">${analysis.should_dose ? 'Yes' : 'No'}</div>
+                    
+                    <div class="alert alert-light">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i> 
+                            <strong>About Analysis:</strong> This analysis shows what action would be taken based on your current 
+                            overdue handling configuration. You can modify the strategy and settings above to change this behavior.
+                        </small>
                     </div>
-                    <div class="row">
-                        <div class="col-6"><strong>Hours Overdue:</strong></div>
-                        <div class="col-6">${analysis.hours_overdue.toFixed(1)}h</div>
-                    </div>
-                    <div class="row">
-                        <div class="col-12"><strong>Reason:</strong></div>
-                        <div class="col-12">${analysis.reason}</div>
-                    </div>
-                    ${analysis.immediate_doses_count > 0 ? `
-                    <div class="row mt-2">
-                        <div class="col-6"><strong>Catch-up Doses:</strong></div>
-                        <div class="col-6">${analysis.immediate_doses_count}</div>
-                    </div>
-                    ` : ''}
                 </div>
             `;
             document.getElementById('analysis-results').innerHTML = resultsHtml;
@@ -436,18 +528,98 @@ function showToast(message, type) {
     margin-bottom: 0;
 }
 
-.pending-request {
-    border-left: 4px solid #ffc107;
+/* Dark theme card styling */
+.card {
+    background-color: var(--card-bg) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color) !important;
+}
+
+.card-header {
+    background-color: var(--davys-gray) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color) !important;
+}
+
+.card-body {
+    background-color: var(--card-bg) !important;
+    color: var(--text-color) !important;
+}
+
+/* Table styling */
+.table {
+    color: var(--text-color) !important;
+    --bs-table-bg: var(--card-bg) !important;
 }
 
 .table th {
-    color: var(--text-color);
-    border-color: var(--border-color);
+    color: var(--text-color) !important;
+    border-color: var(--border-color) !important;
+    background-color: var(--davys-gray) !important;
 }
 
 .table td {
-    color: var(--text-color);
-    border-color: var(--border-color);
+    color: var(--text-color) !important;
+    border-color: var(--border-color) !important;
+}
+
+.table-hover tbody tr:hover {
+    background-color: var(--shadow-blue) !important;
+    color: var(--text-color) !important;
+}
+
+/* Form controls */
+.form-control, .form-select {
+    background-color: var(--outer-space) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color) !important;
+}
+
+.form-control:focus, .form-select:focus {
+    background-color: var(--outer-space) !important;
+    border-color: var(--powder-blue) !important;
+    color: var(--text-color) !important;
+    box-shadow: 0 0 0 0.25rem rgba(148, 176, 218, 0.25) !important;
+}
+
+.form-control::placeholder {
+    color: var(--text-muted) !important;
+}
+
+/* Modal styling */
+.modal-content {
+    background-color: var(--card-bg) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color) !important;
+}
+
+.modal-header {
+    background-color: var(--davys-gray) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color) !important;
+}
+
+.modal-body {
+    background-color: var(--card-bg) !important;
+    color: var(--text-color) !important;
+}
+
+.modal-footer {
+    background-color: var(--davys-gray) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color) !important;
+}
+
+/* Alert styling */
+.alert-info {
+    background-color: rgba(148, 176, 218, 0.15) !important;
+    border-color: var(--powder-blue) !important;
+    color: var(--text-color) !important;
+}
+
+.pending-request {
+    border-left: 4px solid #ffc107;
+    background-color: var(--card-bg) !important;
 }
 
 .analysis-result .row {
@@ -456,10 +628,31 @@ function showToast(message, type) {
 
 .form-control:disabled {
     opacity: 0.5;
+    background-color: var(--davys-gray) !important;
 }
 
 .border-primary {
     border-color: #0d6efd !important;
+}
+
+/* Tooltip styling */
+.fas.fa-question-circle {
+    cursor: help;
+}
+
+/* Button styling improvements */
+.btn-sm {
+    margin: 0 2px;
+}
+
+/* Configuration guide styling */
+.alert-info ul {
+    margin-bottom: 0;
+    padding-left: 1.2rem;
+}
+
+.alert-info li {
+    margin-bottom: 0.25rem;
 }
 </style>
 {% endblock %}
