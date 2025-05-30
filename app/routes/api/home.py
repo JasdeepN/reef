@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from modules.tank_context import get_current_tank_id
+from modules.tank_context import get_current_tank_id, ensure_tank_context
 from modules.models import Tank, TestResults
 
 bp = Blueprint('home_api', __name__, url_prefix='/home')
@@ -17,7 +17,7 @@ def get_tank_context():
 @bp.route('/test-results-data', methods=['GET'])
 def get_test_results_data():
     """API endpoint to get test results data for charting"""
-    tank_id = get_current_tank_id()
+    tank_id = ensure_tank_context()  # Use ensure_tank_context for VS Code compatibility
     if not tank_id:
         return jsonify({"error": "No tank selected"}), 400
     
@@ -37,46 +37,214 @@ def get_test_results_data():
 
 def _create_chart_datasets():
     """Create empty chart datasets structure"""
-    return {
-        'alkalinity': {
+    return [
+        # Original datasets
+        {
             'label': 'Alkalinity (dKH)',
             'data': [],
             'borderColor': 'rgb(75, 192, 192)',
-            'tension': 0.1
+            'backgroundColor': 'rgba(75, 192, 192, 0.1)',
+            'tension': 0.1,
+            'yAxisID': 'y'
         },
-        'calcium': {
+        {
+            'label': 'Alkalinity (Interpolated)',
+            'data': [],
+            'borderColor': 'rgb(75, 192, 192)',
+            'backgroundColor': 'rgba(75, 192, 192, 0.05)',
+            'borderDash': [5, 5],
+            'tension': 0.1,
+            'yAxisID': 'y'
+        },
+        {
             'label': 'Calcium (ppm)',
             'data': [],
             'borderColor': 'rgb(255, 99, 132)',
-            'tension': 0.1
+            'backgroundColor': 'rgba(255, 99, 132, 0.1)',
+            'tension': 0.1,
+            'yAxisID': 'y1'
         },
-        'magnesium': {
+        {
+            'label': 'Calcium (Interpolated)',
+            'data': [],
+            'borderColor': 'rgb(255, 99, 132)',
+            'backgroundColor': 'rgba(255, 99, 132, 0.05)',
+            'borderDash': [5, 5],
+            'tension': 0.1,
+            'yAxisID': 'y1'
+        },
+        {
             'label': 'Magnesium (ppm)',
             'data': [],
             'borderColor': 'rgb(54, 162, 235)',
-            'tension': 0.1
+            'backgroundColor': 'rgba(54, 162, 235, 0.1)',
+            'tension': 0.1,
+            'yAxisID': 'y1'
+        },
+        {
+            'label': 'Magnesium (Interpolated)',
+            'data': [],
+            'borderColor': 'rgb(54, 162, 235)',
+            'backgroundColor': 'rgba(54, 162, 235, 0.05)',
+            'borderDash': [5, 5],
+            'tension': 0.1,
+            'yAxisID': 'y1'
+        },
+        {
+            'label': 'Phosphate (ppm)',
+            'data': [],
+            'borderColor': 'rgb(255, 206, 86)',
+            'backgroundColor': 'rgba(255, 206, 86, 0.1)',
+            'tension': 0.1,
+            'yAxisID': 'y2'
+        },
+        {
+            'label': 'Phosphate (Interpolated)',
+            'data': [],
+            'borderColor': 'rgb(255, 206, 86)',
+            'backgroundColor': 'rgba(255, 206, 86, 0.05)',
+            'borderDash': [5, 5],
+            'tension': 0.1,
+            'yAxisID': 'y2'
+        },
+        {
+            'label': 'Nitrate (ppm)',
+            'data': [],
+            'borderColor': 'rgb(153, 102, 255)',
+            'backgroundColor': 'rgba(153, 102, 255, 0.1)',
+            'tension': 0.1,
+            'yAxisID': 'y3'
+        },
+        {
+            'label': 'Nitrate (Interpolated)',
+            'data': [],
+            'borderColor': 'rgb(153, 102, 255)',
+            'backgroundColor': 'rgba(153, 102, 255, 0.05)',
+            'borderDash': [5, 5],
+            'tension': 0.1,
+            'yAxisID': 'y3'
+        },
+        {
+            'label': 'Specific Gravity',
+            'data': [],
+            'borderColor': 'rgb(255, 159, 64)',
+            'backgroundColor': 'rgba(255, 159, 64, 0.1)',
+            'tension': 0.1,
+            'yAxisID': 'y4'
+        },
+        {
+            'label': 'Specific Gravity (Interpolated)',
+            'data': [],
+            'borderColor': 'rgb(255, 159, 64)',
+            'backgroundColor': 'rgba(255, 159, 64, 0.05)',
+            'borderDash': [5, 5],
+            'tension': 0.1,
+            'yAxisID': 'y4'
         }
-    }
+    ]
 
 def _prepare_interpolated_chart_data(tests):
     """Prepare chart data with interpolation for missing values"""
-    # This would contain the complex interpolation logic
-    # For now, return basic structure
     labels = []
     datasets = _create_chart_datasets()
     
-    for test in tests:
-        label = f"{test.test_date} {test.test_time or ''}"
-        labels.append(label.strip())
-        
-        if test.alkalinity is not None:
-            datasets['alkalinity']['data'].append(test.alkalinity)
-        if test.calcium is not None:
-            datasets['calcium']['data'].append(test.calcium)
-        if test.magnesium is not None:
-            datasets['magnesium']['data'].append(test.magnesium)
+    # Extract data values for all parameters
+    data_values = _extract_test_values(tests, labels)
+    
+    # Populate datasets with original and interpolated values
+    _populate_datasets(datasets, data_values)
     
     return {
         "labels": labels,
-        "datasets": list(datasets.values())
+        "datasets": datasets
     }
+
+def _extract_test_values(tests, labels):
+    """Extract test values and format labels"""
+    data_values = {
+        'alk': [], 'cal': [], 'mg': [], 
+        'po4_ppm': [], 'no3_ppm': [], 'sg': []
+    }
+    
+    for test in tests:
+        # Format label
+        if test.test_date and test.test_time:
+            label = f"{test.test_date.strftime('%Y-%m-%d')} {test.test_time.strftime('%H:%M')}"
+        else:
+            label = test.test_date.strftime('%Y-%m-%d') if test.test_date else 'Unknown'
+        labels.append(label)
+        
+        # Extract values using correct column names
+        for param in data_values.keys():
+            value = getattr(test, param, None)
+            data_values[param].append(value if value is not None else None)
+    
+    return data_values
+
+def _populate_datasets(datasets, data_values):
+    """Populate datasets with original and interpolated data"""
+    param_indices = {
+        'alk': (0, 1), 'cal': (2, 3), 'mg': (4, 5),
+        'po4_ppm': (6, 7), 'no3_ppm': (8, 9), 'sg': (10, 11)
+    }
+    
+    for param, values in data_values.items():
+        original_idx, interpolated_idx = param_indices[param]
+        
+        # Add original values
+        datasets[original_idx]['data'] = values
+        
+        # Add properly interpolated values
+        interpolated_values = _interpolate_missing_values(values)
+        # Only show interpolated points where original data was None
+        interpolated_data = []
+        for orig, interp in zip(values, interpolated_values):
+            interpolated_data.append(interp if orig is None and interp is not None else None)
+        
+        datasets[interpolated_idx]['data'] = interpolated_data
+
+def _interpolate_missing_values(values):
+    """Interpolate missing values in a dataset using linear interpolation"""
+    if not values or len(values) < 2:
+        return values
+    
+    interpolated = []
+    for i, val in enumerate(values):
+        if val is None:
+            prev_val, prev_idx, next_val, next_idx = _find_surrounding_values(values, i)
+            
+            # Interpolate if we have both previous and next values
+            if prev_val is not None and next_val is not None:
+                steps = next_idx - prev_idx
+                step_size = (next_val - prev_val) / steps
+                interpolated_val = prev_val + (step_size * (i - prev_idx))
+                interpolated.append(interpolated_val)
+            else:
+                interpolated.append(None)
+        else:
+            interpolated.append(val)
+    
+    return interpolated
+
+def _find_surrounding_values(values, target_index):
+    """Find the previous and next non-None values around a given index"""
+    prev_val = None
+    prev_idx = None
+    next_val = None
+    next_idx = None
+    
+    # Find previous non-None value
+    for i in range(target_index - 1, -1, -1):
+        if values[i] is not None:
+            prev_val = values[i]
+            prev_idx = i
+            break
+    
+    # Find next non-None value
+    for i in range(target_index + 1, len(values)):
+        if values[i] is not None:
+            next_val = values[i]
+            next_idx = i
+            break
+    
+    return prev_val, prev_idx, next_val, next_idx

@@ -303,6 +303,47 @@ If tests fail:
     make test-db-stop
     ```
 
+## API Testing
+
+### Tank Context Requirements
+
+Most API endpoints require a tank context to be set. When testing API endpoints that need tank context, use one of these methods:
+
+#### Method 1: VS Code User Agent (Automatic Tank Context)
+The application automatically sets tank context for VS Code Simple Browser requests:
+```bash
+curl -s -H "User-Agent: vscode simple browser" "https://rdb-dev.server.lan/api/v1/endpoint"
+```
+
+#### Method 2: Check Tank Context Status
+To verify if tank context is set and see available tanks:
+```bash
+curl -s "https://rdb-dev.server.lan/api/v1/home/tank-context" | jq .
+```
+
+Example response:
+```json
+{
+  "has_context": true,
+  "tank_id": 1,
+  "tanks": [
+    {"id": 1, "name": "Main Display Tank"},
+    {"id": 2, "name": "Quarantine Tank"}
+  ]
+}
+```
+
+#### Method 3: Set Tank Context via Web Interface
+Visit the web application in VS Code Simple Browser first, which automatically sets tank context, then API calls will work in that session.
+
+### Database Access
+
+For database operations and migrations, use the DBCode VS Code extension:
+- **Connection Name**: "reef dev" 
+- **Database Name**: `reef_tracker`
+- Use `dbcode-get-tables` to examine schema
+- Use `dbcode-execute-query` for data operations
+
 ## License
 
 This project is **not open source**.  
