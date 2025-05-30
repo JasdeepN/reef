@@ -213,4 +213,110 @@
   color: var(--text-color);
 }
 
+// Tank Context Modal Styles
+#tankContextModal {
+  .modal-content {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    color: var(--text-color);
+  }
+
+  .modal-header {
+    background-color: var(--davys-gray);
+    border-bottom: 1px solid var(--border-color);
+    
+    .modal-title {
+      color: var(--text-color);
+      font-family: var(--font-heading);
+      font-weight: 600;
+      
+      .fas {
+        color: var(--powder-blue);
+      }
+    }
+  }
+
+  .modal-body {
+    background-color: var(--card-bg);
+    
+    p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      color: var(--text-color);
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+
+    .form-select {
+      background-color: var(--outer-space);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      
+      &:focus {
+        background-color: var(--outer-space);
+        border-color: var(--powder-blue);
+        box-shadow: 0 0 0 0.2rem rgba(148, 176, 218, 0.25);
+        color: var(--text-color);
+      }
+
+      option {
+        background-color: var(--outer-space);
+        color: var(--text-color);
+      }
+    }
+
+    .btn-primary {
+      background-color: var(--powder-blue);
+      border-color: var(--powder-blue);
+      color: var(--outer-space);
+      font-weight: 600;
+      padding: 0.75rem 1.5rem;
+
+      &:hover {
+        background-color: var(--alice-blue);
+        border-color: var(--alice-blue);
+        color: var(--outer-space);
+      }
+
+      &:focus {
+        box-shadow: 0 0 0 0.2rem rgba(148, 176, 218, 0.5);
+      }
+
+      .fas {
+        margin-right: 0.5rem;
+      }
+    }
+  }
+
+  // Make sure modal backdrop is dark
+  &.show {
+    background-color: rgba(52, 63, 62, 0.8);
+  }
+}
+
+// Ensure the existing tank selector is styled consistently
+#tank-select-form {
+  .form-select {
+    background-color: var(--outer-space);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    
+    &:focus {
+      background-color: var(--outer-space);
+      border-color: var(--powder-blue);
+      box-shadow: 0 0 0 0.2rem rgba(148, 176, 218, 0.25);
+      color: var(--text-color);
+    }
+
+    option {
+      background-color: var(--outer-space);
+      color: var(--text-color);
+    }
+  }
+}
+
 

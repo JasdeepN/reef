@@ -4,7 +4,7 @@ from app import app
 from modules.models import Tank, TestResults
 from modules.forms import test_result_form
 from modules.db_functions import insert_test_row
-from modules.tank_context import get_current_tank_id
+from modules.tank_context import get_current_tank_id, ensure_tank_context
 
 # Parameter status evaluation functions
 def get_alk_status(value):
@@ -76,7 +76,7 @@ def get_sg_status(value):
 
 @app.route("/test")
 def test_results():
-    tank_id = get_current_tank_id()
+    tank_id = ensure_tank_context()
     if not tank_id:
         flash("No tank selected.", "warning")
         return redirect(url_for('index'))
@@ -107,7 +107,7 @@ async def add_test():
 
 @app.route("/test/db", methods=['GET'])
 def test_modify():
-    tank_id = get_current_tank_id()
+    tank_id = ensure_tank_context()
     if not tank_id:
         flash("No tank selected.", "warning")
         return redirect(url_for('index'))

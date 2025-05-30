@@ -5,7 +5,7 @@ from flask import jsonify, render_template, request, redirect, url_for, session,
 from app import app
 from modules.models import *  # Import your models
 from modules.utils.helper import *
-from modules.tank_context import get_current_tank_id
+from modules.tank_context import get_current_tank_id, ensure_tank_context
 from modules.forms import CombinedDosingScheduleForm
 # import db
 import enum
@@ -17,7 +17,7 @@ from wtforms.validators import DataRequired
 @app.route("/doser")
 def doser_main():
     """Enhanced dosing dashboard with schedule cards and control buttons"""
-    tank_id = get_current_tank_id()
+    tank_id = ensure_tank_context()
     if not tank_id:
         flash("No tank selected.", "warning")
         return redirect(url_for('index'))
@@ -25,6 +25,7 @@ def doser_main():
     # API URLs for the enhanced dashboard
     api_urls = {
         "stats": "/web/fn/schedule/get/stats",
+        "next_doses": "/web/fn/schedule/get/next-doses",
         "dose": "/api/v1/controller/dose",
         "refill": "/api/v1/controller/refill", 
         "toggle": "/api/v1/controller/toggle/schedule",
@@ -40,7 +41,7 @@ def db_doser():
     """Display dosing database with schedule and dosing history join"""
     from sqlalchemy import text
     
-    tank_id = get_current_tank_id()
+    tank_id = ensure_tank_context()
     if not tank_id:
         flash("No tank selected.", "warning")
         return redirect(url_for('index'))
@@ -140,7 +141,7 @@ def run_schedule():
 @app.route("/doser/schedule/new", methods=["GET", "POST"])
 def schedule_new():
     """Enhanced dosing schedule page with granular time controls"""
-    tank_id = get_current_tank_id()
+    tank_id = ensure_tank_context()
     if not tank_id:
         flash("No tank selected. Please select a tank before creating dosing schedules.", "warning")
         return redirect(url_for('index'))
@@ -185,7 +186,7 @@ def schedule_new():
 @app.route("/doser/schedule/edit/<int:schedule_id>", methods=["GET", "POST"])
 def schedule_edit(schedule_id):
     """Edit existing dosing schedule with the same granular controls as new schedule page"""
-    tank_id = get_current_tank_id()
+    tank_id = ensure_tank_context()
     if not tank_id:
         flash("No tank selected. Please select a tank before editing dosing schedules.", "warning")
         return redirect(url_for('index'))
@@ -267,11 +268,45 @@ def handle_schedule_edit_submission(data, schedule_id, tank_id):
         if trigger_interval is None:
             return jsonify({"success": False, "error": "Invalid schedule configuration"}), 400
         
+        # Process overdue handling configuration
+        overdue_strategy = data.get('overdue_strategy', 'alert_only')
+        grace_period_hours = data.get('grace_period_hours')
+        max_catch_up_doses = data.get('max_catch_up_doses')
+        overdue_notification_enabled = data.get('overdue_notification_enabled', False)
+        
+        # Validate overdue strategy enum
+        try:
+            overdue_strategy_enum = OverdueHandlingEnum(overdue_strategy)
+        except ValueError:
+            overdue_strategy_enum = OverdueHandlingEnum.ALERT_ONLY
+        
+        # Validate grace period hours (1-72 hours)
+        if grace_period_hours is not None:
+            try:
+                grace_period_hours = int(grace_period_hours)
+                if grace_period_hours < 1 or grace_period_hours > 72:
+                    grace_period_hours = None
+            except (ValueError, TypeError):
+                grace_period_hours = None
+        
+        # Validate max catch up doses (1-10 doses)
+        if max_catch_up_doses is not None:
+            try:
+                max_catch_up_doses = int(max_catch_up_doses)
+                if max_catch_up_doses < 1 or max_catch_up_doses > 10:
+                    max_catch_up_doses = None
+            except (ValueError, TypeError):
+                max_catch_up_doses = None
+        
         # Update existing schedule
         schedule.product_id = product_id
         schedule.amount = amount
         schedule.trigger_interval = trigger_interval
         schedule.suspended = suspended
+        schedule.overdue_strategy = overdue_strategy_enum
+        schedule.grace_period_hours = grace_period_hours
+        schedule.max_catch_up_doses = max_catch_up_doses
+        schedule.overdue_notification_enabled = overdue_notification_enabled
         
         db.session.commit()
         
@@ -302,13 +337,47 @@ def handle_schedule_submission(data, tank_id):
         if trigger_interval is None:
             return jsonify({"success": False, "error": "Invalid schedule configuration"}), 400
         
+        # Process overdue handling configuration
+        overdue_strategy = data.get('overdue_strategy', 'alert_only')
+        grace_period_hours = data.get('grace_period_hours')
+        max_catch_up_doses = data.get('max_catch_up_doses')
+        overdue_notification_enabled = data.get('overdue_notification_enabled', False)
+        
+        # Validate overdue strategy enum
+        try:
+            overdue_strategy_enum = OverdueHandlingEnum(overdue_strategy)
+        except ValueError:
+            overdue_strategy_enum = OverdueHandlingEnum.ALERT_ONLY
+        
+        # Validate grace period hours (1-72 hours)
+        if grace_period_hours is not None:
+            try:
+                grace_period_hours = int(grace_period_hours)
+                if grace_period_hours < 1 or grace_period_hours > 72:
+                    grace_period_hours = None
+            except (ValueError, TypeError):
+                grace_period_hours = None
+        
+        # Validate max catch up doses (1-10 doses)
+        if max_catch_up_doses is not None:
+            try:
+                max_catch_up_doses = int(max_catch_up_doses)
+                if max_catch_up_doses < 1 or max_catch_up_doses > 10:
+                    max_catch_up_doses = None
+            except (ValueError, TypeError):
+                max_catch_up_doses = None
+        
         # Create new schedule
         new_schedule = DSchedule(
             trigger_interval=trigger_interval,
             suspended=suspended,
             amount=amount,
             tank_id=tank_id,
-            product_id=product_id
+            product_id=product_id,
+            overdue_strategy=overdue_strategy_enum,
+            grace_period_hours=grace_period_hours,
+            max_catch_up_doses=max_catch_up_doses,
+            overdue_notification_enabled=overdue_notification_enabled
         )
         
         db.session.add(new_schedule)
@@ -378,7 +447,7 @@ def _calculate_custom_schedule(data):
 
 @app.route("/doser/submit", methods=["POST"])
 def doser_submit():
-    tank_id = get_current_tank_id()
+    tank_id = ensure_tank_context()
     if not tank_id:
         return jsonify({"success": False, "error": "No tank selected"}), 400
     data = request.get_json()
@@ -466,7 +535,7 @@ def get_products():
 @app.route("/doser/history")
 def doser_history():
     """Display dosing history with latest dose events, amounts, times, and products"""
-    tank_id = get_current_tank_id()
+    tank_id = ensure_tank_context()
     if not tank_id:
         flash("No tank selected.", "warning")
         return redirect(url_for('index'))

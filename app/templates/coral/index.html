@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (fileInput.files && fileInput.files[0]) {
                 const formData = new FormData();
                 formData.append('file', fileInput.files[0]);
-                fetch('/api/timeline/upload', {
+                fetch('/api/v1/timeline/upload', {
                     method: 'POST',
                     body: formData
                 })

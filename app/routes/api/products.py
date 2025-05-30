@@ -4,12 +4,13 @@ from datetime import datetime, timedelta
 from sqlalchemy import text
 import pytz
 
-from modules.models import Products
-
 bp = Blueprint('product_api', __name__)
 
 @bp.route('/products/all', methods=['GET']) 
 def get_all_products():
+    # Import locally to avoid circular import
+    from modules.models import Products
+    
     products = db.session.query(
         Products.id,
         Products.name,

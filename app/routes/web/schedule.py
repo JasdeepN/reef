@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request, current_app
 from app import db
 from modules.models import DSchedule, Products, Dosing
-from modules.tank_context import get_current_tank_id
+from modules.tank_context import get_current_tank_id, ensure_tank_context
 from modules.utils.helper import datatables_response
 from sqlalchemy import text
 
@@ -233,8 +233,6 @@ def get_doses_for_schedule(schedule_id):
     ]
     return jsonify({'success': True, 'doses': result}), 200
 
-
-
 @bp.route('/get/stats', methods=['GET'])
 def get_schedule_stats():
     tank_id = get_current_tank_id()
@@ -351,6 +349,80 @@ def get_schedule_stats():
         stats.append(stat)
     return jsonify({"success": True, "data": stats})
 
+@bp.route('/get/next-doses', methods=['GET'])
+def get_next_doses():
+    """Get the next 3 scheduled doses for the current tank"""
+    tank_id = get_current_tank_id()
+    
+    if tank_id is None:
+        return jsonify({'error': 'No tank id provided'}), 400
+    
+    try:
+        # Get next scheduled doses using the same logic as the dosing scheduler
+        sql = """
+            SELECT 
+                ds.id as schedule_id,
+                ds.tank_id,
+                ds.product_id,
+                ds.amount,
+                ds.trigger_interval,
+                ds.last_refill,
+                p.name as product_name,
+                p.current_avail,
+                COALESCE(
+                    MAX(d.trigger_time), 
+                    ds.last_refill,
+                    DATE_SUB(NOW(), INTERVAL ds.trigger_interval SECOND)
+                ) as last_dose_time
+            FROM d_schedule ds
+            LEFT JOIN products p ON ds.product_id = p.id
+            LEFT JOIN dosing d ON ds.id = d.schedule_id
+            WHERE ds.tank_id = :tank_id
+            AND ds.suspended = 0
+            AND p.current_avail >= ds.amount
+            GROUP BY ds.id, ds.tank_id, ds.product_id, ds.amount, ds.trigger_interval, 
+                     ds.last_refill, p.name, p.current_avail
+            ORDER BY ds.id
+        """
+        
+        result = db.session.execute(text(sql), {'tank_id': tank_id})
+        scheduled_doses = []
+        
+        for row in result:
+            # Calculate next dose time
+            last_dose_time = row.last_dose_time or datetime.now()
+            
+            # Keep calculating next dose times until we find a future one (skip missed doses)
+            next_dose_time = last_dose_time + timedelta(seconds=row.trigger_interval)
+            while next_dose_time <= datetime.now():
+                next_dose_time += timedelta(seconds=row.trigger_interval)
+            
+            dose_data = {
+                'schedule_id': row.schedule_id,
+                'tank_id': row.tank_id,
+                'product_id': row.product_id,
+                'amount': row.amount,
+                'trigger_interval': row.trigger_interval,
+                'product_name': row.product_name,
+                'current_avail': row.current_avail,
+                'last_dose_time': last_dose_time.isoformat() if last_dose_time else None,
+                'next_dose_time': next_dose_time.isoformat()
+            }
+            scheduled_doses.append(dose_data)
+        
+        # Sort by next dose time and return the next 3
+        scheduled_doses.sort(key=lambda x: x['next_dose_time'])
+        next_three_doses = scheduled_doses[:3]
+        
+        return jsonify({
+            "success": True,
+            "data": next_three_doses,
+            "count": len(next_three_doses)
+        })
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @bp.route('/test/stats/<int:tank_id>', methods=['GET'])
 def test_schedule_stats(tank_id):
     """Test endpoint to set tank_id and get schedule stats for testing purposes"""
@@ -372,3 +444,14 @@ def test_dosing_history(tank_id):
     
     # Call the regular history endpoint
     return get_dosing_history()
+
+@bp.route('/test/next-doses/<int:tank_id>', methods=['GET'])
+def test_next_doses(tank_id):
+    """Test endpoint to set tank_id and get next doses for testing purposes"""
+    from modules.tank_context import set_tank_id_for_testing
+    
+    # Set the tank_id for testing
+    set_tank_id_for_testing(tank_id)
+    
+    # Call the regular next doses endpoint
+    return get_next_doses()

@@ -570,6 +570,86 @@
   }
 }
 
+// Upcoming Doses Section
+.upcoming-doses-section {
+  .card {
+    border: 1px solid var(--border-color, #8f91a2ff);
+    background: var(--card-bg, #56666B);
+    
+    .card-header {
+      background: var(--doser-primary) !important;
+      border-bottom: 1px solid var(--border-color, #8f91a2ff);
+      
+      h5 {
+        color: white !important;
+        margin-bottom: 0;
+      }
+    }
+    
+    .card-body {
+      background: var(--card-bg, #56666B);
+    }
+  }
+  
+  .dose-card {
+    .card {
+      border: 1px solid var(--border-color, #8f91a2ff);
+      background: var(--card-bg, #56666B);
+      transition: all 0.3s ease;
+      
+      &.border-primary {
+        border-color: var(--doser-primary) !important;
+        box-shadow: 0 0 0 0.1rem rgba(0, 123, 255, 0.25);
+      }
+      
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+      }
+      
+      .card-body {
+        padding: 1rem;
+        color: var(--text-color, #dcedffff);
+        
+        .card-title {
+          color: var(--doser-primary) !important;
+          font-weight: 600;
+          margin-bottom: 0.75rem;
+        }
+        
+        .dose-amount {
+          .badge {
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+          }
+        }
+        
+        .dose-timing {
+          .fw-bold {
+            font-size: 1.1rem;
+            color: var(--text-color, #dcedffff);
+            
+            &.text-danger {
+              color: var(--doser-danger) !important;
+              animation: pulse 2s infinite;
+            }
+          }
+          
+          .text-muted {
+            color: var(--text-muted, #94b0daff) !important;
+            font-size: 0.85rem;
+          }
+        }
+      }
+    }
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 // Animations
 @keyframes pulse {
   0%, 100% {

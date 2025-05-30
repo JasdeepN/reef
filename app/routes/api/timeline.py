@@ -2,7 +2,7 @@ import os
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 
-bp = Blueprint('timeline_api', __name__)
+bp = Blueprint('timeline_api', __name__, url_prefix='/timeline')
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'user', 'upload')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
@@ -10,7 +10,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@bp.route('/timeline/upload', methods=['POST'])
+@bp.route('/upload', methods=['POST'])
 def timeline_upload():
     if 'file' not in request.files:
         return jsonify({'success': False, 'error': 'No file part'}), 400

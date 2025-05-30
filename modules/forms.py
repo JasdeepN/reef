@@ -6,6 +6,13 @@ from wtforms.validators import DataRequired, Optional, Length
 import enum
 from datetime import date
 import datetime as dt
+
+class OverdueHandlingEnum(enum.Enum):
+    alert_only = 'alert_only'           # Skip missed doses, show alert
+    grace_period = 'grace_period'       # Allow dosing within grace window
+    catch_up = 'catch_up'              # Dose immediately if within limits
+    manual_approval = 'manual_approval' # Require user confirmation
+
 class BaseForm(FlaskForm):
     def validate(self, extra_validators=None):
         """Default validate method for forms."""
@@ -53,6 +60,24 @@ class DScheduleForm(FlaskForm):
     last_trigger = DateTimeField("Last Trigger", format='%Y-%m-%d %H:%M:%S', validators=[Optional()])
     trigger_interval = IntegerField("Trigger Interval (minutes)", validators=[DataRequired()])
     last_refill = DateTimeField("Last Refill", format='%Y-%m-%d %H:%M:%S', validators=[Optional()])
+    
+    # Overdue handling configuration
+    overdue_handling = SelectField(
+        "Overdue Handling",
+        choices=[
+            ('alert_only', 'Alert Only (Skip missed doses)'),
+            ('grace_period', 'Grace Period (Allow within time window)'),
+            ('catch_up', 'Catch-up (Dose immediately if within limits)'),
+            ('manual_approval', 'Manual Approval Required')
+        ],
+        default='alert_only',
+        validators=[DataRequired()]
+    )
+    grace_period_hours = IntegerField("Grace Period (hours)", default=12, validators=[Optional()])
+    max_catch_up_doses = IntegerField("Max Catch-up Doses", default=3, validators=[Optional()])
+    catch_up_window_hours = IntegerField("Catch-up Window (hours)", default=24, validators=[Optional()])
+    overdue_notification_enabled = BooleanField("Enable Overdue Notifications", default=True)
+    
     submit = SubmitField("Submit Schedule")
 
 # --- Combined Form ---

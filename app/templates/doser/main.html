@@ -35,8 +35,27 @@
     </div>
   </div>
   
+  <!-- Upcoming Doses Section -->
+  <div class="row mt-4 upcoming-doses-section">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0">📅 Next 3 Scheduled Doses</h5>
+        </div>
+        <div class="card-body" id="upcoming-doses-container">
+          <div class="text-center p-3">
+            <div class="spinner-border spinner-border-sm text-primary" role="status">
+              <span class="visually-hidden">Loading upcoming doses...</span>
+            </div>
+            <div class="mt-2 text-muted">Loading upcoming doses...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
   <!-- Dosing Schedule Cards Container -->
-  <div class="row g-3" id="dosing-cards-container">
+  <div class="row g-3 mt-4" id="dosing-cards-container">
     <!-- Loading state -->
     <div class="col-12 text-center p-5" id="loading-indicator">
       <div class="spinner-border spinner-border-lg text-primary" role="status">
@@ -153,6 +172,9 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Generate schedule cards
       generateScheduleCards();
+      
+      // Load upcoming doses
+      loadUpcomingDoses();
       
     })
     .catch(error => {
@@ -271,24 +293,25 @@ document.addEventListener('DOMContentLoaded', function() {
       if (lastTrigger) {
         try {
           const lastTriggerDate = new Date(lastTrigger);
-          const nextDoseDate = new Date(lastTriggerDate.getTime() + (triggerInterval * 1000));
+          let nextDoseDate = new Date(lastTriggerDate.getTime() + (triggerInterval * 1000));
           const now = new Date();
           
-          if (nextDoseDate > now) {
-            const diffMs = nextDoseDate - now;
-            const diffMinutes = Math.floor(diffMs / (1000 * 60));
-            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-            
-            if (diffMinutes < 60) {
-              nextDoseText = `${diffMinutes} minutes`;
-            } else if (diffHours < 24) {
-              nextDoseText = `${diffHours} hours, ${diffMinutes % 60} min`;
-            } else {
-              nextDoseText = `${diffDays} days, ${diffHours % 24} hrs`;
-            }
+          // Skip missed doses by calculating forward to the next future dose
+          while (nextDoseDate <= now) {
+            nextDoseDate = new Date(nextDoseDate.getTime() + (triggerInterval * 1000));
+          }
+          
+          const diffMs = nextDoseDate - now;
+          const diffMinutes = Math.floor(diffMs / (1000 * 60));
+          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          
+          if (diffMinutes < 60) {
+            nextDoseText = `${diffMinutes} minutes`;
+          } else if (diffHours < 24) {
+            nextDoseText = `${diffHours} hours, ${diffMinutes % 60} min`;
           } else {
-            nextDoseText = 'Overdue';
+            nextDoseText = `${diffDays} days, ${diffHours % 24} hrs`;
           }
         } catch (e) {
           // Fallback to interval-based calculation
@@ -483,6 +506,138 @@ document.addEventListener('DOMContentLoaded', function() {
       showNotification('❌ Network error during refill', 'error');
     });
   };
+   function loadUpcomingDoses() {
+    console.log('🔥 loadUpcomingDoses() called');
+    
+    // Use a longer timeout to ensure DOM is ready
+    setTimeout(function() {
+      console.log('🕒 Timeout executed, looking for container...');
+      const container = document.getElementById('upcoming-doses-container');
+      
+      if (!container) {
+        console.error('❌ Container not found. Available elements:');
+        document.querySelectorAll('[id]').forEach(el => console.log('- ID:', el.id));
+        return;
+      }
+      
+      console.log('✅ Container found, proceeding with API call');
+      
+      // Show loading state
+      container.innerHTML = `
+        <div class="text-center p-3">
+          <div class="spinner-border spinner-border-sm text-primary" role="status">
+            <span class="visually-hidden">Loading upcoming doses...</span>
+          </div>
+          <div class="mt-2 text-muted">Loading upcoming doses...</div>
+        </div>
+      `;
+
+      // Create fresh URL to bypass caching
+      const timestamp = new Date().getTime();
+      const nextDosesUrl = apiUrls.next_doses + '?_=' + timestamp + '&bust=' + Math.random();
+
+      fetch(nextDosesUrl, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok: ' + response.status);
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (!data.success) {
+          throw new Error(data.message || 'Failed to load upcoming doses');
+        }
+        
+        const upcomingDoses = data.data || [];
+        displayUpcomingDoses(upcomingDoses);
+        
+      })
+      .catch(error => {
+        console.error('Error loading upcoming doses:', error);
+        container.innerHTML = `
+          <div class="text-center text-danger p-3">
+            <i class="fas fa-exclamation-triangle mb-2"></i>
+            <div>Error loading upcoming doses</div>
+            <small>${error.message}</small>
+          </div>
+        `;
+      });
+    }, 500); // Longer delay to ensure DOM is ready
+  }
+  
+  function displayUpcomingDoses(doses) {
+    const container = document.getElementById('upcoming-doses-container');
+    
+    if (doses.length === 0) {
+      container.innerHTML = `
+        <div class="text-center text-muted p-3">
+          <i class="fas fa-clock fa-2x mb-2"></i>
+          <div>No upcoming doses scheduled</div>
+          <small>All schedules may be suspended or products unavailable</small>
+        </div>
+      `;
+      return;
+    }
+    
+    // Create dose cards
+    let dosesHtml = '<div class="row">';
+    
+    doses.forEach((dose, index) => {
+      const nextDoseDate = new Date(dose.next_dose_time);
+      const now = new Date();
+      const timeDiff = nextDoseDate - now;
+      
+      // Format time until dose
+      let timeText = '';
+      if (timeDiff > 0) {
+        const diffMinutes = Math.floor(timeDiff / (1000 * 60));
+        const diffHours = Math.floor(diffMinutes / 60);
+        const diffDays = Math.floor(diffHours / 24);
+        
+        if (diffDays > 0) {
+          timeText = `${diffDays}d ${diffHours % 24}h`;
+        } else if (diffHours > 0) {
+          timeText = `${diffHours}h ${diffMinutes % 60}m`;
+        } else {
+          timeText = `${diffMinutes}m`;
+        }
+      } else {
+        timeText = 'Due now';
+      }
+      
+      // Format the absolute time
+      const dateText = nextDoseDate.toLocaleDateString();
+      const timeOnly = nextDoseDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      
+      dosesHtml += `
+        <div class="col-md-4 mb-3 dose-card">
+          <div class="card h-100 ${index === 0 ? 'border-primary' : ''}">
+            <div class="card-body text-center">
+              <h6 class="card-title text-primary">${dose.product_name}</h6>
+              <div class="dose-amount mb-2">
+                <span class="badge bg-info">${dose.amount}ml</span>
+              </div>
+              <div class="dose-timing">
+                <div class="fw-bold ${timeDiff <= 300000 ? 'text-danger' : ''}">${timeText}</div>
+                <small class="text-muted">${dateText} ${timeOnly}</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    
+    dosesHtml += '</div>';
+    container.innerHTML = dosesHtml;
+  }
   
   function showNotification(message, type) {
     // Create notification element

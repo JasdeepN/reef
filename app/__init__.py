@@ -28,6 +28,7 @@ app.config['SECRET_KEY'] = b"f0-aTOho|y[PCk'KS6O(GH/CKCH15;"
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
+app.config['TEMPLATES_AUTO_RELOAD'] = True  # Force template reloading
 
 UPLOAD_FOLDER = 'static/temp'
 
@@ -102,12 +103,43 @@ x_metrics.counter('home_requests_total', 'Total requests to the / endpoint')
 x_metrics.counter('metrics_requests_total', 'Total requests to the /metrics endpoint')
 x_metrics.counter('test_results_requests_total', 'Total requests to the /test_results endpoint')
 
+# Initialize Dosing Scheduler (only in non-testing mode)
+dosing_scheduler = None
+if not app.config.get('TESTING'):
+    try:
+        from modules.dosing_scheduler import DosingScheduler
+        
+        # Configure scheduler settings
+        app.config['SCHEDULER_ENABLED'] = os.getenv('SCHEDULER_ENABLED', 'true').lower() == 'true'
+        app.config['SCHEDULER_AUTOSTART'] = os.getenv('SCHEDULER_AUTOSTART', 'true').lower() == 'true'
+        app.config['SCHEDULER_CHECK_INTERVAL'] = int(os.getenv('SCHEDULER_CHECK_INTERVAL', '60'))  # seconds
+        app.config['SCHEDULER_TIMEZONE'] = os.getenv('SCHEDULER_TIMEZONE', 'UTC')
+        app.config['SCHEDULER_BASE_URL'] = os.getenv('SCHEDULER_BASE_URL', 'http://localhost:5000')
+        
+        if app.config['SCHEDULER_ENABLED']:
+            dosing_scheduler = DosingScheduler(app, app.config['SCHEDULER_BASE_URL'])
+            app.dosing_scheduler = dosing_scheduler  # Make it accessible through app
+            
+            # Auto-start if enabled
+            if app.config['SCHEDULER_AUTOSTART']:
+                try:
+                    dosing_scheduler.start()
+                    print("[app/__init__.py] Dosing scheduler initialized and started", file=sys.stderr, flush=True)
+                except Exception as start_error:
+                    print(f"[app/__init__.py] Warning: Failed to auto-start dosing scheduler: {start_error}", file=sys.stderr, flush=True)
+            else:
+                print("[app/__init__.py] Dosing scheduler initialized (auto-start disabled)", file=sys.stderr, flush=True)
+        else:
+            print("[app/__init__.py] Dosing scheduler disabled by configuration", file=sys.stderr, flush=True)
+    except Exception as e:
+        print(f"[app/__init__.py] Warning: Failed to initialize dosing scheduler: {e}", file=sys.stderr, flush=True)
+
 # Import and register routes
 from app.routes.api import api_bp
 from app.routes.web import web_fn
 app.register_blueprint(api_bp)
 app.register_blueprint(web_fn)
-from app.routes import corals, home, metrics, test, doser, models
+from app.routes import corals, home, metrics, test, doser, models, scheduler, overdue
 import modules
 
 # Move context processor registration here to avoid circular import

@@ -66,7 +66,7 @@ function openModal(data, tableId) {
       obj[item.name] = item.value;
       return obj;
     }, {});
-    const url = isEdit ? `/api/edit/${tableId}` : `/api/new/${tableId}`;
+    const url = isEdit ? `/api/v1/edit/${tableId}` : `/api/v1/new/${tableId}`;
     const method = isEdit ? 'PUT' : 'POST';
     if (isEdit) {
       formData.id = data.id; // Include the ID of the row if editing

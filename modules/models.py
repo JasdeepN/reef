@@ -104,6 +104,12 @@ class DosingTypeEnum(enum.Enum):
     single = 'single'
     intermittent = 'intermittent'
 
+class OverdueHandlingEnum(enum.Enum):
+    alert_only = 'alert_only'           # Skip missed doses, show alert
+    grace_period = 'grace_period'       # Allow dosing within grace window
+    catch_up = 'catch_up'              # Dose immediately if within limits
+    manual_approval = 'manual_approval' # Require user confirmation
+
 class Dosing(db.Model):
     __tablename__ = 'dosing'
 
@@ -138,6 +144,13 @@ class DSchedule(db.Model):
     amount = db.Column(db.Float, nullable=False)
     tank_id = db.Column(db.Integer, db.ForeignKey('tanks.id'), nullable=False, index=True)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
+    
+    # Overdue handling configuration
+    overdue_handling = db.Column(db.Enum(OverdueHandlingEnum), default=OverdueHandlingEnum.alert_only, nullable=False)
+    grace_period_hours = db.Column(db.Integer, default=12)  # Grace period in hours for grace_period mode
+    max_catch_up_doses = db.Column(db.Integer, default=3)   # Maximum number of doses to catch up
+    catch_up_window_hours = db.Column(db.Integer, default=24)  # Time window for catch-up dosing
+    overdue_notification_enabled = db.Column(db.Boolean, default=True)  # Enable overdue notifications
 
     # Relationships
     tank = db.relationship('Tank', backref=db.backref('schedules', lazy=True))
@@ -154,8 +167,49 @@ def get_d_schedule_dict(d_schedule):
         "trigger_interval": d_schedule.trigger_interval,
         "suspended": d_schedule.suspended,
         "last_refill": d_schedule.last_refill.isoformat() if d_schedule.last_refill else None,
-        "amount": d_schedule.amount
+        "amount": d_schedule.amount,
+        "overdue_handling": d_schedule.overdue_handling.value if d_schedule.overdue_handling else 'alert_only',
+        "grace_period_hours": d_schedule.grace_period_hours,
+        "max_catch_up_doses": d_schedule.max_catch_up_doses,
+        "catch_up_window_hours": d_schedule.catch_up_window_hours,
+        "overdue_notification_enabled": d_schedule.overdue_notification_enabled
     }
+
+class OverdueDoseRequest(db.Model):
+    """Model for tracking overdue doses that require manual approval or tracking."""
+    __tablename__ = 'overdue_dose_requests'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    schedule_id = db.Column(db.Integer, db.ForeignKey('d_schedule.id'), nullable=False)
+    missed_dose_time = db.Column(db.DateTime, nullable=False)  # When the dose was originally scheduled
+    detected_time = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())  # When overdue was detected
+    hours_overdue = db.Column(db.Float, nullable=False)  # Hours past scheduled time
+    status = db.Column(db.Enum('pending', 'approved', 'rejected', 'expired', 'auto_dosed'), nullable=False, default='pending')
+    approved_by = db.Column(db.String(64))  # User who approved/rejected
+    approved_time = db.Column(db.DateTime)
+    notes = db.Column(db.Text)
+    
+    # Relationships
+    schedule = db.relationship('DSchedule', backref=db.backref('overdue_requests', lazy=True))
+    
+    def __repr__(self):
+        return f"<OverdueDoseRequest {self.id} (Schedule {self.schedule_id}, {self.hours_overdue:.1f}h overdue)>"
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "schedule_id": self.schedule_id,
+            "product_name": self.schedule.product.name if self.schedule and self.schedule.product else "Unknown",
+            "missed_dose_time": self.missed_dose_time.isoformat() if self.missed_dose_time else None,
+            "detected_time": self.detected_time.isoformat() if self.detected_time else None,
+            "hours_overdue": self.hours_overdue,
+            "status": self.status,
+            "approved_by": self.approved_by,
+            "approved_time": self.approved_time.isoformat() if self.approved_time else None,
+            "notes": self.notes,
+            "amount": self.schedule.amount if self.schedule else None,
+            "tank_id": self.schedule.tank_id if self.schedule else None
+        }
 
 class Coral(db.Model):
     __tablename__ = 'corals'

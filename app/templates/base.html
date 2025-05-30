@@ -69,6 +69,7 @@
             <ul class="dropdown-menu">
               <li><a class="dropdown-item" href="/doser">Main</a></li>
               <li><a class="dropdown-item" href="/doser/schedule/new">📅 Schedule Manager</a></li>
+              <li><a class="dropdown-item" href="/overdue/dashboard">⏰ Overdue Management</a></li>
               <li><a class="dropdown-item" href="/doser/products">Products</a></li>
               <li><a class="dropdown-item" href="/doser/history">History</a></li>
               <li><a class="dropdown-item" href="/doser/db">View</a></li>
@@ -100,7 +101,10 @@
             </ul>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="#">Link</a>
+            <a class="nav-link" href="/scheduler">
+              <i class="fas fa-clock"></i> Scheduler
+            </a>
+          </li>
           
           <!-- <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -120,6 +124,9 @@
         <div class="d-flex align-items-center ms-auto">
           <form id="tank-select-form" class="d-flex" method="post" action="/set_tank" style="margin-bottom:0;">
             <select class="form-select" id="tank-select" name="tank_id" style="min-width: 180px;" onchange="this.form.submit()">
+              {% if not session.get('tank_id') and not tank_id %}
+                <option value="" selected disabled>Select a tank...</option>
+              {% endif %}
               {% for tank in tanks %}
                 <option value="{{ tank.id }}" {% if tank.id == session.get('tank_id') or tank.id == tank_id %}selected{% endif %}>{{ tank.name }}</option>
               {% endfor %}
@@ -130,6 +137,37 @@
     </div>
   </nav>
 
+  <!-- Global Tank Context Modal -->
+  <div class="modal fade" id="tankContextModal" tabindex="-1" aria-labelledby="tankContextModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="tankContextModalLabel">
+            <i class="fas fa-fish me-2"></i>Select Tank
+          </h5>
+        </div>
+        <div class="modal-body">
+          <p class="mb-3">Please select a tank to continue using ReefDB. Your selection will be remembered for future visits.</p>
+          <form id="tank-context-form" method="post" action="/set_tank">
+            <div class="mb-3">
+              <label for="modal-tank-select" class="form-label">Available Tanks:</label>
+              <select class="form-select" id="modal-tank-select" name="tank_id" required>
+                <option value="">Choose a tank...</option>
+                {% for tank in tanks %}
+                  <option value="{{ tank.id }}">{{ tank.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="d-grid">
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-check me-2"></i>Select Tank
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 
     <!-- <script src="index.js"></script> -->
 
@@ -144,19 +182,53 @@
   
    
   <script>
- 
-    // Centralized tank context change JS
+    // Simple Tank Context Management - VS Code Safe
     document.addEventListener('DOMContentLoaded', function() {
-      var tankSelect = document.getElementById('tank-select');
+      // Basic tank selector functionality - no timers, no memory leaks
+      const tankSelect = document.getElementById('tank-select');
       if (tankSelect) {
         tankSelect.addEventListener('change', function() {
-          // Optionally, you could add a loading spinner or disable the form here
-          this.form.submit();
+          const selectedTankId = this.value;
+          if (selectedTankId) {
+            // Store selection in localStorage if available
+            try {
+              localStorage.setItem('reefdb_tank_id', selectedTankId);
+            } catch (e) {
+              // localStorage not available, continue without it
+            }
+          }
+        });
+      }
+
+      // If no tank is selected and tanks are available, show the modal
+      const currentTankId = tankSelect ? tankSelect.value : null;
+      const hasOptions = tankSelect && tankSelect.options.length > 1;
+      
+      if (!currentTankId && hasOptions) {
+        const modal = new bootstrap.Modal(document.getElementById('tankContextModal'));
+        modal.show();
+      }
+      
+      // Handle tank context form submission
+      const tankContextForm = document.getElementById('tank-context-form');
+      if (tankContextForm) {
+        tankContextForm.addEventListener('submit', function(e) {
+          const selectedTankId = document.getElementById('modal-tank-select').value;
+          if (!selectedTankId) {
+            e.preventDefault();
+            alert('Please select a tank');
+            return;
+          }
+          
+          // Store the selection
+          try {
+            localStorage.setItem('reefdb_tank_id', selectedTankId);
+          } catch (e) {
+            // Continue without localStorage
+          }
         });
       }
     });
-
-
   </script>
   {% endblock %}
 

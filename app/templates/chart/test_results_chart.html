@@ -623,7 +623,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Modified loadChartData function to store original data
 function loadChartData() {
   console.log('Loading chart data...');
-  fetch('/api/test-results-data')
+  fetch('/api/v1/home/test-results-data')
     .then(response => {
       console.log('Response status:', response.status);
       return response.json();

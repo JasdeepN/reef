@@ -167,6 +167,56 @@
               </div>
             </div>
 
+            <!-- Overdue Handling Configuration -->
+            <div class="card mb-3 border-info">
+              <div class="card-header bg-info text-white">
+                <h6 class="mb-0">⚠️ Overdue Dose Handling</h6>
+              </div>
+              <div class="card-body">
+                <div class="row mb-3">
+                  <div class="col-md-6">
+                    <label for="overdue_strategy" class="form-label">Strategy *</label>
+                    <select class="form-select" id="overdue_strategy" name="overdue_strategy" required>
+                      <option value="alert_only" selected>Alert Only (Skip missed doses)</option>
+                      <option value="grace_period">Grace Period (Allow within time window)</option>
+                      <option value="catch_up">Catch-up (Dose immediately if within limits)</option>
+                      <option value="manual_approval">Manual Approval Required</option>
+                    </select>
+                    <div class="form-text">How to handle doses that are overdue</div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-check mt-4">
+                      <input class="form-check-input" type="checkbox" id="overdue_notification_enabled" name="overdue_notification_enabled" checked>
+                      <label class="form-check-label" for="overdue_notification_enabled">
+                        🔔 Enable Overdue Notifications
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="row overdue-options" id="grace-period-options" style="display: none;">
+                  <div class="col-md-6">
+                    <label for="grace_period_hours" class="form-label">Grace Period (hours)</label>
+                    <input type="number" class="form-control" id="grace_period_hours" name="grace_period_hours" value="12" min="1" max="72">
+                    <div class="form-text">Allow dosing within this many hours after scheduled time</div>
+                  </div>
+                </div>
+
+                <div class="row overdue-options" id="catch-up-options" style="display: none;">
+                  <div class="col-md-6">
+                    <label for="max_catch_up_doses" class="form-label">Max Catch-up Doses</label>
+                    <input type="number" class="form-control" id="max_catch_up_doses" name="max_catch_up_doses" value="3" min="1" max="10">
+                    <div class="form-text">Maximum number of missed doses to catch up on</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="catch_up_window_hours" class="form-label">Catch-up Window (hours)</label>
+                    <input type="number" class="form-control" id="catch_up_window_hours" name="catch_up_window_hours" value="24" min="1" max="168">
+                    <div class="form-text">Time window for catch-up dosing</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Submit Button -->
             <div class="d-grid gap-2 d-md-flex justify-content-md-end">
               <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
@@ -300,6 +350,30 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('times_per_week').dispatchEvent(new Event('input'));
   document.getElementById('custom_seconds').dispatchEvent(new Event('input'));
 
+  // Handle overdue strategy changes
+  function updateOverdueConfig() {
+    const strategy = document.getElementById('overdue_strategy').value;
+    const gracePeriodOptions = document.getElementById('grace-period-options');
+    const catchUpOptions = document.getElementById('catch-up-options');
+    
+    // Hide all options by default
+    gracePeriodOptions.style.display = 'none';
+    catchUpOptions.style.display = 'none';
+    
+    // Show relevant options based on strategy
+    if (strategy === 'grace_period') {
+      gracePeriodOptions.style.display = 'block';
+    } else if (strategy === 'catch_up') {
+      catchUpOptions.style.display = 'block';
+    }
+  }
+  
+  // Add event listener for overdue strategy changes
+  document.getElementById('overdue_strategy').addEventListener('change', updateOverdueConfig);
+  
+  // Initialize overdue config display
+  updateOverdueConfig();
+
   // Handle form submission
   document.getElementById('scheduleForm').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -313,6 +387,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Convert checkbox value
     data.suspended = document.getElementById('suspended').checked;
+    data.overdue_notification_enabled = document.getElementById('overdue_notification_enabled').checked;
 
     fetch('/doser/schedule/new', {
       method: 'POST',
