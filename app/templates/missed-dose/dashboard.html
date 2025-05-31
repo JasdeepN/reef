@@ -1,11 +1,11 @@
-{# filepath: /home/admin/dockers/reef/reefdb/web/app/templates/overdue/dashboard.html #}
+{# filepath: /home/admin/dockers/reef/reefdb/web/app/templates/missed-dose/dashboard.html #}
 {% extends "base.html" %}
 
 {% block content %}
 <div class="container-fluid">
     <div class="dashboard-header">
-        <h1>Overdue Dose Management</h1>
-        <p class="text-muted">Configure how missed doses should be handled and approve pending overdue doses</p>
+        <h1>Missed Dose Management</h1>
+        <p class="text-muted">Configure how missed doses should be handled and approve pending missed doses</p>
     </div>
 
     <!-- Pending Approvals Section -->
@@ -14,7 +14,7 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Pending Overdue Dose Approvals</h5>
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Pending Missed Dose Approvals</h5>
                 </div>
                 <div class="card-body">
                     <div id="pending-requests-container">
@@ -27,7 +27,7 @@
                                         <p class="card-text">
                                             <strong>Amount:</strong> {{ request.amount }}ml<br>
                                             <strong>Missed dose time:</strong> {{ request.missed_dose_time }}<br>
-                                            <strong>Hours overdue:</strong> {{ "%.1f"|format(request.hours_overdue) }}h<br>
+                                            <strong>Hours missed:</strong> {{ "%.1f"|format(request.hours_missed) }}h<br>
                                             <strong>Detected:</strong> {{ request.detected_time }}
                                         </p>
                                     </div>
@@ -55,7 +55,7 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-cog"></i> Overdue Handling Configuration</h5>
+                    <h5 class="mb-0"><i class="fas fa-cog"></i> Missed Dose Handling Configuration</h5>
                     <small class="text-muted d-block mt-1">Configure how each dosing schedule should handle missed doses</small>
                 </div>
                 <div class="card-body">
@@ -64,7 +64,7 @@
                         <h6><i class="fas fa-info-circle"></i> Configuration Guide</h6>
                         <div class="row">
                             <div class="col-md-6">
-                                <strong>Overdue Strategies:</strong>
+                                <strong>Missed Dose Strategies:</strong>
                                 <ul class="mb-2">
                                     <li><strong>Alert Only:</strong> Skip missed doses, show notifications only</li>
                                     <li><strong>Grace Period:</strong> Allow dosing within specified hours after missed time</li>
@@ -72,17 +72,13 @@
                             </div>
                             <div class="col-md-6">
                                 <ul class="mb-2">
-                                    <li><strong>Catch-up:</strong> Dose immediately if within limits (max doses in time window)</li>
-                                    <li><strong>Manual Approval:</strong> Require user confirmation for each overdue dose</li>
+                                    <li><strong>Manual Approval:</strong> Require user confirmation for each missed dose</li>
                                 </ul>
                             </div>
                         </div>
                         <div class="row mt-2">
-                            <div class="col-md-6">
+                            <div class="col-md-12">
                                 <strong>Grace Period:</strong> Hours after scheduled time to allow automatic dosing (1-72 hours)
-                            </div>
-                            <div class="col-md-6">
-                                <strong>Max Catch-up:</strong> Maximum consecutive doses to give when catching up (1-10 doses)
                             </div>
                         </div>
                     </div>
@@ -94,9 +90,8 @@
                                     <th>Product</th>
                                     <th>Amount</th>
                                     <th>Interval</th>
-                                    <th>Overdue Strategy <i class="fas fa-question-circle text-muted" title="How to handle missed doses"></i></th>
+                                    <th>Missed Dose Strategy <i class="fas fa-question-circle text-muted" title="How to handle missed doses"></i></th>
                                     <th>Grace Period (hours) <i class="fas fa-question-circle text-muted" title="Hours after scheduled time to allow dosing"></i></th>
-                                    <th>Max Catch-up <i class="fas fa-question-circle text-muted" title="Maximum consecutive doses when catching up"></i></th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -107,9 +102,9 @@
                                     <td>{{ schedule.amount }}ml</td>
                                     <td>{{ schedule.trigger_interval // 3600 }}h</td>
                                     <td>
-                                        <select class="form-select form-select-sm overdue-strategy" data-schedule-id="{{ schedule.id }}">
-                                            {% for option in overdue_handling_options %}
-                                            <option value="{{ option.value }}" {% if option.value == schedule.overdue_handling %}selected{% endif %}>
+                                        <select class="form-select form-select-sm missed-dose-strategy" data-schedule-id="{{ schedule.id }}">
+                                            {% for option in missed_dose_handling_options %}
+                                            <option value="{{ option.value }}" {% if option.value == schedule.missed_dose_handling %}selected{% endif %}>
                                                 {{ option.label }}
                                             </option>
                                             {% endfor %}
@@ -118,20 +113,14 @@
                                     <td>
                                         <input type="number" class="form-control form-control-sm grace-period" 
                                                data-schedule-id="{{ schedule.id }}" 
-                                               value="{{ schedule.grace_period_hours }}" 
+                                               value="{{ schedule.missed_dose_grace_period_hours }}" 
                                                min="1" max="72" step="1">
                                     </td>
                                     <td>
-                                        <input type="number" class="form-control form-control-sm max-catch-up" 
-                                               data-schedule-id="{{ schedule.id }}" 
-                                               value="{{ schedule.max_catch_up_doses }}" 
-                                               min="1" max="10" step="1">
-                                    </td>
-                                    <td>
-                                        <button class="btn btn-primary btn-sm save-config-btn" data-schedule-id="{{ schedule.id }}" title="Save overdue configuration for this schedule">
+                                        <button class="btn btn-primary btn-sm save-config-btn" data-schedule-id="{{ schedule.id }}" title="Save missed dose configuration for this schedule">
                                             <i class="fas fa-save"></i> Save
                                         </button>
-                                        <button class="btn btn-info btn-sm analyze-btn" data-schedule-id="{{ schedule.id }}" title="Analyze current overdue status and recommended action">
+                                        <button class="btn btn-info btn-sm analyze-btn" data-schedule-id="{{ schedule.id }}" title="Analyze current missed dose status and recommended action">
                                             <i class="fas fa-search"></i> Analyze
                                         </button>
                                     </td>
@@ -150,7 +139,7 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-search"></i> Overdue Analysis Results</h5>
+                    <h5 class="modal-title"><i class="fas fa-search"></i> Missed Dose Analysis Results</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="analysis-results">
@@ -197,8 +186,8 @@ const API_URLS = {{ api_urls | tojson }};
 let pendingAction = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Handle overdue strategy changes
-    document.querySelectorAll('.overdue-strategy').forEach(select => {
+    // Handle missed dose strategy changes
+    document.querySelectorAll('.missed-dose-strategy').forEach(select => {
         select.addEventListener('change', function() {
             const scheduleId = this.getAttribute('data-schedule-id');
             const strategy = this.value;
@@ -206,21 +195,13 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Show/hide relevant configuration fields based on strategy
             const gracePeriodInput = row.querySelector('.grace-period');
-            const maxCatchUpInput = row.querySelector('.max-catch-up');
             
             gracePeriodInput.disabled = strategy !== 'grace_period';
-            maxCatchUpInput.disabled = strategy !== 'catch_up';
             
             if (strategy === 'grace_period') {
                 gracePeriodInput.classList.add('border-primary');
             } else {
                 gracePeriodInput.classList.remove('border-primary');
-            }
-            
-            if (strategy === 'catch_up') {
-                maxCatchUpInput.classList.add('border-primary');
-            } else {
-                maxCatchUpInput.classList.remove('border-primary');
             }
         });
         
@@ -274,16 +255,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function saveConfiguration(scheduleId) {
     const row = document.querySelector(`tr[data-schedule-id="${scheduleId}"]`);
-    const strategy = row.querySelector('.overdue-strategy').value;
+    const strategy = row.querySelector('.missed-dose-strategy').value;
     const gracePeriod = parseInt(row.querySelector('.grace-period').value);
-    const maxCatchUp = parseInt(row.querySelector('.max-catch-up').value);
 
     const data = {
         schedule_id: parseInt(scheduleId),
-        overdue_handling: strategy,
-        grace_period_hours: gracePeriod,
-        max_catch_up_doses: maxCatchUp,
-        overdue_notification_enabled: true
+        missed_dose_handling: strategy,
+        missed_dose_grace_period_hours: gracePeriod,
+        missed_dose_notification_enabled: true
     };
 
     fetch(API_URLS.update_config, {
@@ -307,7 +286,7 @@ function saveConfiguration(scheduleId) {
 }
 
 function analyzeSchedule(scheduleId) {
-    fetch(`/api/v1/overdue/analyze/${scheduleId}`)
+    fetch(`/api/v1/missed-dose/analyze/${scheduleId}`)
     .then(response => response.json())
     .then(data => {
         if (data.success) {
@@ -317,8 +296,7 @@ function analyzeSchedule(scheduleId) {
             const strategyExplanations = {
                 'alert_only': 'Skip missed doses and continue with next scheduled dose',
                 'grace_period': 'Allow dosing within the configured grace period window',
-                'catch_up': 'Dose immediately if within catch-up limits',
-                'manual_approval': 'Require manual approval for each overdue dose'
+                'manual_approval': 'Require manual approval for each missed dose'
             };
             
             // Get action color based on action type
@@ -356,8 +334,8 @@ function analyzeSchedule(scheduleId) {
                                         </div>
                                     </div>
                                     <div class="row mb-2">
-                                        <div class="col-6"><strong>Hours Overdue:</strong></div>
-                                        <div class="col-6">${analysis.hours_overdue ? analysis.hours_overdue.toFixed(1) : '0.0'}h</div>
+                                        <div class="col-6"><strong>Hours Missed:</strong></div>
+                                        <div class="col-6">${analysis.hours_missed ? analysis.hours_missed.toFixed(1) : '0.0'}h</div>
                                     </div>
                                     ${analysis.missed_dose_time ? `
                                     <div class="row mb-2">
@@ -379,12 +357,6 @@ function analyzeSchedule(scheduleId) {
                                         <div class="col-12"><strong>Current Strategy:</strong></div>
                                         <div class="col-12 text-muted small">${strategyExplanations[analysis.action] || 'Unknown strategy'}</div>
                                     </div>
-                                    ${analysis.immediate_doses_count > 0 ? `
-                                    <div class="row mb-2">
-                                        <div class="col-6"><strong>Catch-up Doses:</strong></div>
-                                        <div class="col-6"><span class="badge bg-info">${analysis.immediate_doses_count}</span></div>
-                                    </div>
-                                    ` : ''}
                                 </div>
                             </div>
                         </div>
@@ -394,7 +366,7 @@ function analyzeSchedule(scheduleId) {
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i> 
                             <strong>About Analysis:</strong> This analysis shows what action would be taken based on your current 
-                            overdue handling configuration. You can modify the strategy and settings above to change this behavior.
+                            missed dose handling configuration. You can modify the strategy and settings above to change this behavior.
                         </small>
                     </div>
                 </div>
@@ -413,7 +385,7 @@ function analyzeSchedule(scheduleId) {
 function showNotesModal(action, requestId) {
     pendingAction = { action, requestId };
     document.getElementById('notes-modal-title').textContent = 
-        action === 'approve' ? 'Approve Overdue Dose' : 'Reject Overdue Dose';
+        action === 'approve' ? 'Approve Missed Dose' : 'Reject Missed Dose';
     document.getElementById('approval-notes').value = '';
     new bootstrap.Modal(document.getElementById('notesModal')).show();
 }
@@ -431,7 +403,7 @@ function approveRequest(requestId, notes) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showToast('Overdue dose approved and scheduled', 'success');
+            showToast('Missed dose approved and scheduled', 'success');
             removeRequestFromDOM(requestId);
         } else {
             showToast('Error approving request: ' + data.error, 'error');
@@ -459,7 +431,7 @@ function rejectRequest(requestId, notes) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showToast('Overdue dose rejected', 'success');
+            showToast('Missed dose rejected', 'success');
             removeRequestFromDOM(requestId);
         } else {
             showToast('Error rejecting request: ' + data.error, 'error');

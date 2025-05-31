@@ -268,45 +268,34 @@ def handle_schedule_edit_submission(data, schedule_id, tank_id):
         if trigger_interval is None:
             return jsonify({"success": False, "error": "Invalid schedule configuration"}), 400
         
-        # Process overdue handling configuration
-        overdue_strategy = data.get('overdue_strategy', 'alert_only')
-        grace_period_hours = data.get('grace_period_hours')
-        max_catch_up_doses = data.get('max_catch_up_doses')
-        overdue_notification_enabled = data.get('overdue_notification_enabled', False)
+        # Process missed dose handling configuration
+        missed_dose_handling = data.get('missed_dose_handling', 'alert_only')
+        missed_dose_grace_period_hours = data.get('missed_dose_grace_period_hours')
+        missed_dose_notification_enabled = data.get('missed_dose_notification_enabled', False)
         
-        # Validate overdue strategy enum
+        # Validate missed dose handling enum
         try:
-            overdue_strategy_enum = OverdueHandlingEnum(overdue_strategy)
+            missed_dose_handling_enum = MissedDoseHandlingEnum(missed_dose_handling)
         except ValueError:
-            overdue_strategy_enum = OverdueHandlingEnum.ALERT_ONLY
+            missed_dose_handling_enum = MissedDoseHandlingEnum.alert_only
         
         # Validate grace period hours (1-72 hours)
-        if grace_period_hours is not None:
+        if missed_dose_grace_period_hours is not None:
             try:
-                grace_period_hours = int(grace_period_hours)
-                if grace_period_hours < 1 or grace_period_hours > 72:
-                    grace_period_hours = None
+                missed_dose_grace_period_hours = int(missed_dose_grace_period_hours)
+                if missed_dose_grace_period_hours < 1 or missed_dose_grace_period_hours > 72:
+                    missed_dose_grace_period_hours = None
             except (ValueError, TypeError):
-                grace_period_hours = None
-        
-        # Validate max catch up doses (1-10 doses)
-        if max_catch_up_doses is not None:
-            try:
-                max_catch_up_doses = int(max_catch_up_doses)
-                if max_catch_up_doses < 1 or max_catch_up_doses > 10:
-                    max_catch_up_doses = None
-            except (ValueError, TypeError):
-                max_catch_up_doses = None
+                missed_dose_grace_period_hours = None
         
         # Update existing schedule
         schedule.product_id = product_id
         schedule.amount = amount
         schedule.trigger_interval = trigger_interval
         schedule.suspended = suspended
-        schedule.overdue_strategy = overdue_strategy_enum
-        schedule.grace_period_hours = grace_period_hours
-        schedule.max_catch_up_doses = max_catch_up_doses
-        schedule.overdue_notification_enabled = overdue_notification_enabled
+        schedule.missed_dose_handling = missed_dose_handling_enum
+        schedule.missed_dose_grace_period_hours = missed_dose_grace_period_hours
+        schedule.missed_dose_notification_enabled = missed_dose_notification_enabled
         
         db.session.commit()
         
@@ -337,35 +326,25 @@ def handle_schedule_submission(data, tank_id):
         if trigger_interval is None:
             return jsonify({"success": False, "error": "Invalid schedule configuration"}), 400
         
-        # Process overdue handling configuration
-        overdue_strategy = data.get('overdue_strategy', 'alert_only')
-        grace_period_hours = data.get('grace_period_hours')
-        max_catch_up_doses = data.get('max_catch_up_doses')
-        overdue_notification_enabled = data.get('overdue_notification_enabled', False)
+        # Process missed dose handling configuration
+        missed_dose_handling = data.get('missed_dose_handling', 'alert_only')
+        missed_dose_grace_period_hours = data.get('missed_dose_grace_period_hours')
+        missed_dose_notification_enabled = data.get('missed_dose_notification_enabled', False)
         
-        # Validate overdue strategy enum
+        # Validate missed dose handling enum
         try:
-            overdue_strategy_enum = OverdueHandlingEnum(overdue_strategy)
+            missed_dose_handling_enum = MissedDoseHandlingEnum(missed_dose_handling)
         except ValueError:
-            overdue_strategy_enum = OverdueHandlingEnum.ALERT_ONLY
+            missed_dose_handling_enum = MissedDoseHandlingEnum.alert_only
         
         # Validate grace period hours (1-72 hours)
-        if grace_period_hours is not None:
+        if missed_dose_grace_period_hours is not None:
             try:
-                grace_period_hours = int(grace_period_hours)
-                if grace_period_hours < 1 or grace_period_hours > 72:
-                    grace_period_hours = None
+                missed_dose_grace_period_hours = int(missed_dose_grace_period_hours)
+                if missed_dose_grace_period_hours < 1 or missed_dose_grace_period_hours > 72:
+                    missed_dose_grace_period_hours = None
             except (ValueError, TypeError):
-                grace_period_hours = None
-        
-        # Validate max catch up doses (1-10 doses)
-        if max_catch_up_doses is not None:
-            try:
-                max_catch_up_doses = int(max_catch_up_doses)
-                if max_catch_up_doses < 1 or max_catch_up_doses > 10:
-                    max_catch_up_doses = None
-            except (ValueError, TypeError):
-                max_catch_up_doses = None
+                missed_dose_grace_period_hours = None
         
         # Create new schedule
         new_schedule = DSchedule(
@@ -374,10 +353,9 @@ def handle_schedule_submission(data, tank_id):
             amount=amount,
             tank_id=tank_id,
             product_id=product_id,
-            overdue_strategy=overdue_strategy_enum,
-            grace_period_hours=grace_period_hours,
-            max_catch_up_doses=max_catch_up_doses,
-            overdue_notification_enabled=overdue_notification_enabled
+            missed_dose_handling=missed_dose_handling_enum,
+            missed_dose_grace_period_hours=missed_dose_grace_period_hours,
+            missed_dose_notification_enabled=missed_dose_notification_enabled
         )
         
         db.session.add(new_schedule)

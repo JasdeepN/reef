@@ -315,8 +315,8 @@ function updateDueDosesDisplay(dueSchedules) {
           <span class="badge bg-warning">${schedule.amount}ml</span>
         </div>
         <div class="col-md-3">
-          ${schedule.seconds_overdue ? 
-            `<span class="text-danger">Overdue by ${Math.floor(schedule.seconds_overdue / 60)}m</span>` :
+          ${schedule.seconds_missed ? 
+            `<span class="text-danger">Missed by ${Math.floor(schedule.seconds_missed / 60)}m</span>` :
             '<span class="text-warning">Due now</span>'
           }
         </div>

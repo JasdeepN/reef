@@ -3,7 +3,9 @@
 
 {% block page_title %}Dosing Schedule Manager{% endblock %}
 
-{% block content %}
+{% block conte                <div class="col-12">
+                    <label for="overdue_handling" class="form-label">Strategy *</label>
+                    <select class="form-select" id="overdue_handling" name="overdue_handling" required>%}
 <div class="container-fluid schedule-new-page">
   <div class="row">
     <!-- Create New Schedule Form -->
@@ -167,51 +169,37 @@
               </div>
             </div>
 
-            <!-- Overdue Handling Configuration -->
+            <!-- Missed Dose Handling Configuration -->
             <div class="card mb-3 border-info">
               <div class="card-header bg-info text-white">
-                <h6 class="mb-0">⚠️ Overdue Dose Handling</h6>
+                <h6 class="mb-0">⚠️ Missed Dose Handling</h6>
               </div>
               <div class="card-body">
                 <div class="row mb-3">
                   <div class="col-md-6">
-                    <label for="overdue_strategy" class="form-label">Strategy *</label>
-                    <select class="form-select" id="overdue_strategy" name="overdue_strategy" required>
+                    <label for="missed_dose_handling" class="form-label">Strategy *</label>
+                    <select class="form-select" id="missed_dose_handling" name="missed_dose_handling" required>
                       <option value="alert_only" selected>Alert Only (Skip missed doses)</option>
                       <option value="grace_period">Grace Period (Allow within time window)</option>
-                      <option value="catch_up">Catch-up (Dose immediately if within limits)</option>
                       <option value="manual_approval">Manual Approval Required</option>
                     </select>
-                    <div class="form-text">How to handle doses that are overdue</div>
+                    <div class="form-text">How to handle doses that are missed</div>
                   </div>
                   <div class="col-md-6">
                     <div class="form-check mt-4">
-                      <input class="form-check-input" type="checkbox" id="overdue_notification_enabled" name="overdue_notification_enabled" checked>
-                      <label class="form-check-label" for="overdue_notification_enabled">
-                        🔔 Enable Overdue Notifications
+                      <input class="form-check-input" type="checkbox" id="missed_dose_notification_enabled" name="missed_dose_notification_enabled" checked>
+                      <label class="form-check-label" for="missed_dose_notification_enabled">
+                        🔔 Enable Missed Dose Notifications
                       </label>
                     </div>
                   </div>
                 </div>
 
-                <div class="row overdue-options" id="grace-period-options" style="display: none;">
+                <div class="row missed-dose-options" id="grace-period-options" style="display: none;">
                   <div class="col-md-6">
-                    <label for="grace_period_hours" class="form-label">Grace Period (hours)</label>
-                    <input type="number" class="form-control" id="grace_period_hours" name="grace_period_hours" value="12" min="1" max="72">
+                    <label for="missed_dose_grace_period_hours" class="form-label">Grace Period (hours)</label>
+                    <input type="number" class="form-control" id="missed_dose_grace_period_hours" name="missed_dose_grace_period_hours" value="12" min="1" max="72">
                     <div class="form-text">Allow dosing within this many hours after scheduled time</div>
-                  </div>
-                </div>
-
-                <div class="row overdue-options" id="catch-up-options" style="display: none;">
-                  <div class="col-md-6">
-                    <label for="max_catch_up_doses" class="form-label">Max Catch-up Doses</label>
-                    <input type="number" class="form-control" id="max_catch_up_doses" name="max_catch_up_doses" value="3" min="1" max="10">
-                    <div class="form-text">Maximum number of missed doses to catch up on</div>
-                  </div>
-                  <div class="col-md-6">
-                    <label for="catch_up_window_hours" class="form-label">Catch-up Window (hours)</label>
-                    <input type="number" class="form-control" id="catch_up_window_hours" name="catch_up_window_hours" value="24" min="1" max="168">
-                    <div class="form-text">Time window for catch-up dosing</div>
                   </div>
                 </div>
               </div>
@@ -350,29 +338,25 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('times_per_week').dispatchEvent(new Event('input'));
   document.getElementById('custom_seconds').dispatchEvent(new Event('input'));
 
-  // Handle overdue strategy changes
-  function updateOverdueConfig() {
-    const strategy = document.getElementById('overdue_strategy').value;
+  // Handle missed dose strategy changes
+  function updateMissedDoseConfig() {
+    const strategy = document.getElementById('missed_dose_handling').value;
     const gracePeriodOptions = document.getElementById('grace-period-options');
-    const catchUpOptions = document.getElementById('catch-up-options');
     
     // Hide all options by default
     gracePeriodOptions.style.display = 'none';
-    catchUpOptions.style.display = 'none';
     
     // Show relevant options based on strategy
     if (strategy === 'grace_period') {
       gracePeriodOptions.style.display = 'block';
-    } else if (strategy === 'catch_up') {
-      catchUpOptions.style.display = 'block';
     }
   }
   
-  // Add event listener for overdue strategy changes
-  document.getElementById('overdue_strategy').addEventListener('change', updateOverdueConfig);
+  // Add event listener for missed dose strategy changes
+  document.getElementById('missed_dose_handling').addEventListener('change', updateMissedDoseConfig);
   
-  // Initialize overdue config display
-  updateOverdueConfig();
+  // Initialize missed dose config display
+  updateMissedDoseConfig();
 
   // Handle form submission
   document.getElementById('scheduleForm').addEventListener('submit', function(e) {
@@ -387,7 +371,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Convert checkbox value
     data.suspended = document.getElementById('suspended').checked;
-    data.overdue_notification_enabled = document.getElementById('overdue_notification_enabled').checked;
+    data.missed_dose_notification_enabled = document.getElementById('missed_dose_notification_enabled').checked;
 
     fetch('/doser/schedule/new', {
       method: 'POST',

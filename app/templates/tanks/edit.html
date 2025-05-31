@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+      <!-- Header -->
+      <div class="text-center mb-4">
+        <h1 class="text-center">Edit Tank</h1>
+        <p class="text-muted">Update tank configuration for "{{ tank.name }}"</p>
+      </div>
+
+      <!-- Tank Edit Form -->
+      <div class="card">
+        <div class="card-body">
+          <form action="{{ url_for('tank_edit', tank_id=tank.id) }}" method="post" novalidate>
+            <!-- Tank Name -->
+            <div class="mb-3">
+              <label for="name" class="form-label">Tank Name <span class="text-danger">*</span></label>
+              <input type="text" 
+                     class="form-control" 
+                     id="name" 
+                     name="name" 
+                     value="{{ tank.name }}"
+                     placeholder="e.g., Main Display Tank, Quarantine Tank"
+                     required
+                     maxlength="100">
+              <div class="form-text">Choose a descriptive name for your tank</div>
+            </div>
+
+            <!-- Gross Water Volume -->
+            <div class="mb-3">
+              <label for="gross_water_vol" class="form-label">Gross Water Volume (Gallons)</label>
+              <input type="number" 
+                     class="form-control" 
+                     id="gross_water_vol" 
+                     name="gross_water_vol" 
+                     value="{{ tank.gross_water_vol or '' }}"
+                     placeholder="e.g., 55, 120, 180"
+                     min="0" 
+                     max="10000"
+                     step="1">
+              <div class="form-text">Total tank volume including displacement from rock and equipment</div>
+            </div>
+
+            <!-- Net Water Volume -->
+            <div class="mb-3">
+              <label for="net_water_vol" class="form-label">Net Water Volume (Gallons)</label>
+              <input type="number" 
+                     class="form-control" 
+                     id="net_water_vol" 
+                     name="net_water_vol" 
+                     value="{{ tank.net_water_vol or '' }}"
+                     placeholder="e.g., 50, 110, 165"
+                     min="0" 
+                     max="10000"
+                     step="1">
+              <div class="form-text">Actual water volume after rock and equipment displacement</div>
+            </div>
+
+            <!-- Live Rock Weight -->
+            <div class="mb-4">
+              <label for="live_rock_lbs" class="form-label">Live Rock Weight (lbs)</label>
+              <input type="number" 
+                     class="form-control" 
+                     id="live_rock_lbs" 
+                     name="live_rock_lbs" 
+                     value="{{ tank.live_rock_lbs or '' }}"
+                     placeholder="e.g., 45, 80, 120"
+                     min="0" 
+                     max="1000"
+                     step="0.1">
+              <div class="form-text">Weight of live rock in pounds (used for biological load calculations)</div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="d-flex justify-content-between">
+              <a href="{{ url_for('tank_manage') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Tank Management
+              </a>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Tank Info -->
+      <div class="mt-4">
+        <div class="card">
+          <div class="card-body">
+            <h6 class="card-title">Tank Information</h6>
+            <div class="row">
+              <div class="col-sm-6">
+                <small class="text-muted">Tank ID:</small>
+                <div>{{ tank.id }}</div>
+              </div>
+              {% if tank.created_at %}
+              <div class="col-sm-6">
+                <small class="text-muted">Created:</small>
+                <div>{{ tank.created_at.strftime('%B %d, %Y') }}</div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+.form-label {
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.form-control {
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+.form-control:focus {
+  background-color: var(--background-color);
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  color: var(--text-color);
+}
+
+.form-control::placeholder {
+  color: var(--text-muted);
+}
+
+.form-text {
+  color: var(--text-muted);
+}
+
+.text-danger {
+  color: #dc3545 !important;
+}
+
+h1 {
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+}
+
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+.card-title {
+  color: var(--text-color);
+  margin-bottom: 1rem;
+}
+
+.card-body small {
+  color: var(--text-muted);
+}
+
+.card-body div {
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Form validation
+  const form = document.querySelector('form');
+  const nameInput = document.getElementById('name');
+  
+  form.addEventListener('submit', function(e) {
+    let isValid = true;
+    
+    // Validate tank name
+    if (!nameInput.value.trim()) {
+      showFieldError(nameInput, 'Tank name is required');
+      isValid = false;
+    } else {
+      clearFieldError(nameInput);
+    }
+    
+    if (!isValid) {
+      e.preventDefault();
+    }
+  });
+  
+  // Real-time validation
+  nameInput.addEventListener('blur', function() {
+    if (!this.value.trim()) {
+      showFieldError(this, 'Tank name is required');
+    } else {
+      clearFieldError(this);
+    }
+  });
+  
+  function showFieldError(field, message) {
+    field.classList.add('is-invalid');
+    
+    // Remove existing error message
+    const existingError = field.parentNode.querySelector('.invalid-feedback');
+    if (existingError) {
+      existingError.remove();
+    }
+    
+    // Add new error message
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'invalid-feedback';
+    errorDiv.textContent = message;
+    field.parentNode.appendChild(errorDiv);
+  }
+  
+  function clearFieldError(field) {
+    field.classList.remove('is-invalid');
+    const errorDiv = field.parentNode.querySelector('.invalid-feedback');
+    if (errorDiv) {
+      errorDiv.remove();
+    }
+  }
+});
+</script>
+{% endblock %}

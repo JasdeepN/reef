@@ -69,7 +69,7 @@
             <ul class="dropdown-menu">
               <li><a class="dropdown-item" href="/doser">Main</a></li>
               <li><a class="dropdown-item" href="/doser/schedule/new">📅 Schedule Manager</a></li>
-              <li><a class="dropdown-item" href="/overdue/dashboard">⏰ Overdue Management</a></li>
+              <li><a class="dropdown-item" href="/missed-dose/dashboard">⏰ Missed Dose Management</a></li>
               <li><a class="dropdown-item" href="/doser/products">Products</a></li>
               <li><a class="dropdown-item" href="/doser/history">History</a></li>
               <li><a class="dropdown-item" href="/doser/db">View</a></li>
@@ -105,6 +105,11 @@
               <i class="fas fa-clock"></i> Scheduler
             </a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/tanks/manage">
+              <i class="fas fa-fish"></i> Tank Management
+            </a>
+          </li>
           
           <!-- <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -137,7 +142,8 @@
     </div>
   </nav>
 
-  <!-- Global Tank Context Modal -->
+  <!-- Global Tank Context Modal - Only render for non-VS Code browsers and only if no tank is selected -->
+  {% if not is_vscode_browser and (not tank_id and tanks|length > 0) %}
   <div class="modal fade" id="tankContextModal" tabindex="-1" aria-labelledby="tankContextModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -147,27 +153,44 @@
           </h5>
         </div>
         <div class="modal-body">
-          <p class="mb-3">Please select a tank to continue using ReefDB. Your selection will be remembered for future visits.</p>
-          <form id="tank-context-form" method="post" action="/set_tank">
-            <div class="mb-3">
-              <label for="modal-tank-select" class="form-label">Available Tanks:</label>
-              <select class="form-select" id="modal-tank-select" name="tank_id" required>
-                <option value="">Choose a tank...</option>
-                {% for tank in tanks %}
-                  <option value="{{ tank.id }}">{{ tank.name }}</option>
-                {% endfor %}
-              </select>
+          {% if tanks %}
+            <p class="mb-3">Please select a tank to continue using ReefDB. Your selection will be remembered for future visits.</p>
+            <form id="tank-context-form" method="post" action="/set_tank">
+              <div class="mb-3">
+                <label for="modal-tank-select" class="form-label">Available Tanks:</label>
+                <select class="form-select" id="modal-tank-select" name="tank_id" required>
+                  <option value="">Choose a tank...</option>
+                  {% for tank in tanks %}
+                    <option value="{{ tank.id }}">{{ tank.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-check me-2"></i>Select Tank
+                </button>
+                <a href="/tanks/new" class="btn btn-outline-success">
+                  <i class="fas fa-plus me-2"></i>Add New Tank
+                </a>
+              </div>
+            </form>
+          {% else %}
+            <div class="text-center">
+              <i class="fas fa-fish text-muted mb-3" style="font-size: 3rem;"></i>
+              <h5 class="text-muted">No Tanks Found</h5>
+              <p class="mb-4">You need to create your first tank to get started with ReefDB.</p>
+              <div class="d-grid">
+                <a href="/tanks/new" class="btn btn-success btn-lg">
+                  <i class="fas fa-plus me-2"></i>Create Your First Tank
+                </a>
+              </div>
             </div>
-            <div class="d-grid">
-              <button type="submit" class="btn btn-primary">
-                <i class="fas fa-check me-2"></i>Select Tank
-              </button>
-            </div>
-          </form>
+          {% endif %}
         </div>
       </div>
     </div>
   </div>
+  {% endif %}
 
     <!-- <script src="index.js"></script> -->
 
@@ -181,10 +204,12 @@
     <!-- {{ bootstrap.load_js() }} -->
   
    
+  <!-- Tank Context JavaScript - Only load for non-VS Code browsers -->
+  {% if not is_vscode_browser %}
   <script>
-    // Simple Tank Context Management - VS Code Safe
+    // Tank Context Management - Regular Browsers Only
     document.addEventListener('DOMContentLoaded', function() {
-      // Basic tank selector functionality - no timers, no memory leaks
+      // Basic tank selector functionality
       const tankSelect = document.getElementById('tank-select');
       if (tankSelect) {
         tankSelect.addEventListener('change', function() {
@@ -230,6 +255,7 @@
       }
     });
   </script>
+  {% endif %}
   {% endblock %}
 
   <div class="app-container">

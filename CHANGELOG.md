@@ -8,6 +8,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Complete Missed Dose Management System**: Comprehensive migration from "overdue" to "missed dose" terminology throughout the entire application
+  - New missed dose handling strategies: alert_only, grace_period, manual_approval
+  - Manual approval workflow for missed doses requiring user confirmation
+  - Grace period dosing within configurable time windows
+  - **Safety Improvement**: Removed dangerous catch-up functionality to prevent parameter swings in reef tanks
+  - New API endpoints at `/api/v1/missed-dose/` for missed dose management
+
+### Changed
+- **BREAKING**: Complete terminology migration from "overdue" to "missed dose" across all components
+  - Database schema: `overdue_handling` → `missed_dose_handling`, `overdue_dose_requests` → `missed_dose_requests`
+  - Model classes: `OverdueHandler` → `MissedDoseHandler`, `OverdueDoseRequest` → `MissedDoseRequest`
+  - Route URLs: `/overdue/` → `/missed-dose/` throughout navigation and API endpoints
+  - Template references updated in forms, dashboards, and navigation menus
+  - Dosing scheduler integration with new missed dose analysis system
+
+### Performance Improvements
+- **Dosing Scheduler**: Improved missed dose detection and handling precision
+- **Database Schema**: Optimized field names for better clarity and reduced confusion
+
+### Fixed
+- **Tank Statistics**: Updated tank management dashboard to use `missed_dose_count` instead of deprecated `overdue_count`
+- **Blueprint Registration**: Updated Flask blueprint registration to use new missed dose routes
+- **Form Validation**: Updated schedule creation/editing forms to use new field names and enum values
+
+### Files Modified
+- `modules/models.py` - Updated DSchedule model with new field names and enums
+- `modules/missed_dose_handler.py` - Renamed from overdue_handler.py with safety improvements
+- `modules/forms.py` - Updated form fields and enum references
+- `modules/dosing_scheduler.py` - Integration with new missed dose handler
+- `app/routes/doser.py` - Schedule creation/editing with new field names
+- `app/routes/missed_dose.py` - Renamed from overdue.py with updated URLs
+- `app/routes/api/missed_dose.py` - Renamed API routes with new endpoints
+- `app/routes/tanks.py` - Updated to use MissedDoseRequest model
+- `app/templates/doser/` - Updated schedule forms with new field names
+- `app/templates/missed-dose/` - Renamed template directory with updated dashboard
+- `migrations/002_rename_overdue_to_missed_dose.py` - Database migration script
+
+### Added
+- **Tank Card Stats**: Add overall health, dosing status, and water volumes to tank cards on the tank management dashboard (`/tanks/manage`)
+  - Health is summarized from coral health status in each tank
+  - Dosing status shows active, suspended, and missed dose schedules
+  - Gross and net water volumes are displayed for each tank
+  - Improves at-a-glance tank monitoring and management
+
+- **Complete Tank Management System**: Full CRUD tank management interface for new and existing users
+  - Tank creation form with validation (`/tanks/new`)
+  - Tank editing capabilities (`/tanks/edit/<id>`)
+  - Tank management dashboard (`/tanks/manage`) with responsive card-based display
+  - Delete confirmation modals with Bootstrap integration
+  - Empty state handling for users with no tanks
+  - **Tank Management API**: Complete RESTful API at `/api/v1/tanks/`
+    - GET `/api/v1/tanks` - List all tanks
+    - POST `/api/v1/tanks` - Create new tank
+    - PUT `/api/v1/tanks/<id>` - Update existing tank
+    - DELETE `/api/v1/tanks/<id>` - Delete tank
+    - Full validation and error handling with JSON responses
+- **Enhanced Navigation**: Tank Management menu item with fish icon added to main navigation
+- **Tank Context Integration**: Enhanced tank context modal to handle both tank selection and empty states
+  - Seamless integration with existing tank context system
+  - Automatic tank context updates after tank creation/editing
+  - "Create Your First Tank" button for users with no tanks
+- **VS Code Simple Browser Optimization**: Conditional modal and JavaScript rendering to prevent invisible blocking elements
+  - Server-side VS Code detection via User-Agent in context processor
+  - Conditional JavaScript loading to prevent DOM interaction errors
+  - Modal HTML conditionally rendered only for non-VS Code browsers
+
+### Fixed
+- **Tank Management Model Alignment**: Fixed tank creation and editing forms to use correct Tank model attributes
+  - Updated tank routes to use `ensure_tank_context()` instead of deprecated `get_current_tank_id()` function
+  - Corrected tank form field names from incorrect (`description`, `volume_gallons`) to proper Tank model attributes:
+    - `gross_water_vol` (integer) - Total tank volume including displacement
+    - `net_water_vol` (integer) - Actual water volume after displacement  
+    - `live_rock_lbs` (float) - Live rock weight for biological load calculations
+  - Updated tank creation and editing templates to match Tank model schema
+  - All tank CRUD operations now work correctly with proper field validation
+- **Tank Management System Completion**: Resolved syntax error in tank API endpoints preventing proper CRUD operations
+  - Fixed duplicate error handling code in `/app/routes/api/tanks.py`
+  - Verified complete tank management workflow including creation, editing, deletion, and context switching
+  - All API endpoints tested and working correctly with proper JSON responses
+- **New User Experience**: Tank management now provides complete solution for users with no existing tanks
+  - Resolves issue where new users had no way to create their first tank
+  - Provides clear pathways from empty states to tank creation through both web UI and modal integration
+  - Tank context system automatically handles empty tank lists with appropriate UI states
 - **API Organization**: Comprehensive API route structure reorganization with automatic `/api/v1/` prefixing
 - **Documentation**: Enhanced API testing guidelines in GitHub Copilot instructions and README
   - DBCode database management instructions with correct database name (`reef_tracker`)
@@ -132,6 +215,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **User Experience**: Added comprehensive configuration guide and tooltips explaining overdue handling options
 
 ### Technical Details
+- **Tank Management Architecture**: Complete MVC pattern implementation for tank CRUD operations
+  - **Models**: Tank model with attributes: `id`, `name`, `gross_water_vol`, `net_water_vol`, `live_rock_lbs`
+  - **Views**: Bootstrap-styled responsive templates with form validation and error handling
+  - **Controllers**: RESTful API routes with proper error handling and JSON responses
+  - **Integration**: Seamless integration with existing tank context system
+- **API Route Organization**: Tank API properly organized in `/app/routes/api/tanks.py` with blueprint registration
+  - Automatic `/api/v1/` prefix through API blueprint structure
+  - Consistent error handling patterns across all CRUD operations
+  - Proper tank model attribute alignment (no fictional fields)
+- **Template Implementation**: Responsive design with Bootstrap grid system and dark theme compliance
+  - Card-based layout for tank management dashboard
+  - Form validation with client-side and server-side error handling
+  - Delete confirmation modals with proper data attribute handling
+  - Empty state UI for users with no tanks
+- **Navigation Integration**: Tank Management menu item added to main navigation with proper icon and accessibility
+- **Context System Enhancement**: Existing tank context system enhanced to handle tank management workflows
+  - Tank creation automatically updates available tank list
+  - Tank deletion properly handles context switching if current tank is deleted
+  - Empty tank list properly displays "Create Your First Tank" workflow
 - **Global Tank Context Architecture**: Implemented TankContextManager JavaScript class for centralized tank management
 - **Persistent Storage**: localStorage integration with Flask session backup for maximum reliability
 - **Automatic Recovery**: System automatically restores tank context from localStorage on page load
@@ -149,6 +251,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Frontend Configuration**: Dynamic form fields with JavaScript-driven visibility based on strategy selection
 - **Server-side Processing**: Updated schedule handlers to process overdue configuration fields
 - **Import Structure**: Fixed circular imports in API routes with delayed import patterns
+
+### Files Modified
+- **Tank Management Routes**: `/app/routes/tanks.py` - Complete tank management UI routes (created)
+- **Tank API Routes**: `/app/routes/api/tanks.py` - RESTful tank CRUD API endpoints (created, syntax errors fixed)
+- **Tank Templates**: 
+  - `/app/templates/tanks/manage.html` - Tank management dashboard (created)
+  - `/app/templates/tanks/new.html` - Tank creation form (created)
+  - `/app/templates/tanks/edit.html` - Tank editing form (created)
+- **Navigation**: `/app/templates/base.html` - Added Tank Management menu item with fish icon (modified)
+- **API Blueprint**: `/app/routes/api/__init__.py` - Tank API blueprint registration (verified)
+- **Documentation**: `CHANGELOG.md` - Comprehensive documentation of tank management system implementation
 
 ### Performance Improvements
 - **Tank Context Efficiency**: Eliminated "no tank context" redirects and warnings across all routes

@@ -36,6 +36,9 @@ bootstrap = Bootstrap5(app)
 
 app.config.from_object(Config)
 
+# Import db from extensions to avoid circular imports
+from extensions import db
+
 # Check if we're in unit testing mode (should use SQLite instead of MySQL)
 if os.getenv("TESTING") == "true" and os.getenv("SQLALCHEMY_DATABASE_URI"):
     print("[app/__init__.py] Unit testing mode detected - using provided SQLALCHEMY_DATABASE_URI", file=sys.stderr, flush=True)
@@ -47,7 +50,7 @@ if os.getenv("TESTING") == "true" and os.getenv("SQLALCHEMY_DATABASE_URI"):
     app.config['DB_ENGINE'] = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
     app.config["SESSION_COOKIE_NAME"] = "session"
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    db = SQLAlchemy(app)
+    db.init_app(app)
     Session(app)
     print(f"[app/__init__.py] Unit test setup complete with: {app.config['SQLALCHEMY_DATABASE_URI']}", file=sys.stderr, flush=True)
 else:
@@ -87,21 +90,24 @@ else:
     app.config["SESSION_COOKIE_NAME"] = "session"
 
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    db = SQLAlchemy(app)
+    db.init_app(app)
 
     Session(app)
 
-# Initialize Prometheus metrics
-x_metrics = PrometheusMetrics(app)
-
-# Optional: Add custom metrics
-x_metrics.info('app_info', 'Application info', version='1.0.0')
-x_metrics.counter('doser_requests_total', 'Total requests to the /doser endpoint') 
-x_metrics.counter('timeline_requests_total', 'Total requests to the /timeline endpoint')
-x_metrics.counter('api_requests_total', 'Total requests to the /api endpoint')
-x_metrics.counter('home_requests_total', 'Total requests to the / endpoint')
-x_metrics.counter('metrics_requests_total', 'Total requests to the /metrics endpoint')
-x_metrics.counter('test_results_requests_total', 'Total requests to the /test_results endpoint')
+# Initialize Prometheus metrics (only if not already initialized)
+if not hasattr(app, '_metrics_initialized'):
+    x_metrics = PrometheusMetrics(app)
+    
+    # Optional: Add custom metrics
+    x_metrics.info('app_info', 'Application info', version='1.0.0')
+    x_metrics.counter('doser_requests_total', 'Total requests to the /doser endpoint') 
+    x_metrics.counter('timeline_requests_total', 'Total requests to the /timeline endpoint')
+    x_metrics.counter('api_requests_total', 'Total requests to the /api endpoint')
+    x_metrics.counter('home_requests_total', 'Total requests to the / endpoint')
+    x_metrics.counter('metrics_requests_total', 'Total requests to the /metrics endpoint')
+    x_metrics.counter('test_results_requests_total', 'Total requests to the /test_results endpoint')
+    
+    app._metrics_initialized = True
 
 # Initialize Dosing Scheduler (only in non-testing mode)
 dosing_scheduler = None
@@ -139,28 +145,34 @@ from app.routes.api import api_bp
 from app.routes.web import web_fn
 app.register_blueprint(api_bp)
 app.register_blueprint(web_fn)
-from app.routes import corals, home, metrics, test, doser, models, scheduler, overdue
+from app.routes import corals, home, metrics, test, doser, models, scheduler, missed_dose, tanks
 import modules
 
 # Move context processor registration here to avoid circular import
 from modules.models import Tank
 from modules.tank_context import get_current_tank_id
+from flask import request
 
 @app.context_processor
 def inject_tank_context():
     # For unit tests without database, provide default values
     if app.config.get('TESTING') and not app.config.get('SQLALCHEMY_DATABASE_URI', '').startswith('mysql'):
-        return dict(tanks=[], tank_id=1)
+        return dict(tanks=[], tank_id=1, is_vscode_browser=False)
     
     try:
         tanks = Tank.query.all()
         tank_id = get_current_tank_id()
-        return dict(tanks=tanks, tank_id=tank_id)
+        
+        # Detect VS Code Simple Browser
+        user_agent = request.headers.get('User-Agent', '')
+        is_vscode_browser = 'vscode simple browser' in user_agent.lower() or 'vs code' in user_agent.lower()
+        
+        return dict(tanks=tanks, tank_id=tank_id, is_vscode_browser=is_vscode_browser)
     except Exception as e:
         # If database is not available during testing, provide defaults
         if app.config.get('TESTING'):
             print(f"[inject_tank_context] Database not available during testing, using defaults: {e}")
-            return dict(tanks=[], tank_id=1)
+            return dict(tanks=[], tank_id=1, is_vscode_browser=False)
         raise
 
 # FINAL FAIL-FAST CHECK

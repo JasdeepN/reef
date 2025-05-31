@@ -28,8 +28,8 @@ from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
 import heapq
 from threading import Lock
 
-# Import overdue handling system
-from modules.overdue_handler import OverdueHandler
+# Import missed dose handling system
+from modules.missed_dose_handler import MissedDoseHandler
 
 # Flask app imports (will be imported when initialized)
 db = None
@@ -62,8 +62,8 @@ class DosingScheduler:
         self.last_queue_refresh = None
         self.queue_refresh_interval = 300  # Refresh queue every 5 minutes
         
-        # Initialize overdue handler
-        self.overdue_handler = OverdueHandler()
+        # Initialize missed dose handler
+        self.missed_dose_handler = MissedDoseHandler()
         
         if app:
             self.init_app(app)
@@ -245,7 +245,7 @@ class DosingScheduler:
     def _get_next_scheduled_doses(self, limit: int = 5) -> List[Dict]:
         """
         Get the next scheduled doses across all active schedules.
-        Now includes overdue handling logic based on schedule configuration.
+        Now includes missed dose handling logic based on schedule configuration.
         """
         from app import db
         from modules.models import DSchedule, Products, Dosing
@@ -261,8 +261,8 @@ class DosingScheduler:
             current_time = datetime.now()
             
             for schedule in schedules:
-                # Analyze schedule for overdue handling
-                analysis = self.overdue_handler.analyze_schedule_for_overdue(schedule, current_time)
+                # Analyze schedule for missed dose handling
+                analysis = self.missed_dose_handler.analyze_schedule_for_missed_dose(schedule, current_time)
                 
                 if analysis.action == 'not_overdue':
                     # Normal scheduling - dose is not yet due
@@ -275,12 +275,12 @@ class DosingScheduler:
                         'product_name': schedule.product.name,
                         'current_avail': schedule.product.current_avail,
                         'next_dose_time': analysis.missed_dose_time,
-                        'overdue_status': 'on_schedule'
+                        'missed_dose_status': 'on_schedule'
                     }
                     scheduled_doses.append(dose_data)
                     
                 elif analysis.should_dose:
-                    # Handle overdue doses that should be executed
+                    # Handle missed doses that should be executed
                     if analysis.action == 'grace_period':
                         # Schedule dose now (within grace period)
                         dose_data = {
@@ -292,32 +292,18 @@ class DosingScheduler:
                             'product_name': schedule.product.name,
                             'current_avail': schedule.product.current_avail,
                             'next_dose_time': current_time,  # Dose immediately
-                            'overdue_status': 'grace_period',
-                            'hours_overdue': analysis.hours_overdue
+                            'missed_dose_status': 'grace_period',
+                            'hours_missed': analysis.hours_missed
                         }
                         scheduled_doses.append(dose_data)
                         
-                    elif analysis.action == 'catch_up':
-                        # Schedule multiple catch-up doses
-                        for i in range(analysis.immediate_doses_count):
-                            dose_time = current_time + timedelta(minutes=i * 5)  # Space doses 5 minutes apart
-                            dose_data = {
-                                'schedule_id': schedule.id,
-                                'tank_id': schedule.tank_id,
-                                'product_id': schedule.product_id,
-                                'amount': schedule.amount,
-                                'trigger_interval': schedule.trigger_interval,
-                                'product_name': schedule.product.name,
-                                'current_avail': schedule.product.current_avail,
-                                'next_dose_time': dose_time,
-                                'overdue_status': 'catch_up',
-                                'hours_overdue': analysis.hours_overdue,
-                                'catch_up_dose': i + 1
-                            }
-                            scheduled_doses.append(dose_data)
+                    elif analysis.action == 'manual_approval':
+                        # This will be handled by the manual approval system
+                        # No immediate dose scheduled
+                        logger.info(f"Schedule {schedule.id} requires manual approval for missed dose")
                 
-                # Log overdue situations for monitoring
-                if analysis.hours_overdue > 0:
+                # Log missed dose situations for monitoring
+                if analysis.hours_missed > 0:
                     logger.info(f"Schedule {schedule.id} ({schedule.product.name}): "
                                f"{analysis.action} - {analysis.reason}")
             
@@ -553,13 +539,13 @@ class DosingScheduler:
                     'product_name': row.product_name,
                     'current_avail': row.current_avail,
                     'last_dose_time': row.last_dose_time,
-                    'seconds_overdue': None
+                    'seconds_missed': None
                 }
                 
-                # Calculate how overdue this dose is
+                # Calculate how long since this dose was missed
                 if row.last_dose_time:
                     time_diff = datetime.now() - row.last_dose_time
-                    schedule_data['seconds_overdue'] = int(time_diff.total_seconds())
+                    schedule_data['seconds_missed'] = int(time_diff.total_seconds())
                 
                 schedules.append(schedule_data)
             
