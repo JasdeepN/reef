@@ -36,6 +36,30 @@
               </div>
             </div>
 
+            <!-- Doser Selection -->
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="doser_id" class="form-label">🔧 Doser</label>
+                <select class="form-select" id="doser_id" name="doser_id">
+                  <option value="">No specific doser</option>
+                  {% for doser in dosers %}
+                  <option value="{{ doser.id }}" data-type="{{ doser.doser_type }}" data-max-daily="{{ doser.max_daily_volume }}"
+                    {% if doser.id == schedule.doser_id %}selected{% endif %}>
+                    {{ doser.doser_name }} ({{ doser.doser_type.value if doser.doser_type else 'other' }})
+                    {% if doser.max_daily_volume %} - Max: {{ doser.max_daily_volume }}ml/day{% endif %}
+                  </option>
+                  {% endfor %}
+                </select>
+                <div class="form-text">Optional: Assign to specific physical doser</div>
+              </div>
+              <div class="col-md-6">
+                <label for="doser_name" class="form-label">⚙️ Doser Name (Legacy)</label>
+                <input type="text" class="form-control" id="doser_name" name="doser_name" 
+                       value="{{ schedule.doser_name or '' }}" maxlength="64">
+                <div class="form-text">Legacy text field for doser identification</div>
+              </div>
+            </div>
+
             <!-- Schedule Type Selection -->
             <div class="mb-3">
               <label class="form-label">⏰ Schedule Type *</label>
@@ -144,24 +168,30 @@
                 <div class="card-body">
                   <h6 class="card-title">Custom Schedule Configuration</h6>
                   <div class="row">
-                    <div class="col-md-4">
-                      <label for="custom_hours" class="form-label">Hours</label>
-                      <input type="number" min="0" max="23" class="form-control" id="custom_hours" name="custom_hours" value="8">
+                    <div class="col-md-6">
+                      <label for="repeat_every_n_days" class="form-label">Repeat Every N Days</label>
+                      <input type="number" min="1" max="365" class="form-control" id="repeat_every_n_days" name="repeat_every_n_days" value="1">
+                      <div class="form-text">Dose every N days at specified time</div>
                     </div>
-                    <div class="col-md-4">
-                      <label for="custom_minutes" class="form-label">Minutes</label>
-                      <input type="number" min="0" max="59" class="form-control" id="custom_minutes" name="custom_minutes" value="0">
-                    </div>
-                    <div class="col-md-4">
-                      <label for="custom_seconds" class="form-label">Seconds</label>
-                      <input type="number" min="0" max="59" class="form-control" id="custom_seconds" name="custom_seconds" value="0">
+                    <div class="col-md-6">
+                      <label for="custom_time" class="form-label">🕐 Dose Time</label>
+                      <input type="time" class="form-control" id="custom_time" name="custom_time" value="09:00">
+                      <div class="form-text">Time of day to dose</div>
                     </div>
                   </div>
-                  <div class="mt-2">
-                    <small class="text-muted">Current: Dose every <span id="custom_display">8 hours 0 minutes 0 seconds</span></small>
+                  <div class="row mt-2">
+                    <div class="col-md-6">
+                      <label for="custom_seconds" class="form-label">OR Interval (seconds)</label>
+                      <input type="number" min="60" class="form-control" id="custom_seconds" name="custom_seconds" value="3600">
+                      <div class="form-text">Alternative: exact seconds interval</div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Human Readable</label>
+                      <input type="text" class="form-control" id="custom_display" readonly>
+                    </div>
                   </div>
-                  <div class="mt-1">
-                    <small class="text-info">💡 Minimum interval: 1 minute (60 seconds)</small>
+                  <div class="form-text mt-2">
+                    ⚙️ <strong>Advanced:</strong> Use either day-based scheduling or exact second intervals.
                   </div>
                 </div>
               </div>
@@ -366,15 +396,24 @@ document.addEventListener('DOMContentLoaded', function() {
         const timesPerWeek = Math.round(604800 / existingSchedule.trigger_interval);
         document.getElementById('times_per_week').value = timesPerWeek;
     } else {
-        // Custom - break down into hours, minutes, seconds
+        // Custom - populate enhanced custom fields
         const totalSeconds = existingSchedule.trigger_interval;
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
         
-        document.getElementById('custom_hours').value = hours;
-        document.getElementById('custom_minutes').value = minutes;
-        document.getElementById('custom_seconds').value = seconds;
+        // If it's a day-based schedule (using repeat_every_n_days from database)
+        if (existingSchedule.repeat_every_n_days && existingSchedule.trigger_time) {
+            document.getElementById('repeat_every_n_days').value = existingSchedule.repeat_every_n_days;
+            document.getElementById('custom_time').value = existingSchedule.trigger_time;
+        } else {
+            // Fallback to second-based scheduling
+            document.getElementById('custom_seconds').value = totalSeconds;
+            
+            // Try to detect if it's a day interval that can be converted
+            if (totalSeconds >= 86400 && totalSeconds % 86400 === 0) {
+                const days = totalSeconds / 86400;
+                document.getElementById('repeat_every_n_days').value = days;
+                document.getElementById('custom_time').value = '09:00';
+            }
+        }
     }
     
     // Show/hide schedule config sections
@@ -412,10 +451,30 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('weekly_display').textContent = `${times} times per week`;
             document.getElementById('weekly_interval').textContent = `${intervalHours} hours`;
         } else if (selectedType === 'custom') {
-            const hours = parseInt(document.getElementById('custom_hours').value) || 0;
-            const minutes = parseInt(document.getElementById('custom_minutes').value) || 0;
-            const seconds = parseInt(document.getElementById('custom_seconds').value) || 0;
-            document.getElementById('custom_display').textContent = `${hours} hours ${minutes} minutes ${seconds} seconds`;
+            const repeatDays = parseInt(document.getElementById('repeat_every_n_days').value) || 0;
+            const customTime = document.getElementById('custom_time').value;
+            const customSeconds = parseInt(document.getElementById('custom_seconds').value) || 0;
+            
+            // Build display based on which fields are used
+            let displayText = '';
+            if (repeatDays > 0 && customTime) {
+                displayText = `Every ${repeatDays} day${repeatDays > 1 ? 's' : ''} at ${customTime}`;
+            } else if (customSeconds > 0) {
+                const hours = Math.floor(customSeconds / 3600);
+                const minutes = Math.floor((customSeconds % 3600) / 60);
+                const seconds = customSeconds % 60;
+                
+                let parts = [];
+                if (hours > 0) parts.push(`${hours} hour${hours > 1 ? 's' : ''}`);
+                if (minutes > 0) parts.push(`${minutes} minute${minutes > 1 ? 's' : ''}`);
+                if (seconds > 0) parts.push(`${seconds} second${seconds > 1 ? 's' : ''}`);
+                
+                displayText = parts.length > 0 ? `Every ${parts.join(', ')}` : 'No interval set';
+            } else {
+                displayText = 'Configure day-based or second-based schedule';
+            }
+            
+            document.getElementById('custom_display').value = displayText;
         }
     }
     
@@ -429,8 +488,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('interval_unit').addEventListener('change', updateDisplays);
     document.getElementById('times_per_day').addEventListener('input', updateDisplays);
     document.getElementById('times_per_week').addEventListener('input', updateDisplays);
-    document.getElementById('custom_hours').addEventListener('input', updateDisplays);
-    document.getElementById('custom_minutes').addEventListener('input', updateDisplays);
+    document.getElementById('repeat_every_n_days').addEventListener('input', updateDisplays);
+    document.getElementById('custom_time').addEventListener('change', updateDisplays);
     document.getElementById('custom_seconds').addEventListener('input', updateDisplays);
     
     // Initialize display

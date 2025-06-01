@@ -7,6 +7,8 @@ services:
     container_name: reef-sql-prod
     ports:
       - "3142:3306"  # Production database on port 3142
+    env_file:
+      - ./evs/.env.prod
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-prodroot2025!}
       - MYSQL_DATABASE=${DB_NAME:-reef}

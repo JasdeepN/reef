@@ -28,9 +28,6 @@ from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
 import heapq
 from threading import Lock
 
-# Import missed dose handling system
-from modules.missed_dose_handler import MissedDoseHandler
-
 # Flask app imports (will be imported when initialized)
 db = None
 current_app = None
@@ -62,8 +59,8 @@ class DosingScheduler:
         self.last_queue_refresh = None
         self.queue_refresh_interval = 300  # Refresh queue every 5 minutes
         
-        # Initialize missed dose handler
-        self.missed_dose_handler = MissedDoseHandler()
+        # Initialize missed dose handler (using lazy import to avoid circular imports)
+        self.missed_dose_handler = None
         
         if app:
             self.init_app(app)
@@ -108,6 +105,13 @@ class DosingScheduler:
         app.dosing_scheduler = self
         
         logger.info(f"DosingScheduler initialized with timezone: {tzname}")
+    
+    def _get_missed_dose_handler(self):
+        """Get missed dose handler with lazy initialization to avoid circular imports"""
+        if self.missed_dose_handler is None:
+            from modules.missed_dose_handler import MissedDoseHandler
+            self.missed_dose_handler = MissedDoseHandler()
+        return self.missed_dose_handler
     
     def start(self):
         """Start the dosing scheduler with queue-based dose management"""
@@ -245,27 +249,77 @@ class DosingScheduler:
     def _get_next_scheduled_doses(self, limit: int = 5) -> List[Dict]:
         """
         Get the next scheduled doses across all active schedules.
-        Now includes missed dose handling logic based on schedule configuration.
+        Supports interval, absolute (fixed time), and relative (offset/reference) schedules.
         """
         from app import db
         from modules.models import DSchedule, Products, Dosing
-        
+        from datetime import datetime, timedelta, time as dt_time
+
         try:
-            # Get all active schedules with their products
             schedules = db.session.query(DSchedule).join(Products).filter(
                 DSchedule.suspended == False,
                 Products.current_avail >= DSchedule.amount
             ).all()
-            
+
             scheduled_doses = []
             current_time = datetime.now()
-            
+
             for schedule in schedules:
-                # Analyze schedule for missed dose handling
-                analysis = self.missed_dose_handler.analyze_schedule_for_missed_dose(schedule, current_time)
-                
+                # --- Absolute (fixed time) schedule ---
+                if schedule.trigger_time:
+                    # Next occurrence of trigger_time (today or tomorrow)
+                    today_trigger = current_time.replace(hour=schedule.trigger_time.hour, minute=schedule.trigger_time.minute, second=0, microsecond=0)
+                    if today_trigger > current_time:
+                        next_dose_time = today_trigger
+                    else:
+                        # Already passed today, schedule for tomorrow
+                        next_dose_time = today_trigger + timedelta(days=1)
+                    dose_data = {
+                        'schedule_id': schedule.id,
+                        'tank_id': schedule.tank_id,
+                        'product_id': schedule.product_id,
+                        'amount': schedule.amount,
+                        'trigger_interval': schedule.trigger_interval,
+                        'product_name': schedule.product.name,
+                        'current_avail': schedule.product.current_avail,
+                        'next_dose_time': next_dose_time,
+                        'missed_dose_status': 'fixed_time',
+                    }
+                    scheduled_doses.append(dose_data)
+                    continue
+
+                # --- Relative (offset/reference) schedule ---
+                if schedule.offset_minutes and schedule.reference_schedule_id:
+                    # Find the most recent dose of the reference schedule
+                    ref_dose = db.session.query(Dosing).filter_by(schedule_id=schedule.reference_schedule_id).order_by(Dosing.trigger_time.desc()).first()
+                    if ref_dose and ref_dose.trigger_time:
+                        next_dose_time = ref_dose.trigger_time + timedelta(minutes=schedule.offset_minutes)
+                        if next_dose_time < current_time:
+                            # If already passed, schedule for next reference dose occurrence
+                            # (This is a simple version; for more complex logic, consider recurring reference)
+                            next_dose_time = current_time + timedelta(minutes=1)  # fallback: soon
+                    else:
+                        # No reference dose yet, schedule for now + offset
+                        next_dose_time = current_time + timedelta(minutes=schedule.offset_minutes)
+                    dose_data = {
+                        'schedule_id': schedule.id,
+                        'tank_id': schedule.tank_id,
+                        'product_id': schedule.product_id,
+                        'amount': schedule.amount,
+                        'trigger_interval': schedule.trigger_interval,
+                        'product_name': schedule.product.name,
+                        'current_avail': schedule.product.current_avail,
+                        'next_dose_time': next_dose_time,
+                        'missed_dose_status': 'relative',
+                        'reference_schedule_id': schedule.reference_schedule_id,
+                        'offset_minutes': schedule.offset_minutes,
+                    }
+                    scheduled_doses.append(dose_data)
+                    continue
+
+                # --- Default: interval/legacy logic ---
+                analysis = self._get_missed_dose_handler().analyze_schedule_for_missed_dose(schedule, current_time)
                 if analysis.action == 'not_overdue':
-                    # Normal scheduling - dose is not yet due
                     dose_data = {
                         'schedule_id': schedule.id,
                         'tank_id': schedule.tank_id,
@@ -278,11 +332,8 @@ class DosingScheduler:
                         'missed_dose_status': 'on_schedule'
                     }
                     scheduled_doses.append(dose_data)
-                    
                 elif analysis.should_dose:
-                    # Handle missed doses that should be executed
                     if analysis.action == 'grace_period':
-                        # Schedule dose now (within grace period)
                         dose_data = {
                             'schedule_id': schedule.id,
                             'tank_id': schedule.tank_id,
@@ -296,21 +347,15 @@ class DosingScheduler:
                             'hours_missed': analysis.hours_missed
                         }
                         scheduled_doses.append(dose_data)
-                        
                     elif analysis.action == 'manual_approval':
-                        # This will be handled by the manual approval system
                         # No immediate dose scheduled
                         logger.info(f"Schedule {schedule.id} requires manual approval for missed dose")
-                
-                # Log missed dose situations for monitoring
                 if analysis.hours_missed > 0:
                     logger.info(f"Schedule {schedule.id} ({schedule.product.name}): "
-                               f"{analysis.action} - {analysis.reason}")
-            
-            # Sort by next dose time and return the earliest ones
+                                f"{analysis.action} - {analysis.reason}")
+
             scheduled_doses.sort(key=lambda x: x['next_dose_time'])
             return scheduled_doses[:limit]
-            
         except Exception as e:
             logger.error(f"Database error getting next scheduled doses: {e}")
             return []
@@ -488,7 +533,7 @@ class DosingScheduler:
             except Exception as e:
                 logger.error(f"Error checking due doses: {e}")
     
-    def _get_due_schedules(self) -> List[Dict]:
+    def _get_due_schedules(self, tank_id: int = None) -> List[Dict]:
         """
         Query the database for dosing schedules that are due for their next dose.
         
@@ -496,6 +541,9 @@ class DosingScheduler:
         1. It's not suspended
         2. The time since last_refill (or creation) >= trigger_interval
         3. The product has sufficient availability
+        
+        Args:
+            tank_id (int, optional): Filter results to specific tank. If None, returns all tanks.
         """
         from app import db
         
@@ -518,7 +566,13 @@ class DosingScheduler:
             LEFT JOIN products p ON ds.product_id = p.id
             LEFT JOIN dosing d ON ds.id = d.schedule_id
             WHERE ds.suspended = 0
-            AND p.current_avail >= ds.amount
+            AND p.current_avail >= ds.amount"""
+        
+        # Add tank filtering if tank_id is provided
+        if tank_id is not None:
+            sql += f" AND ds.tank_id = {tank_id}"
+        
+        sql += """
             GROUP BY ds.id, ds.tank_id, ds.product_id, ds.amount, ds.trigger_interval, 
                      ds.last_refill, p.name, p.current_avail
             HAVING TIMESTAMPDIFF(SECOND, last_dose_time, NOW()) >= ds.trigger_interval

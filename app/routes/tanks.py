@@ -4,6 +4,8 @@ from modules.tank_context import ensure_tank_context, set_tank_id
 from sqlalchemy.exc import IntegrityError
 from app import app, db
 
+# Tank management routes - handle tank CRUD operations and dashboard display
+
 @app.route("/tanks/manage")
 def tank_manage():
     """Tank management dashboard."""

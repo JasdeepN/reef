@@ -201,13 +201,71 @@
 .badge {
   font-size: 0.75em;
 }
+
+/* Fix modal z-index to appear above tooltip overlays */
+#deleteTankModal {
+  z-index: 1060 !important; /* Bootstrap modal default is 1055, tooltips are ~1070 */
+  pointer-events: none; /* Don't block mouse events when hidden */
+}
+
+/* Only apply high z-index when modal is actually shown */
+#deleteTankModal.show {
+  z-index: 10000001 !important;
+  pointer-events: auto; /* Re-enable mouse events when shown */
+}
+
+/* Bootstrap creates backdrop separately from modal */
+.modal-backdrop {
+  z-index: 1055 !important; /* Default Bootstrap backdrop z-index */
+}
+
+/* Only override backdrop z-index when shown */
+.modal-backdrop.show {
+  z-index: 10000000 !important;
+}
+
+/* Ensure modal doesn't block events when not visible */
+#deleteTankModal:not(.show) {
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+/* Ensure modal content uses proper colors */
+#deleteTankModal .modal-content {
+  background-color: var(--card-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+#deleteTankModal .modal-header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+#deleteTankModal .modal-footer {
+  border-top: 1px solid var(--border-color);
+}
+
+#deleteTankModal .btn-close {
+  background: transparent;
+  opacity: 0.8;
+}
+
+#deleteTankModal .btn-close:hover {
+  opacity: 1;
+}
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   // Handle delete tank modal
   const deleteTankModal = document.getElementById('deleteTankModal');
+  
   if (deleteTankModal) {
+    // Ensure modal starts in proper hidden state
+    deleteTankModal.style.display = 'none';
+    deleteTankModal.style.visibility = 'hidden';
+    deleteTankModal.style.pointerEvents = 'none';
+    
     deleteTankModal.addEventListener('show.bs.modal', function (event) {
       const button = event.relatedTarget;
       const tankId = button.getAttribute('data-tank-id');
@@ -218,6 +276,27 @@ document.addEventListener('DOMContentLoaded', function() {
       
       tankNameDisplay.textContent = tankName;
       deleteForm.action = `/tanks/delete/${tankId}`;
+      
+      // Ensure modal can receive events when shown
+      deleteTankModal.style.pointerEvents = 'auto';
+      deleteTankModal.style.visibility = 'visible';
+    });
+    
+    deleteTankModal.addEventListener('shown.bs.modal', function (event) {
+      // Modal is fully visible, ensure it can receive events
+      deleteTankModal.style.pointerEvents = 'auto';
+    });
+    
+    deleteTankModal.addEventListener('hide.bs.modal', function (event) {
+      // Modal is being hidden, start blocking events
+      deleteTankModal.style.pointerEvents = 'none';
+    });
+    
+    deleteTankModal.addEventListener('hidden.bs.modal', function (event) {
+      // Modal is fully hidden, ensure it doesn't block events
+      deleteTankModal.style.display = 'none';
+      deleteTankModal.style.visibility = 'hidden';
+      deleteTankModal.style.pointerEvents = 'none';
     });
   }
 });

@@ -57,7 +57,7 @@ start-test: test test-db-start
 	@echo "[Makefile] Starting test Flask server on port 5001..."
 	@echo "[Makefile] Test MySQL on port 3310, Flask on port 5001"
 	make sass-test &
-	FLASK_DEBUG=0 flask run
+	FLASK_DEBUG=0 flask run --port=5001
 
 stop-all:
 	@echo "[Makefile] Stopping all Flask servers and databases..."
@@ -253,10 +253,10 @@ docker-status:
 	@echo "  Test Database:"
 	@docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}" | grep reef-sql-test || echo "    Not running"
 
-# Legacy test database support (keep for existing tests)
+# Fresh test database with live dev data
 test-db-start:
-	@echo "[Makefile] Starting ephemeral test database on port 3310..."
-	bash tests/scripts/test_mysql_ephemeral.sh start
+	@echo "[Makefile] Starting fresh test database with live dev data on port 3310..."
+	bash tests/scripts/fresh_test_db.sh start
 
 # Test database logs
 test-logs:
@@ -265,13 +265,15 @@ test-logs:
 
 test-db-stop:
 	@echo "[Makefile] Stopping ephemeral test database..."
-	bash tests/scripts/test_mysql_ephemeral.sh stop
+	bash tests/scripts/fresh_test_db.sh stop
 
 test-db-status:
 	@echo "[Makefile] Checking test database status..."
-	bash tests/scripts/test_mysql_ephemeral.sh status
+	bash tests/scripts/fresh_test_db.sh status
 
-test-db-restart: test-db-stop test-db-start
+test-db-restart:
+	@echo "[Makefile] Restarting test database with fresh dev data..."
+	bash tests/scripts/fresh_test_db.sh restart
 
 # Alias commands for starting/stopping database containers
 .PHONY: start-db-dev stop-db-dev start-db-prod stop-db-prod
@@ -288,13 +290,13 @@ stop-db-prod: docker-prod-stop
 test-unit:
 	@echo "[Makefile] Running unit tests only (no E2E)..."
 	cp evs/.env.test .env
-	pytest tests/ --ignore=tests/e2e/ -v
+	PYTHONPATH=. pytest tests/unit/ -v
 
 test-e2e: test start-test
 	@echo "[Makefile] Running E2E tests (Flask server on port 5001)..."
 	@echo "[Makefile] Waiting for Flask server to start..."
 	sleep 3
-	pytest tests/e2e/ -v
+	PYTHONPATH=. pytest tests/e2e/ -v
 
 test-full: test-db-restart test-unit test-e2e
 	@echo "[Makefile] Running complete test suite..."

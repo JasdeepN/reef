@@ -3,9 +3,7 @@
 
 {% block page_title %}Dosing Schedule Manager{% endblock %}
 
-{% block conte                <div class="col-12">
-                    <label for="overdue_handling" class="form-label">Strategy *</label>
-                    <select class="form-select" id="overdue_handling" name="overdue_handling" required>%}
+{% block content %}
 <div class="container-fluid schedule-new-page">
   <div class="row">
     <!-- Create New Schedule Form -->
@@ -33,6 +31,28 @@
                 <label for="amount" class="form-label">📏 Amount (ml) *</label>
                 <input type="number" step="0.1" min="0.1" class="form-control" id="amount" name="amount" required>
                 <div class="form-text">Amount to dose each time</div>
+              </div>
+            </div>
+
+            <!-- Doser Selection -->
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="doser_id" class="form-label">🔧 Doser</label>
+                <select class="form-select" id="doser_id" name="doser_id">
+                  <option value="">No specific doser</option>
+                  {% for doser in dosers %}
+                  <option value="{{ doser.id }}" data-type="{{ doser.doser_type }}" data-max-daily="{{ doser.max_daily_volume }}">
+                    {{ doser.doser_name }} ({{ doser.doser_type }})
+                    {% if doser.max_daily_volume %} - Max: {{ doser.max_daily_volume }}ml/day{% endif %}
+                  </option>
+                  {% endfor %}
+                </select>
+                <div class="form-text">Optional: Assign to specific physical doser</div>
+              </div>
+              <div class="col-md-6">
+                <label for="doser_name" class="form-label">⚙️ Doser Name (Legacy)</label>
+                <input type="text" class="form-control" id="doser_name" name="doser_name" maxlength="64">
+                <div class="form-text">Optional: Manual doser identification</div>
               </div>
             </div>
 
@@ -95,6 +115,18 @@
                       </select>
                     </div>
                   </div>
+                  <div class="row mt-2">
+                    <div class="col-md-6">
+                      <label for="start_time" class="form-label">⏰ Start Time (optional)</label>
+                      <input type="time" class="form-control" id="start_time" name="start_time">
+                      <div class="form-text">When to start the first dose (leave empty to start immediately)</div>
+                    </div>
+                    <div class="col-md-6">
+                      <label for="offset_minutes" class="form-label">🔄 Offset (minutes)</label>
+                      <input type="number" class="form-control" id="offset_minutes" name="offset_minutes" min="-1440" max="1440" value="0">
+                      <div class="form-text">Adjust timing by ± minutes (advanced)</div>
+                    </div>
+                  </div>
                   <div class="form-text mt-2">
                     ⏱️ <strong>Example:</strong> "Every 2 hours" will dose the specified amount every 2 hours starting from when the schedule is activated.
                   </div>
@@ -105,16 +137,18 @@
                   <h6 class="card-title">Daily Schedule Configuration</h6>
                   <div class="row">
                     <div class="col-md-6">
-                      <label for="times_per_day" class="form-label">Times per Day</label>
-                      <input type="number" min="1" max="1440" class="form-control" id="times_per_day" name="times_per_day" value="1">
+                      <label for="daily_time" class="form-label">🕐 Dose Time</label>
+                      <input type="time" class="form-control" id="daily_time" name="daily_time" value="09:00">
+                      <div class="form-text">What time each day to dose</div>
                     </div>
                     <div class="col-md-6">
-                      <label class="form-label">Calculated Interval</label>
-                      <input type="text" class="form-control" id="daily_interval_display" readonly>
+                      <label for="times_per_day" class="form-label">Times per Day</label>
+                      <input type="number" min="1" max="24" class="form-control" id="times_per_day" name="times_per_day" value="1">
+                      <div class="form-text">Number of doses per day (evenly spaced)</div>
                     </div>
                   </div>
                   <div class="form-text mt-2">
-                    📅 <strong>Example:</strong> "3 times per day" will dose every 8 hours. Maximum 1440 times (once per minute).
+                    📅 <strong>Example:</strong> "09:00 daily" doses at 9 AM every day. "3 times per day" doses every 8 hours starting at selected time.
                   </div>
                 </div>
 
@@ -123,16 +157,50 @@
                   <h6 class="card-title">Weekly Schedule Configuration</h6>
                   <div class="row">
                     <div class="col-md-6">
-                      <label for="times_per_week" class="form-label">Times per Week</label>
-                      <input type="number" min="1" max="10080" class="form-control" id="times_per_week" name="times_per_week" value="7">
+                      <label for="weekly_time" class="form-label">🕐 Dose Time</label>
+                      <input type="time" class="form-control" id="weekly_time" name="weekly_time" value="09:00">
+                      <div class="form-text">What time to dose on selected days</div>
                     </div>
                     <div class="col-md-6">
-                      <label class="form-label">Calculated Interval</label>
-                      <input type="text" class="form-control" id="weekly_interval_display" readonly>
+                      <label class="form-label">📅 Days of Week</label>
+                      <div class="row">
+                        <div class="col-6">
+                          <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="dow_1" name="days_of_week" value="1">
+                            <label class="form-check-label" for="dow_1">Mon</label>
+                          </div>
+                          <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="dow_2" name="days_of_week" value="2">
+                            <label class="form-check-label" for="dow_2">Tue</label>
+                          </div>
+                          <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="dow_3" name="days_of_week" value="3">
+                            <label class="form-check-label" for="dow_3">Wed</label>
+                          </div>
+                          <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="dow_4" name="days_of_week" value="4">
+                            <label class="form-check-label" for="dow_4">Thu</label>
+                          </div>
+                        </div>
+                        <div class="col-6">
+                          <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="dow_5" name="days_of_week" value="5">
+                            <label class="form-check-label" for="dow_5">Fri</label>
+                          </div>
+                          <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="dow_6" name="days_of_week" value="6">
+                            <label class="form-check-label" for="dow_6">Sat</label>
+                          </div>
+                          <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="dow_7" name="days_of_week" value="7">
+                            <label class="form-check-label" for="dow_7">Sun</label>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <div class="form-text mt-2">
-                    📊 <strong>Example:</strong> "14 times per week" will dose every 12 hours. Maximum 10080 times (once per minute).
+                    📊 <strong>Example:</strong> "Mon, Wed, Fri at 09:00" doses at 9 AM on those specific days each week.
                   </div>
                 </div>
 
@@ -141,8 +209,21 @@
                   <h6 class="card-title">Custom Schedule Configuration</h6>
                   <div class="row">
                     <div class="col-md-6">
-                      <label for="custom_seconds" class="form-label">Interval (seconds)</label>
+                      <label for="repeat_every_n_days" class="form-label">Repeat Every N Days</label>
+                      <input type="number" min="1" max="365" class="form-control" id="repeat_every_n_days" name="repeat_every_n_days" value="1">
+                      <div class="form-text">Dose every N days at specified time</div>
+                    </div>
+                    <div class="col-md-6">
+                      <label for="custom_time" class="form-label">🕐 Dose Time</label>
+                      <input type="time" class="form-control" id="custom_time" name="custom_time" value="09:00">
+                      <div class="form-text">Time of day to dose</div>
+                    </div>
+                  </div>
+                  <div class="row mt-2">
+                    <div class="col-md-6">
+                      <label for="custom_seconds" class="form-label">OR Interval (seconds)</label>
                       <input type="number" min="60" class="form-control" id="custom_seconds" name="custom_seconds" value="3600">
+                      <div class="form-text">Alternative: exact seconds interval</div>
                     </div>
                     <div class="col-md-6">
                       <label class="form-label">Human Readable</label>
@@ -150,7 +231,7 @@
                     </div>
                   </div>
                   <div class="form-text mt-2">
-                    ⚙️ <strong>Advanced:</strong> Enter exact interval in seconds. Minimum 60 seconds (1 minute).
+                    ⚙️ <strong>Advanced:</strong> Use either day-based scheduling or exact second intervals.
                   </div>
                 </div>
               </div>
@@ -279,7 +360,9 @@
     {{ schedule_stats_cards(stats_api_urls["GET"], stats_api_urls["DELETE"], 'columns') }}
   </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const scheduleTypeInputs = document.querySelectorAll('input[name="schedule_type"]');
@@ -358,9 +441,84 @@ document.addEventListener('DOMContentLoaded', function() {
   // Initialize missed dose config display
   updateMissedDoseConfig();
 
-  // Handle form submission
+  // Doser validation function
+  function validateDoserSelection() {
+    const doserId = document.getElementById('doser_id').value;
+    const doserName = document.getElementById('doser_name').value;
+    
+    if (!doserId && !doserName.trim()) {
+      return { valid: false, message: 'Please select a doser or enter a legacy doser name.' };
+    }
+    
+    return { valid: true };
+  }
+
+  // Schedule type validation
+  function validateScheduleConfig() {
+    const scheduleType = document.querySelector('input[name="schedule_type"]:checked').value;
+    
+    switch (scheduleType) {
+      case 'daily':
+        const timesPerDay = parseInt(document.getElementById('times_per_day').value);
+        if (timesPerDay < 1 || timesPerDay > 24) {
+          return { valid: false, message: 'Times per day must be between 1 and 24.' };
+        }
+        break;
+        
+      case 'weekly':
+        const daysSelected = document.querySelectorAll('input[name="days_of_week"]:checked');
+        if (daysSelected.length === 0) {
+          return { valid: false, message: 'Please select at least one day of the week.' };
+        }
+        break;
+        
+      case 'custom':
+        const repeatDays = parseInt(document.getElementById('repeat_every_n_days').value);
+        const customSeconds = parseInt(document.getElementById('custom_seconds').value);
+        
+        if (repeatDays && (repeatDays < 1 || repeatDays > 365)) {
+          return { valid: false, message: 'Repeat days must be between 1 and 365.' };
+        }
+        
+        if (customSeconds && customSeconds < 60) {
+          return { valid: false, message: 'Custom interval must be at least 60 seconds.' };
+        }
+        break;
+        
+      case 'interval':
+        const amount = parseFloat(document.getElementById('amount').value);
+        const intervalMinutes = parseInt(document.getElementById('trigger_interval').value);
+        
+        if (!amount || amount <= 0) {
+          return { valid: false, message: 'Amount must be greater than 0.' };
+        }
+        
+        if (!intervalMinutes || intervalMinutes < 1) {
+          return { valid: false, message: 'Interval must be at least 1 minute.' };
+        }
+        break;
+    }
+    
+    return { valid: true };
+  }
+
+  // Enhanced form submission with validation
   document.getElementById('scheduleForm').addEventListener('submit', function(e) {
     e.preventDefault();
+    
+    // Validate doser selection
+    const doserValidation = validateDoserSelection();
+    if (!doserValidation.valid) {
+      alert('❌ ' + doserValidation.message);
+      return;
+    }
+    
+    // Validate schedule configuration
+    const scheduleValidation = validateScheduleConfig();
+    if (!scheduleValidation.valid) {
+      alert('❌ ' + scheduleValidation.message);
+      return;
+    }
     
     const formData = new FormData(this);
     const data = Object.fromEntries(formData);
@@ -369,9 +527,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const scheduleType = document.querySelector('input[name="schedule_type"]:checked').value;
     data.schedule_type = scheduleType;
     
-    // Convert checkbox value
+    // Handle days of week for weekly schedule
+    if (scheduleType === 'weekly') {
+      const selectedDays = Array.from(document.querySelectorAll('input[name="days_of_week"]:checked'))
+        .map(checkbox => checkbox.value);
+      data.days_of_week = selectedDays.join(',');
+    }
+    
+    // Convert checkbox values
     data.suspended = document.getElementById('suspended').checked;
     data.missed_dose_notification_enabled = document.getElementById('missed_dose_notification_enabled').checked;
+
+    // Show loading state
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+    submitBtn.disabled = true;
 
     fetch('/doser/schedule/new', {
       method: 'POST',
@@ -394,6 +565,11 @@ document.addEventListener('DOMContentLoaded', function() {
     .catch(error => {
       console.error('Error:', error);
       alert('❌ Network error occurred while creating schedule.');
+    })
+    .finally(() => {
+      // Restore button state
+      submitBtn.innerHTML = originalText;
+      submitBtn.disabled = false;
     });
   });
 });
@@ -409,7 +585,9 @@ function resetForm() {
   document.getElementById('custom_seconds').dispatchEvent(new Event('input'));
 }
 </script>
+{% endblock %}
 
+{% block styles %}
 <style>
 .schedule-config {
   transition: all 0.3s ease-in-out;
@@ -435,5 +613,28 @@ function resetForm() {
 #existingSchedules .card:has(.badge) {
   border-left-color: #ffc107;
 }
+
+/* Force Bootstrap grid layout */
+.schedule-new-page .row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+}
+
+.schedule-new-page [class*="col-"] {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.schedule-new-page .container-fluid {
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+/* Ensure cards take full height in columns */
+.schedule-new-page .col-lg-8 .card,
+.schedule-new-page .col-lg-4 .card {
+  flex: 1;
+}
 </style>
+
 {% endblock %}

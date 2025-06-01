@@ -2,10 +2,14 @@ from flask import Blueprint, request, jsonify
 from app import db
 from modules.tank_context import ensure_tank_context
 from modules.models import DSchedule
-from modules.missed_dose_handler import MissedDoseHandler
 import logging
 
 logger = logging.getLogger(__name__)
+
+def _get_missed_dose_handler():
+    """Get missed dose handler with lazy import to avoid circular imports"""
+    from modules.missed_dose_handler import MissedDoseHandler
+    return MissedDoseHandler()
 
 bp = Blueprint('missed_dose_api', __name__, url_prefix='/missed-dose')
 
@@ -17,7 +21,7 @@ def get_pending_missed_doses():
         return jsonify({"success": False, "error": "No tank selected"}), 400
     
     try:
-        missed_dose_handler = MissedDoseHandler()
+        missed_dose_handler = _get_missed_dose_handler()
         pending_requests = missed_dose_handler.get_pending_approvals(tank_id)
         
         return jsonify({
@@ -43,7 +47,7 @@ def approve_missed_dose():
         return jsonify({"success": False, "error": "Request ID is required"}), 400
     
     try:
-        missed_dose_handler = MissedDoseHandler()
+        missed_dose_handler = _get_missed_dose_handler()
         success = missed_dose_handler.approve_missed_dose(
             request_id=request_id,
             approved_by="System User",
@@ -76,7 +80,7 @@ def reject_missed_dose():
         return jsonify({"success": False, "error": "Request ID is required"}), 400
     
     try:
-        missed_dose_handler = MissedDoseHandler()
+        missed_dose_handler = _get_missed_dose_handler()
         success = missed_dose_handler.reject_missed_dose(
             request_id=request_id,
             rejected_by="System User",
@@ -150,7 +154,7 @@ def analyze_schedule_missed_dose(schedule_id):
         if not schedule or schedule.tank_id != tank_id:
             return jsonify({"success": False, "error": "Schedule not found"}), 404
         
-        missed_dose_handler = MissedDoseHandler()
+        missed_dose_handler = _get_missed_dose_handler()
         analysis = missed_dose_handler.analyze_schedule_for_missed_dose(schedule)
         
         return jsonify({

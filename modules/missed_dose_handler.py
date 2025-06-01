@@ -37,21 +37,82 @@ class MissedDoseHandler:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
     
+    def _get_last_dose_time(self, schedule: DSchedule) -> datetime:
+        """
+        Get the last dose time for a schedule, supporting absolute and relative schedules.
+        - For relative schedules, use the last dose of the reference schedule plus offset.
+        - For absolute schedules, use the most recent occurrence of trigger_time.
+        - Otherwise, use the last dose or last_refill.
+        """
+        if schedule.offset_minutes and schedule.reference_schedule_id:
+            # Relative: last dose of reference schedule + offset
+            ref_dose = db.session.query(Dosing).filter_by(schedule_id=schedule.reference_schedule_id).order_by(Dosing.trigger_time.desc()).first()
+            if ref_dose and ref_dose.trigger_time:
+                return ref_dose.trigger_time + timedelta(minutes=schedule.offset_minutes)
+            else:
+                return datetime.now()  # fallback: now
+        if schedule.trigger_time:
+            # Absolute: most recent occurrence of trigger_time (today or yesterday)
+            now = datetime.now()
+            today_trigger = now.replace(hour=schedule.trigger_time.hour, minute=schedule.trigger_time.minute, second=0, microsecond=0)
+            if today_trigger > now:
+                # Not yet today, use yesterday
+                return today_trigger - timedelta(days=1)
+            else:
+                return today_trigger
+        # Default: legacy logic
+        last_dose = db.session.query(Dosing).filter_by(schedule_id=schedule.id).order_by(Dosing.trigger_time.desc()).first()
+        if last_dose and last_dose.trigger_time:
+            return last_dose.trigger_time
+        if schedule.last_refill:
+            return schedule.last_refill
+        return datetime.now() - timedelta(seconds=schedule.trigger_interval)
+
     def analyze_schedule_for_missed_dose(self, schedule: DSchedule, reference_time: datetime = None) -> MissedDoseAnalysis:
         """
         Analyze a dosing schedule to determine if it has missed doses and what action to take.
-        
-        Args:
-            schedule: DSchedule model instance
-            reference_time: Time to compare against (defaults to current time)
-            
-        Returns:
-            MissedDoseAnalysis with recommendation for handling the missed dose
+        Supports absolute and relative schedules.
         """
         if reference_time is None:
             reference_time = datetime.now()
-            
-        # Calculate when the next dose should have been
+        # Absolute schedule: next dose is next occurrence of trigger_time
+        if schedule.trigger_time:
+            today_trigger = reference_time.replace(hour=schedule.trigger_time.hour, minute=schedule.trigger_time.minute, second=0, microsecond=0)
+            if today_trigger > reference_time:
+                expected_dose_time = today_trigger
+            else:
+                expected_dose_time = today_trigger + timedelta(days=1)
+            if expected_dose_time > reference_time:
+                return MissedDoseAnalysis(
+                    schedule_id=schedule.id,
+                    missed_dose_time=expected_dose_time,
+                    hours_missed=0,
+                    should_dose=False,
+                    action='not_overdue',
+                    reason='Next fixed-time dose is not yet due'
+                )
+            hours_missed = (reference_time - expected_dose_time).total_seconds() / 3600
+            return self._handle_alert_only(schedule, expected_dose_time, hours_missed)
+        # Relative schedule: next dose is offset after reference
+        if schedule.offset_minutes and schedule.reference_schedule_id:
+            ref_dose = db.session.query(Dosing).filter_by(schedule_id=schedule.reference_schedule_id).order_by(Dosing.trigger_time.desc()).first()
+            if ref_dose and ref_dose.trigger_time:
+                expected_dose_time = ref_dose.trigger_time + timedelta(minutes=schedule.offset_minutes)
+            else:
+                expected_dose_time = reference_time + timedelta(minutes=schedule.offset_minutes)
+            if expected_dose_time > reference_time:
+                return MissedDoseAnalysis(
+                    schedule_id=schedule.id,
+                    missed_dose_time=expected_dose_time,
+                    hours_missed=0,
+                    should_dose=False,
+                    action='not_overdue',
+                    reason='Next relative dose is not yet due'
+                )
+            hours_missed = (reference_time - expected_dose_time).total_seconds() / 3600
+            return self._handle_alert_only(schedule, expected_dose_time, hours_missed)
+        
+        # Default: interval-based schedule logic
         last_dose = self._get_last_dose_time(schedule)
         expected_dose_time = last_dose + timedelta(seconds=schedule.trigger_interval)
         
@@ -78,19 +139,6 @@ class MissedDoseHandler:
         else:
             # Default to alert_only for unknown strategies
             return self._handle_alert_only(schedule, expected_dose_time, hours_missed)
-    
-    def _get_last_dose_time(self, schedule: DSchedule) -> datetime:
-        """Get the last dose time for a schedule."""
-        last_dose = db.session.query(Dosing).filter_by(schedule_id=schedule.id).order_by(Dosing.trigger_time.desc()).first()
-        if last_dose and last_dose.trigger_time:
-            return last_dose.trigger_time
-        
-        # If no doses found, use last_refill or a default time
-        if schedule.last_refill:
-            return schedule.last_refill
-        
-        # Default to current time minus interval (will show as ready to dose)
-        return datetime.now() - timedelta(seconds=schedule.trigger_interval)
     
     def _handle_alert_only(self, schedule: DSchedule, missed_dose_time: datetime, hours_missed: float) -> MissedDoseAnalysis:
         """Handle alert-only strategy: skip missed doses and show next scheduled dose."""

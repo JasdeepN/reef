@@ -166,10 +166,8 @@ class TestHomeRoutes:
         with app.test_client() as client:
             with client.session_transaction() as sess:
                 sess['tank_id'] = self.test_tank.id
-            
-            response = client.get("/api/test-results-data")
+            response = client.get("/api/v1/home/test-results-data")
             assert response.status_code == 200
-            
             data = json.loads(response.get_data(as_text=True))
             assert "labels" in data
             assert "datasets" in data
@@ -179,9 +177,8 @@ class TestHomeRoutes:
     def test_api_test_results_data_no_tank(self):
         """Test API endpoint returns error when no tank is selected"""
         with app.test_client() as client:
-            response = client.get("/api/test-results-data")
+            response = client.get("/api/v1/home/test-results-data")
             assert response.status_code == 400
-            
             data = json.loads(response.get_data(as_text=True))
             assert "error" in data
             assert data["error"] == "No tank selected"
@@ -191,18 +188,14 @@ class TestHomeRoutes:
         with app.test_client() as client:
             with client.session_transaction() as sess:
                 sess['tank_id'] = self.test_tank.id
-            
-            response = client.get("/api/test-results-data")
+            response = client.get("/api/v1/home/test-results-data")
             data = json.loads(response.get_data(as_text=True))
-            
             # Check structure
             assert isinstance(data["labels"], list)
             assert isinstance(data["datasets"], list)
-            
             # Should have datasets for both original and interpolated data
             # 6 parameters × 2 (original + interpolated) = 12 datasets
             assert len(data["datasets"]) == 12
-            
             # Check dataset structure
             for dataset in data["datasets"]:
                 assert "label" in dataset
@@ -215,14 +208,11 @@ class TestHomeRoutes:
         with app.test_client() as client:
             with client.session_transaction() as sess:
                 sess['tank_id'] = self.test_tank.id
-            
-            response = client.get("/api/test-results-data")
+            response = client.get("/api/v1/home/test-results-data")
             data = json.loads(response.get_data(as_text=True))
-            
             # Find interpolated datasets (should have "(Interpolated)" in label)
             interpolated_datasets = [d for d in data["datasets"] if "(Interpolated)" in d["label"]]
             assert len(interpolated_datasets) == 6  # One for each parameter
-            
             # Check that interpolated datasets have dashed line style
             for dataset in interpolated_datasets:
                 assert dataset.get("borderDash") == [5, 5]

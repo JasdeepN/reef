@@ -110,6 +110,19 @@ class MissedDoseHandlingEnum(enum.Enum):
     grace_period = 'grace_period'       # Allow dosing within grace window
     manual_approval = 'manual_approval' # Require user confirmation
 
+class ScheduleTypeEnum(enum.Enum):
+    interval = 'interval'    # Every X seconds/minutes/hours
+    daily = 'daily'         # Once per day at specific time
+    weekly = 'weekly'       # Specific days of week at specific time
+    custom = 'custom'       # Custom repeat pattern
+
+class DoserTypeEnum(enum.Enum):
+    kamoer = 'kamoer'
+    ghl = 'ghl'
+    neptune = 'neptune'
+    diy = 'diy'
+    other = 'other'
+
 class Dosing(db.Model):
     __tablename__ = 'dosing'
 
@@ -150,12 +163,29 @@ class DSchedule(db.Model):
     missed_dose_grace_period_hours = db.Column(db.Integer, default=12)  # Grace period in hours for grace_period mode
     missed_dose_notification_enabled = db.Column(db.Boolean, default=True)  # Enable missed dose notifications
 
+    # --- Enhanced Scheduling Features ---
+    schedule_type = db.Column(db.Enum(ScheduleTypeEnum), default=ScheduleTypeEnum.interval, nullable=False)
+    trigger_time = db.Column(db.Time, nullable=True)  # Absolute time of day for fixed-time schedules
+    offset_minutes = db.Column(db.Integer, nullable=True)  # Offset in minutes for relative schedules
+    reference_schedule_id = db.Column(db.Integer, db.ForeignKey('d_schedule.id'), nullable=True)  # Reference schedule for relative dosing
+    
+    # Week/custom schedule support
+    days_of_week = db.Column(db.String(14), nullable=True)  # Comma-separated days (1=Monday, 7=Sunday)
+    repeat_every_n_days = db.Column(db.Integer, nullable=True)  # For custom schedules
+    last_scheduled_time = db.Column(db.DateTime, nullable=True)  # Last time scheduler processed this
+    
+    # Doser management
+    doser_name = db.Column(db.String(64), nullable=True)  # Legacy doser name
+    doser_id = db.Column(db.Integer, db.ForeignKey('dosers.id'), nullable=True)  # Link to dosers table
+    
     # Relationships
+    reference_schedule = db.relationship('DSchedule', remote_side=[id], uselist=False, post_update=True)
     tank = db.relationship('Tank', backref=db.backref('schedules', lazy=True))
     product = db.relationship('Products', backref=db.backref('schedules', lazy=True))
+    doser = db.relationship('Doser', backref=db.backref('schedules', lazy=True))
 
     def __repr__(self):
-        return f"<DSchedule {self.id} (Tank {self.tank_id}, Product {self.product_id})>"
+        return f"<DSchedule {self.id} (Tank {self.tank_id}, Product {self.product_id}, Type {self.schedule_type.value if self.schedule_type else 'interval'})>"
 
 def get_d_schedule_dict(d_schedule):
     """Helper to serialize DSchedule model to dict."""
@@ -168,7 +198,21 @@ def get_d_schedule_dict(d_schedule):
         "amount": d_schedule.amount,
         "missed_dose_handling": d_schedule.missed_dose_handling.value if d_schedule.missed_dose_handling else 'alert_only',
         "missed_dose_grace_period_hours": d_schedule.missed_dose_grace_period_hours,
-        "missed_dose_notification_enabled": d_schedule.missed_dose_notification_enabled
+        "missed_dose_notification_enabled": d_schedule.missed_dose_notification_enabled,
+        
+        # Enhanced scheduling fields
+        "schedule_type": d_schedule.schedule_type.value if d_schedule.schedule_type else 'interval',
+        "trigger_time": d_schedule.trigger_time.strftime('%H:%M:%S') if d_schedule.trigger_time else None,
+        "offset_minutes": d_schedule.offset_minutes,
+        "reference_schedule_id": d_schedule.reference_schedule_id,
+        "days_of_week": d_schedule.days_of_week,
+        "repeat_every_n_days": d_schedule.repeat_every_n_days,
+        "last_scheduled_time": d_schedule.last_scheduled_time.isoformat() if d_schedule.last_scheduled_time else None,
+        
+        # Doser information
+        "doser_name": d_schedule.doser_name,
+        "doser_id": d_schedule.doser_id,
+        "doser": d_schedule.doser.to_dict() if d_schedule.doser else None
     }
 
 class MissedDoseRequest(db.Model):
@@ -255,6 +299,45 @@ class Tank(db.Model):
 
     def __repr__(self):
         return f"<Tank {self.name}>"
+
+class Doser(db.Model):
+    __tablename__ = 'dosers'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    tank_id = db.Column(db.Integer, db.ForeignKey('tanks.id'), nullable=False, index=True)
+    doser_name = db.Column(db.String(64), nullable=False)
+    doser_type = db.Column(db.Enum(DoserTypeEnum), default=DoserTypeEnum.other)
+    max_daily_volume = db.Column(db.Float, nullable=True)  # ml per day
+    pump_calibration_ml_per_second = db.Column(db.Float, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    
+    # Relationships
+    tank = db.relationship('Tank', backref=db.backref('dosers', lazy=True))
+    
+    # Unique constraint
+    __table_args__ = (
+        db.UniqueConstraint('tank_id', 'doser_name', name='unique_doser_per_tank'),
+    )
+    
+    def __repr__(self):
+        return f"<Doser {self.doser_name} (Tank {self.tank_id}, {self.doser_type.value if self.doser_type else 'other'})>"
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "tank_id": self.tank_id,
+            "doser_name": self.doser_name,
+            "doser_type": self.doser_type.value if self.doser_type else 'other',
+            "max_daily_volume": self.max_daily_volume,
+            "pump_calibration_ml_per_second": self.pump_calibration_ml_per_second,
+            "is_active": self.is_active,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
 
 class Taxonomy(db.Model):
     __tablename__ = 'taxonomy'

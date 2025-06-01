@@ -60,7 +60,7 @@ def scheduler_dashboard():
         "restart": "/api/v1/scheduler/restart",
         "check": "/api/v1/scheduler/check",
         "due": "/api/v1/scheduler/due",
-        "schedules": "/web/fn/schedule/get/stats",
+        "schedules": f"/web/fn/schedule/test/stats/{tank_id}",
         "control": "/scheduler/control"
     }
     

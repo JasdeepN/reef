@@ -86,7 +86,22 @@ else:
         raise RuntimeError(f"SQLALCHEMY_DATABASE_URI contains ':None/': {app.config['SQLALCHEMY_DATABASE_URI']}")
     print(f"[app/__init__.py] SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}", file=sys.stderr, flush=True)
 
-    app.config['DB_ENGINE'] = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
+    # Configure MySQL connection pool options for better stability
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_recycle': 300,  # Recycle connections every 5 minutes
+        'pool_pre_ping': True,  # Verify connections before use
+        'pool_timeout': 20,  # Timeout for getting connection from pool
+        'max_overflow': 0,  # Don't allow overflow connections
+        'echo': False,  # Set to True for SQL debugging
+        'connect_args': {
+            'connect_timeout': 10,  # Connection timeout
+            'read_timeout': 30,     # Read timeout
+            'write_timeout': 30,    # Write timeout
+            'charset': 'utf8mb4'    # Proper UTF-8 support
+        }
+    }
+
+    app.config['DB_ENGINE'] = create_engine(app.config['SQLALCHEMY_DATABASE_URI'], **app.config['SQLALCHEMY_ENGINE_OPTIONS'])
     app.config["SESSION_COOKIE_NAME"] = "session"
 
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False

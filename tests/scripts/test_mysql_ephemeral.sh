@@ -36,12 +36,12 @@ case "$1" in
           -e MYSQL_PASSWORD=$DB_PASS \
           -e MYSQL_ROOT_PASSWORD=$DB_ROOT_PASS \
           -p $DB_PORT:3306 \
-          mysql:lts
+          mysql:latest
         echo "Waiting for test MySQL to be ready..."
         sleep 15
         if [ ! -f "$DUMP_FILE" ]; then
           echo "Dumping prod DB from $PROD_CONTAINER to $DUMP_FILE..."
-          docker exec $PROD_CONTAINER mysqldump -u root -ppassword $PROD_DB > "$DUMP_FILE"
+          docker exec $PROD_CONTAINER mysqldump -u root -p$PROD_DB_PASS $PROD_DB > "$DUMP_FILE"
         else
           echo "Using existing dump file: $DUMP_FILE"
         fi
@@ -62,12 +62,12 @@ case "$1" in
       -e MYSQL_PASSWORD=$DB_PASS \
       -e MYSQL_ROOT_PASSWORD=$DB_ROOT_PASS \
       -p $DB_PORT:3306 \
-      mysql:lts
+      mysql:latest
     echo "Waiting for test MySQL to be ready..."
     sleep 15
     if [ ! -f "$DUMP_FILE" ]; then
       echo "Dumping prod DB from $PROD_CONTAINER to $DUMP_FILE..."
-      docker exec $PROD_CONTAINER mysqldump -u root -ppassword $PROD_DB > "$DUMP_FILE"
+      docker exec $PROD_CONTAINER mysqldump -u root -p$PROD_DB_PASS $PROD_DB > "$DUMP_FILE"
     else
       echo "Using existing dump file: $DUMP_FILE"
     fi

@@ -6,9 +6,13 @@ from flask import request, jsonify, render_template, flash, redirect, url_for
 from app import app, db
 from modules.tank_context import get_current_tank_id, ensure_tank_context
 from modules.models import DSchedule, MissedDoseRequest, MissedDoseHandlingEnum
-from modules.missed_dose_handler import MissedDoseHandler
 from datetime import datetime
 import logging
+
+def _get_missed_dose_handler():
+    """Get missed dose handler with lazy import to avoid circular imports"""
+    from modules.missed_dose_handler import MissedDoseHandler
+    return MissedDoseHandler()
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +31,7 @@ def missed_dose_dashboard():
     
     try:
         # Get pending approval requests
-        missed_dose_handler = MissedDoseHandler()
+        missed_dose_handler = _get_missed_dose_handler()
         pending_requests = missed_dose_handler.get_pending_approvals(tank_id)
         
         # Get schedules with missed dose handling configuration

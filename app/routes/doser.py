@@ -155,6 +155,15 @@ def schedule_new():
     products = Products.query.all()
     products_list = [{"id": p.id, "name": p.name, "current_avail": p.current_avail} for p in products]
     
+    # Fetch available dosers for the current tank
+    dosers = Doser.query.filter_by(tank_id=tank_id, is_active=True).all()
+    dosers_list = [{
+        "id": d.id, 
+        "doser_name": d.doser_name, 
+        "doser_type": d.doser_type.value if d.doser_type else "other",
+        "max_daily_volume": d.max_daily_volume
+    } for d in dosers]
+    
     # Fetch existing schedules for the current tank
     existing_schedules = DSchedule.query.filter_by(tank_id=tank_id).all()
     schedules_data = []
@@ -179,6 +188,7 @@ def schedule_new():
         title="Dosing Schedule Manager",
         tank_id=tank_id,
         products=products_list,
+        dosers=dosers_list,
         existing_schedules=schedules_data,
         stats_api_urls=stats_api_urls
     )
@@ -205,6 +215,9 @@ def schedule_edit(schedule_id):
     # Fetch available products for the dropdown
     products = Products.query.all()
     products_list = [{"id": p.id, "name": p.name, "current_avail": p.current_avail} for p in products]
+    
+    # Fetch active dosers for the current tank
+    dosers = Doser.query.filter_by(tank_id=tank_id, is_active=True).all()
     
     # Fetch existing schedules for the current tank (excluding current one)
     existing_schedules = DSchedule.query.filter(DSchedule.tank_id == tank_id, DSchedule.id != schedule_id).all()
@@ -241,6 +254,7 @@ def schedule_edit(schedule_id):
         title="Edit Dosing Schedule",
         tank_id=tank_id,
         products=products_list,
+        dosers=dosers,
         existing_schedules=schedules_data,
         schedule=schedule_data,
         stats_api_urls=stats_api_urls
@@ -254,48 +268,18 @@ def handle_schedule_edit_submission(data, schedule_id, tank_id):
         if not schedule:
             return jsonify({"success": False, "error": "Schedule not found"}), 404
         
-        # Extract and validate data
-        product_id = data.get('product_id')
-        amount = float(data.get('amount', 0))
-        schedule_type = data.get('schedule_type')  # 'interval', 'daily', 'weekly', 'custom'
-        suspended = data.get('suspended', False)
+        # Basic validation
+        validation_result = _validate_schedule_data(data)
+        if not validation_result['valid']:
+            return jsonify({"success": False, "error": validation_result['error']}), 400
         
-        if not product_id or amount <= 0:
-            return jsonify({"success": False, "error": "Product and positive amount are required"}), 400
-        
-        # Calculate trigger_interval based on schedule_type and user input
-        trigger_interval = calculate_trigger_interval(data, schedule_type)
-        if trigger_interval is None:
-            return jsonify({"success": False, "error": "Invalid schedule configuration"}), 400
-        
-        # Process missed dose handling configuration
-        missed_dose_handling = data.get('missed_dose_handling', 'alert_only')
-        missed_dose_grace_period_hours = data.get('missed_dose_grace_period_hours')
-        missed_dose_notification_enabled = data.get('missed_dose_notification_enabled', False)
-        
-        # Validate missed dose handling enum
-        try:
-            missed_dose_handling_enum = MissedDoseHandlingEnum(missed_dose_handling)
-        except ValueError:
-            missed_dose_handling_enum = MissedDoseHandlingEnum.alert_only
-        
-        # Validate grace period hours (1-72 hours)
-        if missed_dose_grace_period_hours is not None:
-            try:
-                missed_dose_grace_period_hours = int(missed_dose_grace_period_hours)
-                if missed_dose_grace_period_hours < 1 or missed_dose_grace_period_hours > 72:
-                    missed_dose_grace_period_hours = None
-            except (ValueError, TypeError):
-                missed_dose_grace_period_hours = None
+        # Extract and process data
+        schedule_data = _process_schedule_data(data, tank_id)
         
         # Update existing schedule
-        schedule.product_id = product_id
-        schedule.amount = amount
-        schedule.trigger_interval = trigger_interval
-        schedule.suspended = suspended
-        schedule.missed_dose_handling = missed_dose_handling_enum
-        schedule.missed_dose_grace_period_hours = missed_dose_grace_period_hours
-        schedule.missed_dose_notification_enabled = missed_dose_notification_enabled
+        for key, value in schedule_data.items():
+            if key != 'tank_id':  # Don't update tank_id
+                setattr(schedule, key, value)
         
         db.session.commit()
         
@@ -312,51 +296,16 @@ def handle_schedule_edit_submission(data, schedule_id, tank_id):
 def handle_schedule_submission(data, tank_id):
     """Handle the submission of a new dosing schedule"""
     try:
-        # Extract and validate data
-        product_id = data.get('product_id')
-        amount = float(data.get('amount', 0))
-        schedule_type = data.get('schedule_type')  # 'interval', 'daily', 'weekly', 'custom'
-        suspended = data.get('suspended', False)
+        # Basic validation
+        validation_result = _validate_schedule_data(data)
+        if not validation_result['valid']:
+            return jsonify({"success": False, "error": validation_result['error']}), 400
         
-        if not product_id or amount <= 0:
-            return jsonify({"success": False, "error": "Product and positive amount are required"}), 400
-        
-        # Calculate trigger_interval based on schedule_type and user input
-        trigger_interval = calculate_trigger_interval(data, schedule_type)
-        if trigger_interval is None:
-            return jsonify({"success": False, "error": "Invalid schedule configuration"}), 400
-        
-        # Process missed dose handling configuration
-        missed_dose_handling = data.get('missed_dose_handling', 'alert_only')
-        missed_dose_grace_period_hours = data.get('missed_dose_grace_period_hours')
-        missed_dose_notification_enabled = data.get('missed_dose_notification_enabled', False)
-        
-        # Validate missed dose handling enum
-        try:
-            missed_dose_handling_enum = MissedDoseHandlingEnum(missed_dose_handling)
-        except ValueError:
-            missed_dose_handling_enum = MissedDoseHandlingEnum.alert_only
-        
-        # Validate grace period hours (1-72 hours)
-        if missed_dose_grace_period_hours is not None:
-            try:
-                missed_dose_grace_period_hours = int(missed_dose_grace_period_hours)
-                if missed_dose_grace_period_hours < 1 or missed_dose_grace_period_hours > 72:
-                    missed_dose_grace_period_hours = None
-            except (ValueError, TypeError):
-                missed_dose_grace_period_hours = None
+        # Extract and process data
+        schedule_data = _process_schedule_data(data, tank_id)
         
         # Create new schedule
-        new_schedule = DSchedule(
-            trigger_interval=trigger_interval,
-            suspended=suspended,
-            amount=amount,
-            tank_id=tank_id,
-            product_id=product_id,
-            missed_dose_handling=missed_dose_handling_enum,
-            missed_dose_grace_period_hours=missed_dose_grace_period_hours,
-            missed_dose_notification_enabled=missed_dose_notification_enabled
-        )
+        new_schedule = DSchedule(**schedule_data)
         
         db.session.add(new_schedule)
         db.session.commit()
@@ -370,6 +319,113 @@ def handle_schedule_submission(data, tank_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
+
+def _validate_schedule_data(data):
+    """Validate basic schedule data"""
+    product_id = data.get('product_id')
+    amount = data.get('amount', 0)
+    
+    try:
+        amount = float(amount)
+    except (ValueError, TypeError):
+        return {'valid': False, 'error': 'Invalid amount value'}
+    
+    if not product_id or amount <= 0:
+        return {'valid': False, 'error': 'Product and positive amount are required'}
+    
+    return {'valid': True}
+
+def _process_schedule_data(data, tank_id):
+    """Process and normalize schedule data"""
+    # Basic fields
+    product_id = data.get('product_id')
+    amount = float(data.get('amount', 0))
+    schedule_type = data.get('schedule_type')
+    suspended = data.get('suspended', False)
+    
+    # Calculate trigger_interval
+    trigger_interval = calculate_trigger_interval(data, schedule_type)
+    if trigger_interval is None:
+        raise ValueError("Invalid schedule configuration")
+    
+    # Process enhanced scheduling fields
+    doser_data = _process_doser_data(data)
+    missed_dose_data = _process_missed_dose_data(data)
+    
+    # Validate schedule type enum
+    try:
+        schedule_type_enum = ScheduleTypeEnum(schedule_type)
+    except ValueError:
+        schedule_type_enum = ScheduleTypeEnum.interval
+    
+    # Return combined data
+    return {
+        'trigger_interval': trigger_interval,
+        'suspended': suspended,
+        'amount': amount,
+        'tank_id': tank_id,
+        'product_id': product_id,
+        'schedule_type': schedule_type_enum,
+        **doser_data,
+        **missed_dose_data
+    }
+
+def _process_doser_data(data):
+    """Process doser-related fields"""
+    doser_id = data.get('doser_id')
+    doser_name = data.get('doser_name', '').strip()
+    days_of_week = data.get('days_of_week', '').strip()
+    repeat_every_n_days = data.get('repeat_every_n_days')
+    
+    # Validate doser assignment
+    if doser_id:
+        try:
+            doser_id = int(doser_id)
+        except (ValueError, TypeError):
+            doser_id = None
+    
+    # Validate repeat_every_n_days
+    if repeat_every_n_days:
+        try:
+            repeat_every_n_days = int(repeat_every_n_days)
+            if repeat_every_n_days < 1 or repeat_every_n_days > 365:
+                repeat_every_n_days = None
+        except (ValueError, TypeError):
+            repeat_every_n_days = None
+    
+    return {
+        'doser_name': doser_name if doser_name else None,
+        'days_of_week': days_of_week if days_of_week else None,
+        'repeat_every_n_days': repeat_every_n_days,
+        'doser_id': doser_id
+    }
+
+def _process_missed_dose_data(data):
+    """Process missed dose handling configuration"""
+    missed_dose_handling = data.get('missed_dose_handling', 'alert_only')
+    missed_dose_grace_period_hours = data.get('missed_dose_grace_period_hours')
+    missed_dose_notification_enabled = data.get('missed_dose_notification_enabled', False)
+    
+    # Validate missed dose handling enum
+    try:
+        missed_dose_handling_enum = MissedDoseHandlingEnum(missed_dose_handling)
+    except ValueError:
+        missed_dose_handling_enum = MissedDoseHandlingEnum.alert_only
+    
+    # Validate grace period hours (1-72 hours)
+    if missed_dose_grace_period_hours is not None:
+        try:
+            missed_dose_grace_period_hours = int(missed_dose_grace_period_hours)
+            if missed_dose_grace_period_hours < 1 or missed_dose_grace_period_hours > 72:
+                missed_dose_grace_period_hours = None
+        except (ValueError, TypeError):
+            missed_dose_grace_period_hours = None
+    
+    return {
+        'missed_dose_handling': missed_dose_handling_enum,
+        'missed_dose_grace_period_hours': missed_dose_grace_period_hours,
+        'missed_dose_notification_enabled': missed_dose_notification_enabled
+    }
 
 def calculate_trigger_interval(data, schedule_type):
     """Calculate trigger interval in seconds based on schedule type and user input"""
@@ -417,10 +473,27 @@ def _calculate_weekly_schedule(data):
 
 def _calculate_custom_schedule(data):
     """Calculate interval for custom schedule"""
-    custom_seconds = int(data.get('custom_seconds', 0))
-    if custom_seconds < 60:  # Minimum 1 minute
-        return None
-    return custom_seconds
+    # Handle day-based custom schedule (repeat_every_n_days + custom_time)
+    repeat_every_n_days = data.get('repeat_every_n_days')
+    custom_time = data.get('custom_time')
+    
+    if repeat_every_n_days and custom_time:
+        # Convert days to seconds for trigger_interval
+        days = int(repeat_every_n_days)
+        if days < 1 or days > 365:
+            return None
+        return days * 24 * 3600  # Convert days to seconds
+    
+    # Handle exact second intervals (legacy/advanced mode)
+    custom_seconds = data.get('custom_seconds')
+    if custom_seconds:
+        seconds = int(custom_seconds)
+        if seconds < 60:  # Minimum 1 minute
+            return None
+        return seconds
+    
+    # No valid custom schedule configuration provided
+    return None
 
 
 @app.route("/doser/submit", methods=["POST"])

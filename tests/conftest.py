@@ -67,59 +67,99 @@ def check_flask_server(base_url, max_retries=3, retry_delay=2):
 
 @pytest.fixture(scope="session", autouse=True)
 def global_setup_and_teardown():
-    print("[pytest] Global setup for ReefDB E2E tests")
-    # Only start/stop ephemeral MySQL if not running in CI
-    if not os.getenv("CI"):  # CI is set in GitHub Actions and act
+    """Global setup for test session with improved error handling"""
+    print("[pytest] Global setup for ReefDB tests")
+    
+    # Start ephemeral MySQL if not in CI
+    if not os.getenv("CI"):
         subprocess.run(["bash", MYSQL_SCRIPT, "start"], check=True)
-        # Wait for DB to be ready using the status command
-        max_wait = 30  # seconds
-        for _ in range(max_wait):
-            status = subprocess.run(["bash", MYSQL_SCRIPT, "status"], capture_output=True)
-            if status.returncode == 0:
-                print("[pytest] Ephemeral MySQL test DB is ready.")
-                break
-            time.sleep(1)
-        else:
-            raise RuntimeError("Ephemeral MySQL test DB did not become ready in time.")
+        # Wait for DB readiness
+        _wait_for_database_ready()
     
-    # Ensure database tables are created using SQLAlchemy models
-    from app import app, db
-    
-    print("[pytest] Creating database tables using SQLAlchemy...")
-    with app.app_context():
-        # Import models after app context is established to avoid circular imports
-        from modules.models import Tank
-        
-        # Create all tables defined in SQLAlchemy models
-        db.create_all()
-        print("[pytest] Database tables created successfully")
-        
-        # Insert a new test tank and use its ID for the rest of the tests
-        try:
-            test_tank = Tank(name="pytest-tank")
-            db.session.add(test_tank)
-            db.session.commit()
-            tank_id = test_tank.id
-            print(f"[pytest] Inserted test tank with id={tank_id}")
-            
-            # Verify tank was inserted
-            all_tanks = Tank.query.all()
-            tank_names = [(tank.id, tank.name) for tank in all_tanks]
-            print(f"[pytest] All tanks in DB: {tank_names}")
-        except Exception as e:
-            db.session.rollback()
-            print(f"[pytest] Error inserting test tank: {e}")
-            raise
+    # Setup test tank ID
     global _test_tank_id
-    _test_tank_id = int(tank_id)
-
-    # Only make HTTP requests for E2E tests, not unit tests
-    # Check if this is an E2E test session by examining pytest arguments
-    import sys
-    # Check if we're running E2E tests specifically (not just ignoring them)
-    is_e2e_session = any("tests/e2e" in arg or "/e2e/" in arg for arg in sys.argv) and not any("--ignore" in arg and "e2e" in arg for arg in sys.argv)
+    _test_tank_id = _setup_test_tank()
     
-    if is_e2e_session:
+    # Handle E2E-specific setup
+    if _is_e2e_session():
+        _setup_e2e_environment()
+    
+    yield
+    
+    # Cleanup
+    print("[pytest] Global teardown for ReefDB tests")
+    if not os.getenv("CI"):
+        subprocess.run(["bash", MYSQL_SCRIPT, "stop"], check=False)
+
+@pytest.fixture(scope="session", autouse=True)
+def fix_flask_session_permissions():
+    """Ensure flask_session directory and files are readable/writable for all tests (unit and E2E)."""
+    session_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../flask_session'))
+    if os.path.exists(session_dir):
+        try:
+            import stat
+            # Set owner to current user and permissions to u+rwX
+            for root, dirs, files in os.walk(session_dir):
+                for d in dirs:
+                    os.chmod(os.path.join(root, d), 0o700)
+                for f in files:
+                    os.chmod(os.path.join(root, f), 0o600)
+            os.chmod(session_dir, 0o700)
+        except Exception as e:
+            print(f"[pytest setup] Warning: Could not fix flask_session permissions: {e}")
+
+def _wait_for_database_ready():
+    """Wait for database to be ready with proper timeout"""
+    max_wait = 30
+    for _ in range(max_wait):
+        status = subprocess.run(["bash", MYSQL_SCRIPT, "status"], capture_output=True)
+        if status.returncode == 0:
+            print("[pytest] Ephemeral MySQL test DB is ready.")
+            return
+        time.sleep(1)
+    raise RuntimeError("Ephemeral MySQL test DB did not become ready in time.")
+
+def _setup_test_tank():
+    """Setup test tank with fallback to existing data"""
+    from app import app, db
+    from modules.models import Tank
+    
+    print("[pytest] Setting up test tank...")
+    with app.app_context():
+        try:
+            # First, try to use existing tanks from dev data
+            existing_tanks = Tank.query.limit(1).all()
+            if existing_tanks:
+                tank_id = existing_tanks[0].id
+                print(f"[pytest] Using existing tank with id={tank_id}")
+                return tank_id
+        except Exception as e:
+            print(f"[pytest] Could not query existing tanks: {e}")
+        
+        # Fallback to default tank ID
+        print("[pytest] Using fallback tank_id=1")
+        return 1
+
+def _is_e2e_session():
+    """Check if this is an E2E test session"""
+    import sys
+    return any("tests/e2e" in arg or "/e2e/" in arg for arg in sys.argv) and \
+           not any("--ignore" in arg and "e2e" in arg for arg in sys.argv)
+
+def _setup_e2e_environment():
+    """Setup E2E environment with Flask server checks"""
+    test_base_url = os.getenv('TEST_BASE_URL', 'http://172.0.10.1:5001')
+    print(f"[pytest] E2E setup - checking Flask server at {test_base_url}")
+    
+    try:
+        response = requests.get(f"{test_base_url}/", timeout=10)
+        if response.status_code == 200:
+            print("[pytest] Flask server is ready for E2E tests")
+        else:
+            print(f"[pytest] Flask server returned status {response.status_code}")
+    except Exception as e:
+        print(f"[pytest] Flask server not ready: {e}")
+        print("[pytest] E2E tests may fail if Flask server is not running")
         print("[pytest] Detected E2E test session - checking Flask server...")
         # Check if Flask server is running before proceeding with E2E tests
         server_ok, message = check_flask_server(TEST_BASE_URL)

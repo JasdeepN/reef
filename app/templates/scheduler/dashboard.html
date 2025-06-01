@@ -40,10 +40,10 @@
       <div class="card">
         <div class="card-body text-center">
           <div class="scheduler-metric">
-            <i class="fas fa-calendar-alt fa-2x text-warning"></i>
+            <i class="fas fa-exclamation-triangle fa-2x text-warning"></i>
           </div>
-          <h5 class="card-title mt-2">Due Doses</h5>
-          <p class="card-text" id="due-count">Loading...</p>
+          <h5 class="card-title mt-2">Missed Doses</h5>
+          <p class="card-text" id="missed-count">Loading...</p>
         </div>
       </div>
     </div>
@@ -130,18 +130,18 @@
     </div>
   </div>
 
-  <!-- Due Doses Section -->
+  <!-- Missed Doses Section -->
   <div class="row mb-4">
     <div class="col-12">
       <div class="card">
         <div class="card-header bg-warning text-dark">
-          <h5 class="mb-0">⏰ Currently Due Doses</h5>
+          <h5 class="mb-0">⚠️ Missed Doses Requiring Action</h5>
         </div>
         <div class="card-body">
-          <div id="due-doses-container">
+          <div id="missed-doses-container">
             <div class="text-center text-muted">
               <i class="fas fa-spinner fa-spin fa-2x"></i>
-              <p class="mt-2">Loading due doses...</p>
+              <p class="mt-2">Loading missed doses...</p>
             </div>
           </div>
         </div>
@@ -206,13 +206,15 @@ let refreshInterval;
 
 document.addEventListener('DOMContentLoaded', function() {
   loadSchedulerStatus();
-  loadDueDoses();
+  loadMissedDoses();
+  loadUpcomingDoses();
   loadScheduleStats();
   
   // Refresh every 30 seconds
   refreshInterval = setInterval(function() {
     loadSchedulerStatus();
-    loadDueDoses();
+    loadMissedDoses();
+    loadUpcomingDoses();
   }, 30000);
 });
 
@@ -266,69 +268,138 @@ function updateStatusDisplay(status, config) {
   } else {
     lastCheck.textContent = 'Never';
   }
-  
-  // Update upcoming doses if available
-  if (status.next_doses) {
-    updateUpcomingDosesDisplay(status.next_doses);
-  }
 }
 
-function loadDueDoses() {
-  fetch(apiUrls.due)
+function loadMissedDoses() {
+  fetch(apiUrls.missed_doses)
     .then(response => response.json())
     .then(data => {
       if (data.success) {
-        updateDueDosesDisplay(data.due_schedules);
-        document.getElementById('due-count').textContent = data.count;
+        updateMissedDosesDisplay(data.data.pending_requests);
+        document.getElementById('missed-count').textContent = data.data.count;
       } else {
-        document.getElementById('due-count').textContent = 'Error';
-        showNotification('Error loading due doses: ' + data.error, 'error');
+        document.getElementById('missed-count').textContent = 'Error';
+        showNotification('Error loading missed doses: ' + data.error, 'error');
       }
     })
     .catch(error => {
-      console.error('Error loading due doses:', error);
-      document.getElementById('due-count').textContent = 'Error';
+      console.error('Error loading missed doses:', error);
+      updateMissedDosesDisplay([]);
+      document.getElementById('missed-count').textContent = 'Error';
     });
 }
 
-function updateDueDosesDisplay(dueSchedules) {
-  const container = document.getElementById('due-doses-container');
+function loadUpcomingDoses() {
+  fetch(apiUrls.next_doses)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        updateUpcomingDosesDisplay(data.data);
+      } else {
+        console.error('Error loading upcoming doses:', data.error);
+        updateUpcomingDosesDisplay([]);
+      }
+    })
+    .catch(error => {
+      console.error('Error loading upcoming doses:', error);
+      updateUpcomingDosesDisplay([]);
+    });
+}
+
+function updateMissedDosesDisplay(missedDoses) {
+  const container = document.getElementById('missed-doses-container');
   
-  if (dueSchedules.length === 0) {
+  if (!missedDoses || missedDoses.length === 0) {
     container.innerHTML = `
       <div class="text-center text-muted">
         <i class="fas fa-check-circle fa-2x text-success"></i>
-        <p class="mt-2">No doses are currently due</p>
+        <p class="mt-2">No missed doses requiring action</p>
+        <small class="text-muted">All doses are being handled automatically</small>
       </div>
     `;
     return;
   }
   
-  const html = dueSchedules.map(schedule => `
-    <div class="due-dose-card mb-2 p-3 border rounded">
-      <div class="row align-items-center">
-        <div class="col-md-4">
-          <strong>${schedule.product_name}</strong><br>
-          <small class="text-muted">Tank ${schedule.tank_id}</small>
-        </div>
-        <div class="col-md-2">
-          <span class="badge bg-warning">${schedule.amount}ml</span>
-        </div>
-        <div class="col-md-3">
-          ${schedule.seconds_missed ? 
-            `<span class="text-danger">Missed by ${Math.floor(schedule.seconds_missed / 60)}m</span>` :
-            '<span class="text-warning">Due now</span>'
-          }
-        </div>
-        <div class="col-md-3">
-          <small class="text-muted">
-            Available: ${schedule.current_avail}ml<br>
-            Schedule ID: ${schedule.schedule_id}
+  const html = missedDoses.map(request => {
+    const missedTime = new Date(request.missed_dose_time);
+    const now = new Date();
+    const hoursMissed = Math.floor((now - missedTime) / (1000 * 60 * 60));
+    const minutesMissed = Math.floor(((now - missedTime) % (1000 * 60 * 60)) / (1000 * 60));
+    
+    let timeDisplay = '';
+    if (hoursMissed > 0) {
+      timeDisplay = `${hoursMissed}h ${minutesMissed}m ago`;
+    } else {
+      timeDisplay = `${minutesMissed}m ago`;
+    }
+    
+    let handlingBadge = '';
+    let actionButtons = '';
+    
+    switch(request.handling_strategy) {
+      case 'alert_only':
+        handlingBadge = '<span class="badge bg-info">Alert Only</span>';
+        actionButtons = `
+          <small class="text-info">
+            <i class="fas fa-info-circle"></i> Informational only - dose will be skipped
           </small>
+        `;
+        break;
+      case 'grace_period':
+        handlingBadge = '<span class="badge bg-warning">Grace Period</span>';
+        actionButtons = `
+          <div class="btn-group btn-group-sm" role="group">
+            <button class="btn btn-success btn-sm" onclick="approveMissedDose('${request.id}', '${request.product_name}')">
+              <i class="fas fa-check"></i> Approve
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="rejectMissedDose('${request.id}', '${request.product_name}')">
+              <i class="fas fa-times"></i> Skip
+            </button>
+          </div>
+        `;
+        break;
+      case 'manual_approval':
+        handlingBadge = '<span class="badge bg-danger">Manual Approval</span>';
+        actionButtons = `
+          <div class="btn-group btn-group-sm" role="group">
+            <button class="btn btn-success btn-sm" onclick="approveMissedDose('${request.id}', '${request.product_name}')">
+              <i class="fas fa-check"></i> Approve
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="rejectMissedDose('${request.id}', '${request.product_name}')">
+              <i class="fas fa-times"></i> Reject
+            </button>
+          </div>
+        `;
+        break;
+      default:
+        handlingBadge = '<span class="badge bg-secondary">Unknown</span>';
+        actionButtons = '<small class="text-muted">No action required</small>';
+    }
+    
+    return `
+      <div class="missed-dose-card mb-3 p-3 border rounded">
+        <div class="row align-items-center">
+          <div class="col-md-4">
+            <h6 class="mb-1 text-warning">${request.product_name}</h6>
+            <small class="text-muted">Tank ${request.tank_id} • Schedule ${request.schedule_id}</small>
+          </div>
+          <div class="col-md-2 text-center">
+            <span class="badge bg-warning">${request.dose_amount}ml</span><br>
+            <small class="text-muted">${timeDisplay}</small>
+          </div>
+          <div class="col-md-3 text-center missed-info">
+            ${handlingBadge}<br>
+            <small class="text-muted">
+              Expected: ${missedTime.toLocaleDateString()} ${missedTime.toLocaleTimeString()}
+            </small>
+          </div>
+          <div class="col-md-3 text-center">
+            ${actionButtons}
+          </div>
         </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
   
   container.innerHTML = html;
 }
@@ -457,7 +528,8 @@ function controlScheduler(action, loadingMessage, successMessage = null) {
         // Refresh status after a short delay
         setTimeout(loadSchedulerStatus, 1000);
         if (action === 'check') {
-          setTimeout(loadDueDoses, 2000);
+          setTimeout(loadMissedDoses, 2000);
+          setTimeout(loadUpcomingDoses, 2000);
         }
       } else {
         showNotification('Error: ' + data.error, 'error');
@@ -515,6 +587,73 @@ function restartScheduler() {
 function forceCheck() {
   controlScheduler('check', 'Triggering manual dose check...', 'Manual dose check completed');
 }
+
+// Missed dose handling functions
+function approveMissedDose(requestId, productName) {
+  if (!confirm(`Approve missed dose for ${productName}?`)) {
+    return;
+  }
+  
+  showNotification(`Approving missed dose for ${productName}...`, 'info');
+  
+  fetch(apiUrls.approve_missed, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      request_id: requestId,
+      notes: 'Approved via scheduler dashboard'
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showNotification(`Missed dose for ${productName} approved successfully`, 'success');
+      // Refresh missed doses display
+      setTimeout(loadMissedDoses, 1000);
+    } else {
+      showNotification(`Error approving missed dose: ${data.error}`, 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error approving missed dose:', error);
+    showNotification('Network error approving missed dose', 'error');
+  });
+}
+
+function rejectMissedDose(requestId, productName) {
+  if (!confirm(`Reject missed dose for ${productName}? This will skip the dose permanently.`)) {
+    return;
+  }
+  
+  showNotification(`Rejecting missed dose for ${productName}...`, 'info');
+  
+  fetch(apiUrls.reject_missed, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      request_id: requestId,
+      notes: 'Rejected via scheduler dashboard'
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showNotification(`Missed dose for ${productName} rejected`, 'success');
+      // Refresh missed doses display
+      setTimeout(loadMissedDoses, 1000);
+    } else {
+      showNotification(`Error rejecting missed dose: ${data.error}`, 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error rejecting missed dose:', error);
+    showNotification('Network error rejecting missed dose', 'error');
+  });
+}
 </script>
 
 <style>
@@ -545,9 +684,23 @@ function forceCheck() {
   margin-bottom: 1rem;
 }
 
-.due-dose-card {
+.missed-dose-card {
   background-color: var(--card-bg);
   border-color: var(--border-color) !important;
+}
+
+.missed-dose-card:hover {
+  border-color: #ffc107 !important;
+  background-color: rgba(255, 193, 7, 0.1);
+}
+
+.missed-info {
+  text-align: left;
+}
+
+.btn-sm {
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
 }
 
 .scheduler-stats {

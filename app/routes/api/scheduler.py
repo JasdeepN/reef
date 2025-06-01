@@ -189,6 +189,16 @@ def force_check():
 def get_due_schedules():
     """Get currently due dosing schedules (for monitoring/debugging)"""
     try:
+        from modules.tank_context import get_current_tank_id
+        
+        # Get current tank context
+        tank_id = get_current_tank_id()
+        if not tank_id:
+            return jsonify({
+                'success': False,
+                'error': 'No tank selected'
+            }), 400
+        
         scheduler = get_scheduler()
         
         if not scheduler:
@@ -197,15 +207,15 @@ def get_due_schedules():
                 'error': 'Scheduler not initialized'
             }), 400
         
-        # Get due schedules (this requires accessing the private method)
-        # In a production system, you might want to make this a public method
+        # Get due schedules filtered by current tank
         with app.app_context():
-            due_schedules = scheduler._get_due_schedules()
+            due_schedules = scheduler._get_due_schedules(tank_id=tank_id)
         
         return jsonify({
             'success': True,
             'due_schedules': due_schedules,
-            'count': len(due_schedules)
+            'count': len(due_schedules),
+            'tank_id': tank_id
         })
         
     except Exception as e:
