@@ -1,0 +1,777 @@
+// ReefDB Audit Log & Activity Feed Styles
+// Compact, modern design patterns for dose confirmation and audit tracking
+
+// Activity Feed Container
+.audit-activity-feed {
+  background: var(--card-bg, #56666B);
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #8f91a2ff);
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  
+  .activity-feed-header {
+    background: linear-gradient(135deg, var(--davys-gray, #505a5bff), var(--cool-gray, #8f91a2ff));
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color, #8f91a2ff);
+    
+    h5 {
+      color: var(--text-color, #dcedffff);
+      margin: 0;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      
+      .activity-count {
+        background: var(--text-color, #dcedffff);
+        color: var(--davys-gray, #505a5bff);
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        font-weight: 700;
+      }
+    }
+    
+    .activity-controls {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+      
+      .btn-sm {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 6px;
+      }
+    }
+  }
+  
+  .activity-feed-body {
+    max-height: 400px;
+    overflow-y: auto;
+    
+    // Custom scrollbar
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: var(--background-color, #343f3eff);
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: var(--cool-gray, #8f91a2ff);
+      border-radius: 3px;
+      
+      &:hover {
+        background: var(--powder-blue, #94b0daff);
+      }
+    }
+  }
+}
+
+// Activity Feed Items
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color, #8f91a2ff);
+  transition: all 0.2s ease;
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  &:hover {
+    background: rgba(148, 176, 218, 0.05);
+  }
+  
+  .activity-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    flex-shrink: 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    
+    // Status-based colors
+    &.success {
+      background: rgba(40, 167, 69, 0.2);
+      color: #28a745;
+      border: 2px solid rgba(40, 167, 69, 0.3);
+    }
+    
+    &.warning {
+      background: rgba(255, 193, 7, 0.2);
+      color: #ffc107;
+      border: 2px solid rgba(255, 193, 7, 0.3);
+    }
+    
+    &.error {
+      background: rgba(220, 53, 69, 0.2);
+      color: #dc3545;
+      border: 2px solid rgba(220, 53, 69, 0.3);
+    }
+    
+    &.info {
+      background: rgba(23, 162, 184, 0.2);
+      color: #17a2b8;
+      border: 2px solid rgba(23, 162, 184, 0.3);
+    }
+    
+    &.partial {
+      background: rgba(255, 152, 0, 0.2);
+      color: #ff9800;
+      border: 2px solid rgba(255, 152, 0, 0.3);
+    }
+  }
+  
+  .activity-content {
+    flex: 1;
+    min-width: 0;
+    
+    .activity-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.25rem;
+      
+      .activity-title {
+        color: var(--text-color, #dcedffff);
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin: 0;
+        line-height: 1.3;
+      }
+      
+      .activity-time {
+        color: var(--text-muted, #94b0daff);
+        font-size: 0.75rem;
+        white-space: nowrap;
+        margin-left: 1rem;
+      }
+    }
+    
+    .activity-description {
+      color: var(--text-muted, #94b0daff);
+      font-size: 0.85rem;
+      margin: 0 0 0.5rem 0;
+      line-height: 1.4;
+    }
+    
+    .activity-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+      
+      .detail-badge {
+        background: rgba(148, 176, 218, 0.1);
+        color: var(--text-muted, #94b0daff);
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        border: 1px solid rgba(148, 176, 218, 0.2);
+        
+        &.highlight {
+          background: rgba(148, 176, 218, 0.2);
+          color: var(--text-color, #dcedffff);
+          border-color: rgba(148, 176, 218, 0.4);
+        }
+      }
+    }
+  }
+  
+  // Special styling for different event types
+  &.dose-event {
+    .activity-icon {
+      font-size: 1rem;
+    }
+  }
+  
+  &.missed-dose-event {
+    border-left: 3px solid #ffc107;
+    
+    .activity-content {
+      .activity-title {
+        color: #ffc107;
+      }
+    }
+  }
+  
+  &.schedule-change-event {
+    border-left: 3px solid #17a2b8;
+  }
+}
+
+// Real-time Dose Confirmation Overlay
+.dose-confirmation-overlay {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1050;
+  max-width: 400px;
+  
+  .dose-confirmation-card {
+    background: var(--card-bg, #56666B);
+    border: 2px solid #28a745;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    animation: slideInRight 0.3s ease-out;
+    
+    .confirmation-header {
+      background: linear-gradient(135deg, #28a745, #20c997);
+      padding: 1rem 1.5rem;
+      color: white;
+      
+      h6 {
+        margin: 0;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        
+        .dose-icon {
+          font-size: 1.25rem;
+        }
+      }
+    }
+    
+    .confirmation-body {
+      padding: 1rem 1.5rem;
+      
+      .dose-details {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        
+        .dose-metric {
+          text-align: center;
+          
+          .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-color, #dcedffff);
+            margin-bottom: 0.25rem;
+          }
+          
+          .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-muted, #94b0daff);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+        }
+      }
+      
+      .dose-metadata {
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-color, #8f91a2ff);
+        
+        .metadata-row {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 0.5rem;
+          font-size: 0.85rem;
+          
+          .label {
+            color: var(--text-muted, #94b0daff);
+          }
+          
+          .value {
+            color: var(--text-color, #dcedffff);
+            font-weight: 500;
+          }
+        }
+      }
+    }
+    
+    .confirmation-footer {
+      background: rgba(148, 176, 218, 0.05);
+      padding: 0.75rem 1.5rem;
+      text-align: center;
+      
+      .dismiss-timer {
+        color: var(--text-muted, #94b0daff);
+        font-size: 0.75rem;
+        
+        .timer-value {
+          font-weight: 600;
+          color: var(--text-color, #dcedffff);
+        }
+      }
+    }
+  }
+}
+
+// Enhanced Dashboard Card Layouts
+.dosing-schedule-card {
+  background: var(--card-bg, #56666B);
+  border: 1px solid var(--border-color, #8f91a2ff);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  position: relative;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    border-color: var(--powder-blue, #94b0daff);
+  }
+  
+  // Status indicator strip
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #28a745, #20c997);
+  }
+  
+  &.suspended::before {
+    background: linear-gradient(90deg, #6c757d, #adb5bd);
+  }
+  
+  &.low-product::before {
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+  }
+  
+  &.overdue::before {
+    background: linear-gradient(90deg, #dc3545, #e74c3c);
+  }
+  
+  .card-header {
+    background: transparent;
+    border-bottom: 1px solid var(--border-color, #8f91a2ff);
+    padding: 1rem 1.5rem 0.75rem;
+    
+    .schedule-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      
+      h6 {
+        color: var(--text-color, #dcedffff);
+        font-weight: 600;
+        margin: 0;
+        font-size: 1.1rem;
+      }
+      
+      .status-badges {
+        display: flex;
+        gap: 0.25rem;
+        
+        .status-badge {
+          font-size: 0.7rem;
+          padding: 0.25rem 0.5rem;
+          border-radius: 6px;
+          font-weight: 600;
+          
+          &.active {
+            background: rgba(40, 167, 69, 0.2);
+            color: #28a745;
+          }
+          
+          &.suspended {
+            background: rgba(108, 117, 125, 0.2);
+            color: #6c757d;
+          }
+          
+          &.low {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+          }
+        }
+      }
+    }
+    
+    .schedule-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-muted, #94b0daff);
+      font-size: 0.85rem;
+      
+      .last-dose {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        
+        .dose-time {
+          font-weight: 500;
+        }
+      }
+      
+      .next-dose {
+        text-align: right;
+        
+        .dose-countdown {
+          font-weight: 600;
+          color: var(--text-color, #dcedffff);
+        }
+      }
+    }
+  }
+  
+  .card-body {
+    padding: 1rem 1.5rem;
+    
+    .schedule-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-bottom: 1rem;
+      
+      .metric {
+        text-align: center;
+        
+        .metric-value {
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: var(--text-color, #dcedffff);
+          margin-bottom: 0.25rem;
+          display: block;
+        }
+        
+        .metric-label {
+          font-size: 0.75rem;
+          color: var(--text-muted, #94b0daff);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .metric-unit {
+          font-size: 0.8rem;
+          color: var(--text-muted, #94b0daff);
+        }
+      }
+    }
+    
+    .progress-section {
+      margin-top: 1rem;
+      
+      .progress-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        
+        .label {
+          color: var(--text-muted, #94b0daff);
+          font-size: 0.85rem;
+        }
+        
+        .percentage {
+          color: var(--text-color, #dcedffff);
+          font-weight: 600;
+          font-size: 0.85rem;
+        }
+      }
+      
+      .progress {
+        height: 6px;
+        background: rgba(148, 176, 218, 0.1);
+        border-radius: 3px;
+        overflow: hidden;
+        
+        .progress-bar {
+          border-radius: 3px;
+          transition: width 0.3s ease;
+          
+          &.bg-success {
+            background: linear-gradient(90deg, #28a745, #20c997);
+          }
+          
+          &.bg-warning {
+            background: linear-gradient(90deg, #ffc107, #fd7e14);
+          }
+          
+          &.bg-danger {
+            background: linear-gradient(90deg, #dc3545, #e74c3c);
+          }
+        }
+      }
+    }
+  }
+  
+  .card-footer {
+    background: rgba(148, 176, 218, 0.05);
+    border-top: 1px solid var(--border-color, #8f91a2ff);
+    padding: 0.75rem 1.5rem;
+    
+    .card-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      
+      .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        
+        .btn-sm {
+          font-size: 0.75rem;
+          padding: 0.375rem 0.75rem;
+          border-radius: 6px;
+        }
+      }
+      
+      .quick-stats {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.75rem;
+        color: var(--text-muted, #94b0daff);
+        
+        .stat {
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+          
+          .value {
+            font-weight: 600;
+            color: var(--text-color, #dcedffff);
+          }
+        }
+      }
+    }
+  }
+}
+
+// Compact Summary Cards
+.audit-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+  
+  .summary-card {
+    background: var(--card-bg, #56666B);
+    border: 1px solid var(--border-color, #8f91a2ff);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--doser-primary, #007bff), var(--doser-info, #17a2b8));
+    }
+    
+    .summary-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1rem;
+      font-size: 1.5rem;
+      background: rgba(148, 176, 218, 0.1);
+      color: var(--text-color, #dcedffff);
+    }
+    
+    .summary-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text-color, #dcedffff);
+      margin-bottom: 0.5rem;
+      line-height: 1;
+    }
+    
+    .summary-label {
+      color: var(--text-muted, #94b0daff);
+      font-size: 0.875rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.5rem;
+    }
+    
+    .summary-change {
+      font-size: 0.75rem;
+      
+      &.positive {
+        color: #28a745;
+      }
+      
+      &.negative {
+        color: #dc3545;
+      }
+      
+      &.neutral {
+        color: var(--text-muted, #94b0daff);
+      }
+    }
+  }
+}
+
+// Animation keyframes
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Loading states
+.activity-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--text-muted, #94b0daff);
+  
+  .spinner-border {
+    margin-right: 0.5rem;
+  }
+}
+
+// Empty states
+.activity-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-muted, #94b0daff);
+  
+  .empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+  
+  .empty-message {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .empty-description {
+    font-size: 0.9rem;
+    opacity: 0.8;
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .audit-activity-feed {
+    .activity-feed-header {
+      padding: 0.75rem 1rem;
+      
+      .activity-controls {
+        flex-wrap: wrap;
+      }
+    }
+  }
+  
+  .activity-item {
+    padding: 0.75rem 1rem;
+    
+    .activity-icon {
+      width: 28px;
+      height: 28px;
+      margin-right: 0.75rem;
+      font-size: 0.75rem;
+    }
+    
+    .activity-content {
+      .activity-header {
+        flex-direction: column;
+        align-items: flex-start;
+        
+        .activity-time {
+          margin-left: 0;
+          margin-top: 0.25rem;
+        }
+      }
+      
+      .activity-details {
+        .detail-badge {
+          font-size: 0.7rem;
+          padding: 0.2rem 0.4rem;
+        }
+      }
+    }
+  }
+  
+  .dosing-schedule-card {
+    .card-body {
+      .schedule-metrics {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+      }
+    }
+    
+    .card-footer {
+      .card-actions {
+        flex-direction: column;
+        gap: 0.75rem;
+        
+        .action-buttons {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    }
+  }
+  
+  .audit-summary-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    
+    .summary-card {
+      padding: 1rem;
+      
+      .summary-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.25rem;
+        margin-bottom: 0.75rem;
+      }
+      
+      .summary-value {
+        font-size: 1.5rem;
+      }
+    }
+  }
+  
+  .dose-confirmation-overlay {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+    
+    .dose-confirmation-card {
+      .confirmation-body {
+        .dose-details {
+          grid-template-columns: 1fr;
+          gap: 0.75rem;
+        }
+      }
+    }
+  }
+}

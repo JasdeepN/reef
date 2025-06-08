@@ -4,7 +4,13 @@ from app import db
 from modules.models import DSchedule, Products, Dosing
 from modules.tank_context import get_current_tank_id, ensure_tank_context
 from modules.utils.helper import datatables_response
+from modules.timezone_utils import (
+    format_time_for_display as tz_format_time_for_display,
+    datetime_to_iso_format, get_system_timezone
+)
 from sqlalchemy import text
+import pytz
+from zoneinfo import ZoneInfo
 
 bp = Blueprint('schedule_api', __name__, url_prefix='/schedule')
 
@@ -48,7 +54,7 @@ def get_sched():
             "current_avail": row[4],
             "total_volume": row[5],
             "name": row[6],
-            "last_refill": row[7].strftime('%Y-%m-%d %H:%M:%S') if row[7] else "Never",
+            "last_refill": datetime_to_iso_format(row[7]) if row[7] else "Never",
             
         }
         for row in rows
@@ -152,37 +158,16 @@ def get_dosing_history():
         return jsonify({"success": False, "error": str(e)}), 500
 
 def format_time_display(trigger_time):
-    """Format trigger time for display"""
+    """Format trigger time for display with timezone awareness"""
     if not trigger_time:
         return 'Unknown'
     
     try:
-        if isinstance(trigger_time, str):
-            dt = datetime.fromisoformat(trigger_time.replace('Z', '+00:00'))
-        else:
-            dt = trigger_time
-        
-        # Calculate time ago
-        now = datetime.utcnow()
-        if dt.tzinfo is not None:
-            # Convert to UTC if timezone aware
-            dt = dt.utctimetuple()
-            dt = datetime(*dt[:6])
-        
-        diff = now - dt
-        
-        if diff.days > 0:
-            return f"{diff.days} days ago"
-        elif diff.seconds > 3600:
-            hours = diff.seconds // 3600
-            return f"{hours} hours ago"
-        elif diff.seconds > 60:
-            minutes = diff.seconds // 60
-            return f"{minutes} minutes ago"
-        else:
-            return "Just now"
-            
+        # Use timezone-aware formatting from timezone utilities
+        return tz_format_time_for_display(trigger_time)
     except Exception:
+        # Fallback to basic string representation
+        return str(trigger_time)
         return "Unknown"
 
 def format_interval_display(interval_seconds):
@@ -255,6 +240,8 @@ def get_schedule_stats():
             d_schedule.last_refill,
             d_schedule.suspended,
             d_schedule.trigger_interval,
+            d_schedule.schedule_type,
+            d_schedule.trigger_time,
             latest_dosing.trigger_time as last_trigger,
             latest_dosing.amount as dosed_amount
         FROM d_schedule 
@@ -286,6 +273,8 @@ def get_schedule_stats():
         'last_refill': '',
         'suspended': '',
         'trigger_interval': 's',
+        'schedule_type': '',
+        'trigger_time': '',
         'last_trigger': '',
         'dosed_amount': 'ml',
         'percent_remaining': '%',
@@ -294,6 +283,7 @@ def get_schedule_stats():
         'estimated_empty_datetime': ''
     }
     date_keys = {'last_refill', 'last_trigger', 'estimated_empty_datetime'}
+    time_keys = {'trigger_time'}  # For time objects (not datetime)
     stats = []
     for row in rows:
         row_dict = dict(zip(columns, row))
@@ -305,13 +295,22 @@ def get_schedule_stats():
             unit = units.get(key, '')
             if key == 'suspended' and value is not None:
                 value = bool(value)
+            if key in time_keys and value:
+                # Handle time objects (HH:MM:SS)
+                try:
+                    if hasattr(value, 'strftime'):
+                        value = value.strftime('%H:%M:%S')
+                    else:
+                        value = str(value)
+                except Exception:
+                    value = str(value) if value else None
             if key in date_keys and value:
                 try:
                     if isinstance(value, str):
                         dt = datetime.fromisoformat(value)
                     else:
                         dt = value
-                    value = dt.strftime('%b %d %Y %H:%M:%S %Z')
+                    value = tz_format_time_for_display(dt)
                 except Exception:
                     pass
             stat[key] = [label, value, unit]
@@ -329,12 +328,14 @@ def get_schedule_stats():
             if row_dict['used_amt'] and row_dict['used_amt'] > 0:
                 days_until_empty = row_dict['current_avail'] / row_dict['used_amt']
                 stat['days_until_empty'] = ['Days Until Empty', days_until_empty, 'days']
+                # Convert days to a datetime using timezone-aware current time
+                from modules.timezone_utils import now_in_timezone
                 estimated_empty_datetime = (
-                    datetime.utcnow() + timedelta(days=days_until_empty)
+                    now_in_timezone() + timedelta(days=float(days_until_empty))
                 )
                 stat['estimated_empty_datetime'] = [
                     'Estimated Empty Date',
-                    estimated_empty_datetime.strftime('%b %d %Y %H:%M:%S %Z'),
+                    datetime_to_iso_format(estimated_empty_datetime),
                     ''
                 ]
             else:
@@ -389,13 +390,59 @@ def get_next_doses():
         scheduled_doses = []
         
         for row in result:
-            # Calculate next dose time
-            last_dose_time = row.last_dose_time or datetime.now()
+            # Get current time in Eastern timezone
+            eastern = ZoneInfo("America/New_York")
+            current_time = datetime.now(eastern)
             
-            # Keep calculating next dose times until we find a future one (skip missed doses)
-            next_dose_time = last_dose_time + timedelta(seconds=row.trigger_interval)
-            while next_dose_time <= datetime.now():
-                next_dose_time += timedelta(seconds=row.trigger_interval)
+            # Get the schedule to check the type
+            schedule_result = db.session.execute(
+                text("SELECT schedule_type, trigger_time FROM d_schedule WHERE id = :schedule_id"),
+                {'schedule_id': row.schedule_id}
+            ).fetchone()
+            
+            schedule_type = schedule_result.schedule_type if schedule_result else 'interval'
+            trigger_time_str = schedule_result.trigger_time if schedule_result else None
+            
+            if schedule_type == 'daily' and trigger_time_str:
+                # For daily schedules, calculate next occurrence of trigger_time
+                # Parse trigger_time (format: "HH:MM:SS")
+                time_parts = str(trigger_time_str).split(':')
+                target_hour = int(time_parts[0])
+                target_minute = int(time_parts[1]) if len(time_parts) > 1 else 0
+                target_second = int(time_parts[2]) if len(time_parts) > 2 else 0
+                
+                # Create next dose time for today
+                next_dose_time = current_time.replace(
+                    hour=target_hour, 
+                    minute=target_minute, 
+                    second=target_second, 
+                    microsecond=0
+                )
+                
+                # If the time has already passed today, schedule for tomorrow
+                if next_dose_time <= current_time:
+                    next_dose_time += timedelta(days=1)
+                    
+                # Get actual last dose time from dosing table if available, otherwise use calculated time
+                last_dose_time = row.last_dose_time
+                if last_dose_time and last_dose_time.tzinfo is None:
+                    last_dose_time = last_dose_time.replace(tzinfo=eastern)
+            else:
+                # For interval schedules, use the original logic
+                last_dose_time = row.last_dose_time
+                
+                # If last_dose_time is timezone-naive, assume it's in Eastern Time
+                if last_dose_time and last_dose_time.tzinfo is None:
+                    last_dose_time = last_dose_time.replace(tzinfo=eastern)
+                elif last_dose_time is None:
+                    last_dose_time = current_time
+                
+                # Calculate next dose time
+                next_dose_time = last_dose_time + timedelta(seconds=row.trigger_interval)
+                
+                # Keep calculating next dose times until we find a future one (skip missed doses)
+                while next_dose_time <= current_time:
+                    next_dose_time += timedelta(seconds=row.trigger_interval)
             
             dose_data = {
                 'schedule_id': row.schedule_id,

@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, time
 import urllib.parse
 import json
 from flask import jsonify, render_template, request, redirect, url_for, session, flash
@@ -7,6 +7,11 @@ from modules.models import *  # Import your models
 from modules.utils.helper import *
 from modules.tank_context import get_current_tank_id, ensure_tank_context
 from modules.forms import CombinedDosingScheduleForm
+from modules.timezone_utils import (
+    format_time_for_display, format_time_for_html_input, 
+    normalize_time_input, datetime_to_iso_format,
+    parse_trigger_time_from_db
+)
 # import db
 import enum
 from flask_wtf import FlaskForm
@@ -78,7 +83,7 @@ def db_doser():
                 if isinstance(v, timedelta):
                     row_dict[k] = str(v)
                 elif k == "trigger_time" and v:
-                    row_dict[k] = v.strftime("%Y-%m-%d %H:%M:%S") if hasattr(v, 'strftime') else str(v)
+                    row_dict[k] = datetime_to_iso_format(v) if hasattr(v, 'strftime') else str(v)
                 # Convert boolean/int fields to "Yes"/"No" for booleans (including 0/1)
                 elif k == "suspended":
                     row_dict[k] = "Yes" if bool(v) else "No"
@@ -147,7 +152,19 @@ def schedule_new():
         return redirect(url_for('index'))
     
     if request.method == "POST":
-        data = request.get_json()
+        # Handle both JSON and form data for compatibility
+        try:
+            if request.is_json:
+                data = request.get_json()
+            else:
+                # Fallback to form data
+                data = request.form.to_dict()
+                # Convert checkbox values to booleans
+                if 'suspended' in data:
+                    data['suspended'] = data['suspended'].lower() in ['true', '1', 'on']
+        except Exception as e:
+            return jsonify({"success": False, "error": f"Error parsing request data: {str(e)}"}), 400
+        
         return handle_schedule_submission(data, tank_id)
     
     # GET request - show the form
@@ -174,7 +191,7 @@ def schedule_new():
             "amount": schedule.amount,
             "trigger_interval": schedule.trigger_interval,
             "suspended": schedule.suspended,
-            "last_refill": schedule.last_refill.isoformat() if schedule.last_refill else None
+            "last_refill": datetime_to_iso_format(schedule.last_refill) if schedule.last_refill else None
         })
     
     # Stats API URLs for the integrated cards
@@ -208,7 +225,26 @@ def schedule_edit(schedule_id):
         return redirect(url_for('schedule_new'))
     
     if request.method == "POST":
-        data = request.get_json()
+        # Handle both JSON and form data for compatibility
+        try:
+            if request.is_json:
+                data = request.get_json()
+            else:
+                # Fallback to form data
+                data = request.form.to_dict()
+                # Convert checkbox values to booleans
+                if 'suspended' in data:
+                    data['suspended'] = data['suspended'].lower() in ['true', '1', 'on']
+                else:
+                    # If checkbox not present in form data, it means unchecked
+                    data['suspended'] = False
+                
+                # Ensure schedule_type is set for form submissions
+                if 'schedule_type' not in data:
+                    data['schedule_type'] = 'interval'  # Default for compatibility
+        except Exception as e:
+            return jsonify({"success": False, "error": f"Error parsing request data: {str(e)}"}), 400
+        
         return handle_schedule_edit_submission(data, schedule_id, tank_id)
     
     # GET request - show the form with pre-populated data
@@ -229,8 +265,33 @@ def schedule_edit(schedule_id):
             "amount": s.amount,
             "trigger_interval": s.trigger_interval,
             "suspended": s.suspended,
-            "last_refill": s.last_refill.isoformat() if s.last_refill else None
+            "last_refill": datetime_to_iso_format(s.last_refill) if s.last_refill else None
         })
+    
+    # Convert trigger_interval to enhanced form fields (interval_value and interval_unit)
+    interval_value = 8  # Default
+    interval_unit = 'hours'  # Default
+    
+    if schedule.trigger_interval:
+        # Convert seconds to appropriate unit and value
+        seconds = schedule.trigger_interval
+        
+        # Check for perfect day intervals first
+        if seconds % 86400 == 0:
+            interval_value = seconds // 86400
+            interval_unit = 'days'
+        # Check for perfect hour intervals
+        elif seconds % 3600 == 0:
+            interval_value = seconds // 3600
+            interval_unit = 'hours'
+        # Check for perfect minute intervals
+        elif seconds % 60 == 0:
+            interval_value = seconds // 60
+            interval_unit = 'minutes'
+        else:
+            # Default to hours with decimal (round to nearest)
+            interval_value = round(seconds / 3600)
+            interval_unit = 'hours'
     
     # Convert schedule data for form pre-population
     schedule_data = {
@@ -239,8 +300,19 @@ def schedule_edit(schedule_id):
         "product_name": schedule.product.name if schedule.product else "Unknown",
         "amount": schedule.amount,
         "trigger_interval": schedule.trigger_interval,
+        "interval_value": interval_value,  # Enhanced field for form
+        "interval_unit": interval_unit,    # Enhanced field for form
         "suspended": schedule.suspended,
-        "last_refill": schedule.last_refill.isoformat() if schedule.last_refill else None
+        "last_refill": datetime_to_iso_format(schedule.last_refill) if schedule.last_refill else None,
+        "start_time": format_time_for_html_input(schedule.trigger_time) if schedule.trigger_time else None,
+        "offset_minutes": schedule.offset_minutes,
+        "doser_id": schedule.doser_id,
+        "doser_name": schedule.doser_name,
+        "repeat_every_n_days": schedule.repeat_every_n_days,
+        "days_of_week": schedule.days_of_week,
+        "missed_dose_handling": schedule.missed_dose_handling.value if schedule.missed_dose_handling else 'alert_only',
+        "missed_dose_grace_period_hours": schedule.missed_dose_grace_period_hours,
+        "missed_dose_notification_enabled": schedule.missed_dose_notification_enabled
     }
     
     # Stats API URLs for the integrated cards
@@ -261,17 +333,87 @@ def schedule_edit(schedule_id):
     )
 
 def handle_schedule_edit_submission(data, schedule_id, tank_id):
-    """Handle the submission of schedule edit"""
+    """Handle the submission of schedule edit with enhanced validation"""
     try:
+        # Enhanced debugging for the "Invalid schedule configuration" error
+        print(f"DEBUG: handle_schedule_edit_submission called")
+        print(f"  schedule_id: {schedule_id}")
+        print(f"  tank_id: {tank_id}")
+        print(f"  data: {data}")
+        print(f"  data keys: {list(data.keys())}")
+        print(f"  data types: {[(k, type(v)) for k, v in data.items()]}")
+        
         # Get the existing schedule
         schedule = DSchedule.query.filter_by(id=schedule_id, tank_id=tank_id).first()
         if not schedule:
+            print(f"DEBUG: Schedule not found - id={schedule_id}, tank_id={tank_id}")
             return jsonify({"success": False, "error": "Schedule not found"}), 404
+        
+        print(f"DEBUG: Found existing schedule: {schedule.id}")
         
         # Basic validation
         validation_result = _validate_schedule_data(data)
         if not validation_result['valid']:
+            print(f"DEBUG: Basic validation failed: {validation_result}")
             return jsonify({"success": False, "error": validation_result['error']}), 400
+        
+        print(f"DEBUG: Basic validation passed")
+        
+        # CRITICAL: Calculate trigger_interval BEFORE validation
+        schedule_type = data.get('schedule_type')
+        print(f"DEBUG: About to calculate trigger_interval with schedule_type={schedule_type}")
+        
+        trigger_interval = calculate_trigger_interval(data, schedule_type)
+        print(f"DEBUG: calculate_trigger_interval returned: {trigger_interval}")
+        
+        if trigger_interval is None:
+            print(f"DEBUG: CRITICAL ERROR - calculate_trigger_interval returned None!")
+            print(f"  This is what causes 'Invalid schedule configuration' error")
+            print(f"  schedule_type: {schedule_type}")
+            print(f"  interval_value: {data.get('interval_value')} (type: {type(data.get('interval_value'))})")
+            print(f"  interval_unit: {data.get('interval_unit')} (type: {type(data.get('interval_unit'))})")
+            
+            # Provide more specific error messages based on the actual problem
+            interval_value = data.get('interval_value')
+            interval_unit = data.get('interval_unit')
+            
+            if not interval_value:
+                return jsonify({"success": False, "error": "Interval value is required"}), 400
+            elif not interval_unit:
+                return jsonify({"success": False, "error": "Interval unit (minutes/hours/days) is required"}), 400
+            else:
+                # Try to convert interval_value to check what's wrong
+                try:
+                    interval_val_int = int(interval_value)
+                    if interval_val_int <= 0:
+                        return jsonify({"success": False, "error": f"Interval value must be greater than 0, got {interval_val_int}"}), 400
+                    elif interval_unit not in ['minutes', 'hours', 'days']:
+                        return jsonify({"success": False, "error": f"Invalid interval unit '{interval_unit}'. Must be 'minutes', 'hours', or 'days'"}), 400
+                    else:
+                        return jsonify({"success": False, "error": f"Invalid interval configuration: {interval_val_int} {interval_unit}"}), 400
+                except (ValueError, TypeError):
+                    return jsonify({"success": False, "error": f"Interval value must be a number, got '{interval_value}'"}), 400
+        
+        # Add calculated trigger_interval to data for validation
+        data['trigger_interval'] = trigger_interval
+        
+        # CRITICAL: Add schedule configuration validation to prevent conflicts
+        from modules.schedule_validator import validate_and_fix_schedule
+        
+        # Extract schedule configuration for validation
+        schedule_config = _clean_schedule_config_for_validation(data)
+        
+        # Validate and auto-fix conflicting configurations
+        fixed_config, remaining_errors = validate_and_fix_schedule(schedule_config)
+        
+        if remaining_errors:
+            return jsonify({
+                "success": False, 
+                "error": f"Schedule configuration errors: {'; '.join(remaining_errors)}"
+            }), 400
+        
+        # Use the fixed configuration
+        data.update(fixed_config)
         
         # Extract and process data
         schedule_data = _process_schedule_data(data, tank_id)
@@ -286,7 +428,8 @@ def handle_schedule_edit_submission(data, schedule_id, tank_id):
         return jsonify({
             "success": True, 
             "message": "Dosing schedule updated successfully",
-            "schedule_id": schedule.id
+            "schedule_id": schedule.id,
+            "auto_fixed": len(fixed_config) > len(schedule_config)  # Indicate if auto-fixes were applied
         })
         
     except Exception as e:
@@ -294,12 +437,58 @@ def handle_schedule_edit_submission(data, schedule_id, tank_id):
         return jsonify({"success": False, "error": str(e)}), 500
 
 def handle_schedule_submission(data, tank_id):
-    """Handle the submission of a new dosing schedule"""
+    """Handle the submission of a new dosing schedule with enhanced validation"""
     try:
         # Basic validation
         validation_result = _validate_schedule_data(data)
         if not validation_result['valid']:
             return jsonify({"success": False, "error": validation_result['error']}), 400
+        
+        # CRITICAL: Calculate trigger_interval BEFORE validation
+        schedule_type = data.get('schedule_type')
+        trigger_interval = calculate_trigger_interval(data, schedule_type)
+        if trigger_interval is None:
+            # Provide more specific error messages based on the actual problem
+            interval_value = data.get('interval_value')
+            interval_unit = data.get('interval_unit')
+            
+            if not interval_value:
+                return jsonify({"success": False, "error": "Interval value is required"}), 400
+            elif not interval_unit:
+                return jsonify({"success": False, "error": "Interval unit (minutes/hours/days) is required"}), 400
+            else:
+                # Try to convert interval_value to check what's wrong
+                try:
+                    interval_val_int = int(interval_value)
+                    if interval_val_int <= 0:
+                        return jsonify({"success": False, "error": f"Interval value must be greater than 0, got {interval_val_int}"}), 400
+                    elif interval_unit not in ['minutes', 'hours', 'days']:
+                        return jsonify({"success": False, "error": f"Invalid interval unit '{interval_unit}'. Must be 'minutes', 'hours', or 'days'"}), 400
+                    else:
+                        return jsonify({"success": False, "error": f"Invalid interval configuration: {interval_val_int} {interval_unit}"}), 400
+                except (ValueError, TypeError):
+                    return jsonify({"success": False, "error": f"Interval value must be a number, got '{interval_value}'"}), 400
+        
+        # Add calculated trigger_interval to data for validation
+        data['trigger_interval'] = trigger_interval
+        
+        # CRITICAL: Add schedule configuration validation to prevent conflicts
+        from modules.schedule_validator import validate_and_fix_schedule
+        
+        # Extract schedule configuration for validation
+        schedule_config = _clean_schedule_config_for_validation(data)
+        
+        # Validate and auto-fix conflicting configurations
+        fixed_config, remaining_errors = validate_and_fix_schedule(schedule_config)
+        
+        if remaining_errors:
+            return jsonify({
+                "success": False, 
+                "error": f"Schedule configuration errors: {'; '.join(remaining_errors)}"
+            }), 400
+        
+        # Use the fixed configuration
+        data.update(fixed_config)
         
         # Extract and process data
         schedule_data = _process_schedule_data(data, tank_id)
@@ -313,7 +502,8 @@ def handle_schedule_submission(data, tank_id):
         return jsonify({
             "success": True, 
             "message": "Dosing schedule created successfully",
-            "schedule_id": new_schedule.id
+            "schedule_id": new_schedule.id,
+            "auto_fixed": len(fixed_config) > len(schedule_config)  # Indicate if auto-fixes were applied
         })
         
     except Exception as e:
@@ -346,11 +536,17 @@ def _process_schedule_data(data, tank_id):
     # Calculate trigger_interval
     trigger_interval = calculate_trigger_interval(data, schedule_type)
     if trigger_interval is None:
-        raise ValueError("Invalid schedule configuration")
+        raise ValueError(f"Invalid interval configuration: {data.get('interval_value')} {data.get('interval_unit')}")
     
     # Process enhanced scheduling fields
     doser_data = _process_doser_data(data)
-    missed_dose_data = _process_missed_dose_data(data)
+    
+    # Force missed dose handling to alert_only (simplified system)
+    missed_dose_data = {
+        'missed_dose_handling': MissedDoseHandlingEnum.alert_only,
+        'missed_dose_grace_period_hours': None,
+        'missed_dose_notification_enabled': True  # Keep notifications enabled
+    }
     
     # Validate schedule type enum
     try:
@@ -372,60 +568,63 @@ def _process_schedule_data(data, tank_id):
 
 def _process_doser_data(data):
     """Process doser-related fields"""
-    doser_id = data.get('doser_id')
-    doser_name = data.get('doser_name', '').strip()
-    days_of_week = data.get('days_of_week', '').strip()
-    repeat_every_n_days = data.get('repeat_every_n_days')
-    
-    # Validate doser assignment
-    if doser_id:
-        try:
-            doser_id = int(doser_id)
-        except (ValueError, TypeError):
-            doser_id = None
-    
-    # Validate repeat_every_n_days
-    if repeat_every_n_days:
-        try:
-            repeat_every_n_days = int(repeat_every_n_days)
-            if repeat_every_n_days < 1 or repeat_every_n_days > 365:
-                repeat_every_n_days = None
-        except (ValueError, TypeError):
-            repeat_every_n_days = None
+    doser_id = _validate_doser_id(data.get('doser_id'))
+    doser_name = (data.get('doser_name') or '').strip()
+    days_of_week = (data.get('days_of_week') or '').strip()
+    repeat_every_n_days = _validate_repeat_days(data.get('repeat_every_n_days'))
+    trigger_time = _validate_start_time((data.get('start_time') or '').strip())
+    offset_minutes = _validate_offset_minutes(data.get('offset_minutes'))
     
     return {
         'doser_name': doser_name if doser_name else None,
         'days_of_week': days_of_week if days_of_week else None,
         'repeat_every_n_days': repeat_every_n_days,
-        'doser_id': doser_id
+        'doser_id': doser_id,
+        'trigger_time': trigger_time,
+        'offset_minutes': offset_minutes
     }
 
-def _process_missed_dose_data(data):
-    """Process missed dose handling configuration"""
-    missed_dose_handling = data.get('missed_dose_handling', 'alert_only')
-    missed_dose_grace_period_hours = data.get('missed_dose_grace_period_hours')
-    missed_dose_notification_enabled = data.get('missed_dose_notification_enabled', False)
-    
-    # Validate missed dose handling enum
-    try:
-        missed_dose_handling_enum = MissedDoseHandlingEnum(missed_dose_handling)
-    except ValueError:
-        missed_dose_handling_enum = MissedDoseHandlingEnum.alert_only
-    
-    # Validate grace period hours (1-72 hours)
-    if missed_dose_grace_period_hours is not None:
+def _validate_doser_id(doser_id):
+    """Validate doser ID"""
+    if doser_id:
         try:
-            missed_dose_grace_period_hours = int(missed_dose_grace_period_hours)
-            if missed_dose_grace_period_hours < 1 or missed_dose_grace_period_hours > 72:
-                missed_dose_grace_period_hours = None
+            return int(doser_id)
         except (ValueError, TypeError):
-            missed_dose_grace_period_hours = None
-    
-    return {
-        'missed_dose_handling': missed_dose_handling_enum,
-        'missed_dose_grace_period_hours': missed_dose_grace_period_hours,
-        'missed_dose_notification_enabled': missed_dose_notification_enabled
-    }
+            return None
+    return None
+
+def _validate_repeat_days(repeat_every_n_days):
+    """Validate repeat every n days"""
+    if repeat_every_n_days:
+        try:
+            repeat_every_n_days = int(repeat_every_n_days)
+            if 1 <= repeat_every_n_days <= 365:
+                return repeat_every_n_days
+        except (ValueError, TypeError):
+            pass
+    return None
+
+def _validate_start_time(start_time):
+    """Validate and convert start_time"""
+    if start_time:
+        try:
+            # Parse time string (format: HH:MM)
+            hour, minute = map(int, start_time.split(':'))
+            return time(hour, minute)
+        except (ValueError, TypeError):
+            pass
+    return None
+
+def _validate_offset_minutes(offset_minutes):
+    """Validate offset_minutes"""
+    if offset_minutes is not None:
+        try:
+            offset_minutes = int(offset_minutes)
+            if -1440 <= offset_minutes <= 1440:
+                return offset_minutes
+        except (ValueError, TypeError):
+            pass
+    return None
 
 def calculate_trigger_interval(data, schedule_type):
     """Calculate trigger interval in seconds based on schedule type and user input"""
@@ -444,10 +643,20 @@ def calculate_trigger_interval(data, schedule_type):
 
 def _calculate_interval_schedule(data):
     """Calculate interval for direct interval input"""
-    interval_value = int(data.get('interval_value', 0))
+    interval_value = data.get('interval_value', 0)
     interval_unit = data.get('interval_unit', 'minutes')
     
-    if interval_value <= 0:
+    try:
+        interval_value_int = int(interval_value)
+    except (ValueError, TypeError):
+        return None
+    
+    if interval_value_int <= 0:
+        return None
+    
+    # Validate interval_unit before using it
+    valid_units = ['minutes', 'hours', 'days']
+    if interval_unit not in valid_units:
         return None
         
     unit_multipliers = {
@@ -455,7 +664,10 @@ def _calculate_interval_schedule(data):
         'hours': 3600, 
         'days': 86400
     }
-    return interval_value * unit_multipliers.get(interval_unit, 60)
+    
+    multiplier = unit_multipliers[interval_unit]  # Now safe to use direct access
+    result = interval_value_int * multiplier
+    return result
 
 def _calculate_daily_schedule(data):
     """Calculate interval for daily schedule"""
@@ -494,6 +706,25 @@ def _calculate_custom_schedule(data):
     
     # No valid custom schedule configuration provided
     return None
+
+
+def _clean_schedule_config_for_validation(data):
+    """Clean schedule configuration data to remove inappropriate fields for validation"""
+    schedule_type = data.get('schedule_type', 'interval')
+    
+    # Base configuration
+    schedule_config = {
+        'schedule_type': schedule_type,
+        'trigger_interval': data.get('trigger_interval'),
+        'trigger_time': data.get('custom_time') or data.get('daily_time'),  # Handle both field names
+        'days_of_week': data.get('days_of_week')
+    }
+    
+    # Only include repeat_every_n_days for custom schedules
+    if schedule_type == 'custom':
+        schedule_config['repeat_every_n_days'] = data.get('repeat_every_n_days')
+    
+    return schedule_config
 
 
 @app.route("/doser/submit", methods=["POST"])
@@ -600,5 +831,66 @@ def doser_history():
     
     return render_template("doser/history.html", 
                          tank_id=tank_id, api_urls=api_urls)
+
+
+@app.route("/doser/audit")
+def doser_audit():
+    """Audit log dashboard for dose tracking and activity monitoring"""
+    tank_id = ensure_tank_context()
+    if not tank_id:
+        flash("No tank selected.", "warning")
+        return redirect(url_for('index'))
+    
+    # API URLs for the audit dashboard
+    api_urls = {
+        "dose_events": "/api/v1/audit/dose-events",
+        "dose_events_recent": "/api/v1/audit/dose-events/recent",
+        "schedule_changes": "/api/v1/audit/schedule-changes",
+        "stats": "/web/fn/schedule/get/stats"
+    }
+    
+    return render_template("doser/audit_log.html", 
+                         tank_id=tank_id, api_urls=api_urls)
+
+
+@app.route("/doser/schedule/view")
+def schedule_view():
+    """Simple schedule overview page showing all schedules (active and suspended)"""
+    tank_id = ensure_tank_context()
+    if not tank_id:
+        flash("No tank selected.", "warning")
+        return redirect(url_for('index'))
+    
+    # Get all schedules for the current tank (both active and suspended)
+    schedules = db.session.query(DSchedule).filter_by(
+        tank_id=tank_id
+    ).join(Products).all()
+    
+    schedules_data = []
+    for schedule in schedules:
+        # Calculate interval display string
+        if schedule.trigger_interval:
+            interval_str = f"Every {schedule.trigger_interval // 3600}h {(schedule.trigger_interval % 3600) // 60}m"
+            if schedule.trigger_interval < 3600:
+                interval_str = f"Every {schedule.trigger_interval}s"
+        else:
+            interval_str = "Unknown"
+            
+        schedules_data.append({
+            "id": schedule.id,
+            "product_name": schedule.product.name if schedule.product else "Unknown",
+            "amount": schedule.amount,
+            "schedule_type": schedule.schedule_type,
+            "trigger_interval": schedule.trigger_interval,
+            "interval_display": interval_str,
+            "trigger_time": format_time_for_display(schedule.trigger_time) if schedule.trigger_time else None,
+            "doser_name": schedule.doser.doser_name if schedule.doser else "Default",
+            "last_scheduled": datetime_to_iso_format(schedule.last_scheduled_time) if schedule.last_scheduled_time else None,
+            "suspended": schedule.suspended
+        })
+    
+    return render_template("doser/schedule_view.html", 
+                         schedules=schedules_data,
+                         tank_id=tank_id)
 
 

@@ -1,0 +1,802 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Dosing Audit Log{% endblock %}
+
+{% block styles %}
+  {{ super() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/audit-activity-feed.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/doser-dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid audit-dashboard">
+  <!-- Dashboard Header -->
+  <div class="dashboard-header">
+    <h1 class="mb-2">📋 Dosing Audit Log</h1>
+    <p class="mb-0">Track dose execution, missed doses, and schedule changes</p>
+  </div>
+  
+  <!-- Audit Summary Cards -->
+  <div class="audit-summary-cards" id="audit-summary">
+    <div class="summary-card">
+      <div class="summary-icon">
+        <i class="fas fa-tint"></i>
+      </div>
+      <div class="summary-value" id="total-doses">-</div>
+      <div class="summary-label">Total Doses</div>
+      <div class="summary-change neutral" id="dose-trend">Last 7 days</div>
+    </div>
+    
+    <div class="summary-card">
+      <div class="summary-icon">
+        <i class="fas fa-percentage"></i>
+      </div>
+      <div class="summary-value" id="success-rate">-</div>
+      <div class="summary-label">Success Rate</div>
+      <div class="summary-change" id="success-trend">-</div>
+    </div>
+    
+    <div class="summary-card">
+      <div class="summary-icon">
+        <i class="fas fa-exclamation-triangle"></i>
+      </div>
+      <div class="summary-value" id="missed-doses">-</div>
+      <div class="summary-label">Missed Doses</div>
+      <div class="summary-change" id="missed-trend">-</div>
+    </div>
+    
+    <div class="summary-card">
+      <div class="summary-icon">
+        <i class="fas fa-flask"></i>
+      </div>
+      <div class="summary-value" id="total-volume">-</div>
+      <div class="summary-label">Volume Dosed</div>
+      <div class="summary-change neutral">mL</div>
+    </div>
+  </div>
+  
+  <!-- Main Content Row -->
+  <div class="row">
+    <!-- Activity Feed -->
+    <div class="col-lg-8">
+      <div class="audit-activity-feed">
+        <div class="activity-feed-header">
+          <h5>
+            <i class="fas fa-stream"></i>
+            Recent Activity
+            <span class="activity-count" id="activity-count">0</span>
+          </h5>
+          <div class="activity-controls">
+            <button class="btn btn-outline-primary btn-sm" id="refresh-activity">
+              <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" id="filter-doses" data-filter="dose_executed">
+              <i class="fas fa-tint"></i> Doses Only
+            </button>
+            <button class="btn btn-outline-warning btn-sm" id="filter-missed" data-filter="missed_dose">
+              <i class="fas fa-exclamation-triangle"></i> Missed Only
+            </button>
+            <button class="btn btn-outline-info btn-sm" id="filter-all" data-filter="all">
+              <i class="fas fa-list"></i> All Events
+            </button>
+          </div>
+        </div>
+        <div class="activity-feed-body" id="activity-feed-container">
+          <div class="activity-loading" id="activity-loading">
+            <div class="spinner-border spinner-border-sm" role="status">
+              <span class="visually-hidden">Loading activity...</span>
+            </div>
+            Loading recent activity...
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Quick Stats & Controls -->
+    <div class="col-lg-4">
+      <!-- Performance Rating -->
+      <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+          <h6 class="mb-0">
+            <i class="fas fa-chart-line"></i>
+            Performance Rating
+          </h6>
+        </div>
+        <div class="card-body text-center">
+          <div class="performance-rating" id="performance-rating">
+            <div class="rating-circle" id="rating-circle">
+              <div class="rating-value" id="rating-value">-</div>
+              <div class="rating-label">Rating</div>
+            </div>
+          </div>
+          <div class="mt-3">
+            <div class="performance-details" id="performance-details">
+              <div class="detail-row">
+                <span class="label">On-time doses:</span>
+                <span class="value" id="ontime-percent">-%</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Avg interval variance:</span>
+                <span class="value" id="interval-variance">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Quick Actions -->
+      <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+          <h6 class="mb-0">
+            <i class="fas fa-tools"></i>
+            Quick Actions
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            <a href="{{ url_for('schedule_new') }}" class="btn btn-outline-primary btn-sm">
+              <i class="fas fa-plus"></i> Add New Schedule
+            </a>
+            <a href="{{ url_for('doser_main') }}" class="btn btn-outline-secondary btn-sm">
+              <i class="fas fa-tachometer-alt"></i> Dosing Dashboard
+            </a>
+            <button class="btn btn-outline-info btn-sm" id="export-audit-log">
+              <i class="fas fa-download"></i> Export Audit Log
+            </button>
+            <button class="btn btn-outline-warning btn-sm" id="view-missed-doses">
+              <i class="fas fa-exclamation-triangle"></i> Review Missed Doses
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Filter Controls -->
+      <div class="card">
+        <div class="card-header bg-secondary text-white">
+          <h6 class="mb-0">
+            <i class="fas fa-filter"></i>
+            Filters
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label for="days-filter" class="form-label">Time Period</label>
+            <select class="form-select form-select-sm" id="days-filter">
+              <option value="1">Last 24 hours</option>
+              <option value="3">Last 3 days</option>
+              <option value="7" selected>Last 7 days</option>
+              <option value="14">Last 2 weeks</option>
+              <option value="30">Last 30 days</option>
+            </select>
+          </div>
+          
+          <div class="mb-3">
+            <label for="product-filter" class="form-label">Product</label>
+            <select class="form-select form-select-sm" id="product-filter">
+              <option value="">All Products</option>
+              <!-- Products will be populated dynamically -->
+            </select>
+          </div>
+          
+          <div class="mb-3">
+            <label for="status-filter" class="form-label">Event Status</label>
+            <select class="form-select form-select-sm" id="status-filter">
+              <option value="">All Statuses</option>
+              <option value="success">Success</option>
+              <option value="warning">Warning</option>
+              <option value="error">Error</option>
+              <option value="partial">Partial</option>
+            </select>
+          </div>
+          
+          <button class="btn btn-primary btn-sm w-100" id="apply-filters">
+            <i class="fas fa-search"></i> Apply Filters
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Real-time Dose Confirmation Overlay (will be shown via JavaScript) -->
+<div id="dose-confirmation-overlay" class="dose-confirmation-overlay" style="display: none;">
+  <div class="dose-confirmation-card">
+    <div class="confirmation-header">
+      <h6>
+        <span class="dose-icon">💉</span>
+        Dose Completed Successfully
+      </h6>
+    </div>
+    <div class="confirmation-body">
+      <div class="dose-details">
+        <div class="dose-metric">
+          <div class="metric-value" id="confirm-amount">-</div>
+          <div class="metric-label">Amount (mL)</div>
+        </div>
+        <div class="dose-metric">
+          <div class="metric-value" id="confirm-product">-</div>
+          <div class="metric-label">Product</div>
+        </div>
+      </div>
+      <div class="dose-metadata">
+        <div class="metadata-row">
+          <span class="label">Schedule ID:</span>
+          <span class="value" id="confirm-schedule-id">-</span>
+        </div>
+        <div class="metadata-row">
+          <span class="label">Time:</span>
+          <span class="value" id="confirm-time">-</span>
+        </div>
+        <div class="metadata-row">
+          <span class="label">Next Dose:</span>
+          <span class="value" id="confirm-next-dose">-</span>
+        </div>
+      </div>
+    </div>
+    <div class="confirmation-footer">
+      <div class="dismiss-timer">
+        Auto-dismiss in <span class="timer-value" id="dismiss-timer">5</span>s
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const tankId = {{ tank_id }};
+  
+  // State management
+  let currentFilter = 'all';
+  let currentDays = 7;
+  let activityData = [];
+  let summaryData = {};
+  
+  // Initialize the audit dashboard
+  initializeAuditDashboard();
+  
+  // Event listeners
+  document.getElementById('refresh-activity').addEventListener('click', loadActivityFeed);
+  document.getElementById('apply-filters').addEventListener('click', applyFilters);
+  document.getElementById('days-filter').addEventListener('change', handleDaysFilterChange);
+  
+  // Filter buttons
+  document.querySelectorAll('[data-filter]').forEach(btn => {
+    btn.addEventListener('click', function() {
+      currentFilter = this.dataset.filter;
+      updateFilterButtons();
+      filterActivityFeed();
+    });
+  });
+  
+  function initializeAuditDashboard() {
+    loadAuditSummary();
+    loadActivityFeed();
+    startRealTimeUpdates();
+  }
+  
+  function loadAuditSummary() {
+    const summaryContainer = document.getElementById('audit-summary');
+    
+    fetch(`/api/v1/audit/dose-events?limit=0&days=${currentDays}`, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && data.data.summary) {
+        summaryData = data.data.summary;
+        updateSummaryCards();
+        updatePerformanceRating();
+      }
+    })
+    .catch(error => {
+      console.error('Failed to load audit summary:', error);
+    });
+  }
+  
+  function loadActivityFeed() {
+    const container = document.getElementById('activity-feed-container');
+    const loading = document.getElementById('activity-loading');
+    
+    // Show loading state
+    loading.style.display = 'flex';
+    
+    fetch(`/api/v1/audit/dose-events?limit=50&days=${currentDays}`, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      loading.style.display = 'none';
+      
+      if (data.success && data.data.events) {
+        activityData = data.data.events;
+        renderActivityFeed(activityData);
+        updateActivityCount();
+        populateProductFilter(activityData);
+      } else {
+        showActivityError(data.error || 'Failed to load activity');
+      }
+    })
+    .catch(error => {
+      loading.style.display = 'none';
+      showActivityError('Network error loading activity');
+      console.error('Failed to load activity feed:', error);
+    });
+  }
+  
+  function renderActivityFeed(events) {
+    const container = document.getElementById('activity-feed-container');
+    
+    if (!events || events.length === 0) {
+      container.innerHTML = `
+        <div class="activity-empty">
+          <div class="empty-icon">📭</div>
+          <div class="empty-message">No activity found</div>
+          <div class="empty-description">No dose events or changes in the selected time period</div>
+        </div>
+      `;
+      return;
+    }
+    
+    const feedHTML = events.map(event => createActivityItem(event)).join('');
+    container.innerHTML = feedHTML;
+  }
+  
+  function createActivityItem(event) {
+    const timestamp = new Date(event.timestamp);
+    const timeAgo = formatTimeAgo(timestamp);
+    const iconClass = getEventIcon(event.type, event.status);
+    const statusClass = event.status || 'info';
+    
+    let detailBadges = '';
+    if (event.details) {
+      if (event.details.amount) {
+        detailBadges += `<span class="detail-badge highlight">${event.details.amount}mL</span>`;
+      }
+      if (event.details.doser_name) {
+        detailBadges += `<span class="detail-badge doser-badge">Pump: ${event.details.doser_name}${event.details.doser_type ? ' (' + event.details.doser_type + ')' : ''}</span>`;
+      }
+      if (event.details.schedule_adherence && event.details.schedule_adherence !== 'on_time') {
+        detailBadges += `<span class="detail-badge">${event.details.schedule_adherence.replace('_', ' ')}</span>`;
+      }
+      if (event.details.product_remaining_percent && event.details.product_remaining_percent < 20) {
+        detailBadges += `<span class="detail-badge">Low product</span>`;
+      }
+    }
+    // Show comprehensive message if present
+    let comprehensiveMsg = '';
+    if (event.details && event.details.comprehensive_message) {
+      // Parse the comprehensive message into fields for table display
+      const msg = event.details;
+      comprehensiveMsg = `
+        <div class="activity-comprehensive-table card p-2 mt-2 mb-2 shadow-sm">
+          <div class="row g-0">
+            <div class="col-md-7 border-end pe-3">
+              <div class="row mb-1">
+                <div class="col-5 text-muted small"><i class="fas fa-clock me-1"></i>Triggered</div>
+                <div class="col-7">${msg.timestamp ? new Date(msg.timestamp).toLocaleString() : '-'}</div>
+              </div>
+              <div class="row mb-1">
+                <div class="col-5 text-muted small"><i class="fas fa-calendar-alt me-1"></i>Scheduled</div>
+                <div class="col-7">${msg.next_scheduled_time ? new Date(msg.next_scheduled_time).toLocaleString() : '-'}</div>
+              </div>
+              <div class="row mb-1">
+                <div class="col-5 text-muted small"><i class="fas fa-hourglass-half me-1"></i>Offset</div>
+                <div class="col-7">${msg.offset_seconds !== null && msg.offset_seconds !== undefined ? (msg.offset_seconds/60).toFixed(1) + ' min' : '-'}</div>
+              </div>
+              <div class="row mb-1">
+                <div class="col-5 text-muted small"><i class="fas fa-bell me-1"></i>Adherence</div>
+                <div class="col-7">${msg.schedule_adherence ? msg.schedule_adherence.replace('_',' ') : '-'}</div>
+              </div>
+              <div class="row mb-1">
+                <div class="col-5 text-muted small"><i class="fas fa-clock me-1"></i>Dose Hour</div>
+                <div class="col-7">${msg.dose_hour !== null && msg.dose_hour !== undefined ? msg.dose_hour.toString().padStart(2,'0')+':00' : '-'}</div>
+              </div>
+            </div>
+            <div class="col-md-5 ps-3">
+              <div class="row mb-1">
+                <div class="col-5 text-muted small"><i class="fas fa-vial me-1"></i>Product</div>
+                <div class="col-7">${msg.product_name || '-'}</div>
+              </div>
+              <div class="row mb-1">
+                <div class="col-5 text-muted small"><i class="fas fa-flask me-1"></i>Amount</div>
+                <div class="col-7">${msg.amount !== undefined ? msg.amount + ' ml' : '-'}</div>
+              </div>
+              <div class="row mb-1">
+                <div class="col-5 text-muted small"><i class="fas fa-tint me-1"></i>Pump</div>
+                <div class="col-7">${msg.doser_name ? `<span class='doser-badge'>${msg.doser_name}${msg.doser_type ? ' ('+msg.doser_type+')' : ''}</span>` : '-'}</div>
+              </div>
+              <div class="row mb-1">
+                <div class="col-5 text-muted small"><i class="fas fa-cogs me-1"></i>Schedule ID</div>
+                <div class="col-7">${msg.schedule_id || '-'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    return `
+      <div class="activity-item ${event.type.replace('_', '-')}-event" data-event-type="${event.type}" data-status="${event.status}">
+        <div class="activity-icon ${statusClass}">
+          <i class="${iconClass}"></i>
+        </div>
+        <div class="activity-content">
+          <div class="activity-header">
+            <h6 class="activity-title">${event.title}</h6>
+            <span class="activity-time">${timeAgo}</span>
+          </div>
+          <p class="activity-description">${event.description}</p>
+          ${detailBadges ? `<div class="activity-details">${detailBadges}</div>` : ''}
+          ${comprehensiveMsg}
+        </div>
+      </div>
+    `;
+  }
+  
+  function getEventIcon(type, status) {
+    const icons = {
+      'dose_executed': 'fas fa-tint',
+      'missed_dose': 'fas fa-exclamation-triangle',
+      'schedule_change': 'fas fa-edit',
+      'default': 'fas fa-info-circle'
+    };
+    return icons[type] || icons.default;
+  }
+  
+  function updateSummaryCards() {
+    document.getElementById('total-doses').textContent = summaryData.total_doses || 0;
+    document.getElementById('success-rate').textContent = (summaryData.success_rate_percent || 0) + '%';
+    document.getElementById('missed-doses').textContent = summaryData.missed_doses?.total || 0;
+    document.getElementById('total-volume').textContent = (summaryData.total_volume_dosed || 0).toFixed(1);
+    
+    // Update trend indicators
+    const successRate = summaryData.success_rate_percent || 0;
+    const successTrend = document.getElementById('success-trend');
+    if (successRate >= 95) {
+      successTrend.textContent = 'Excellent';
+      successTrend.className = 'summary-change positive';
+    } else if (successRate >= 85) {
+      successTrend.textContent = 'Good';
+      successTrend.className = 'summary-change positive';
+    } else if (successRate >= 70) {
+      successTrend.textContent = 'Fair';
+      successTrend.className = 'summary-change neutral';
+    } else {
+      successTrend.textContent = 'Needs Work';
+      successTrend.className = 'summary-change negative';
+    }
+    
+    const missedTrend = document.getElementById('missed-trend');
+    const missedTotal = summaryData.missed_doses?.total || 0;
+    if (missedTotal === 0) {
+      missedTrend.textContent = 'Perfect';
+      missedTrend.className = 'summary-change positive';
+    } else if (missedTotal <= 2) {
+      missedTrend.textContent = 'Minor Issues';
+      missedTrend.className = 'summary-change neutral';
+    } else {
+      missedTrend.textContent = 'Attention Needed';
+      missedTrend.className = 'summary-change negative';
+    }
+  }
+  
+  function updatePerformanceRating() {
+    const rating = summaryData.performance_rating || 'unknown';
+    const ratingValue = document.getElementById('rating-value');
+    const ratingCircle = document.getElementById('rating-circle');
+    
+    const ratings = {
+      'excellent': { text: 'A+', color: '#28a745' },
+      'good': { text: 'B+', color: '#20c997' },
+      'fair': { text: 'C', color: '#ffc107' },
+      'needs_improvement': { text: 'D', color: '#dc3545' },
+      'unknown': { text: '?', color: '#6c757d' }
+    };
+    
+    const ratingInfo = ratings[rating] || ratings.unknown;
+    ratingValue.textContent = ratingInfo.text;
+    ratingCircle.style.borderColor = ratingInfo.color;
+    ratingValue.style.color = ratingInfo.color;
+  }
+  
+  function filterActivityFeed() {
+    let filteredEvents = activityData;
+    
+    if (currentFilter !== 'all') {
+      filteredEvents = activityData.filter(event => event.type === currentFilter);
+    }
+    
+    renderActivityFeed(filteredEvents);
+    updateActivityCount(filteredEvents.length);
+  }
+  
+  function updateFilterButtons() {
+    document.querySelectorAll('[data-filter]').forEach(btn => {
+      btn.classList.remove('btn-primary', 'btn-outline-primary', 'btn-outline-secondary', 'btn-outline-warning', 'btn-outline-info');
+      if (btn.dataset.filter === currentFilter) {
+        btn.classList.add('btn-primary');
+      } else {
+        btn.classList.add(btn.id.includes('doses') ? 'btn-outline-secondary' : 
+                         btn.id.includes('missed') ? 'btn-outline-warning' : 'btn-outline-info');
+      }
+    });
+  }
+  
+  function updateActivityCount(count = null) {
+    const displayCount = count !== null ? count : activityData.length;
+    document.getElementById('activity-count').textContent = displayCount;
+  }
+  
+  function applyFilters() {
+    const days = parseInt(document.getElementById('days-filter').value);
+    const product = document.getElementById('product-filter').value;
+    const status = document.getElementById('status-filter').value;
+    
+    if (days !== currentDays) {
+      currentDays = days;
+      loadAuditSummary();
+      loadActivityFeed();
+    } else {
+      // Apply frontend filters
+      let filteredEvents = activityData;
+      
+      if (product) {
+        filteredEvents = filteredEvents.filter(event => 
+          event.details && event.details.product_name === product);
+      }
+      
+      if (status) {
+        filteredEvents = filteredEvents.filter(event => event.status === status);
+      }
+      
+      if (currentFilter !== 'all') {
+        filteredEvents = filteredEvents.filter(event => event.type === currentFilter);
+      }
+      
+      renderActivityFeed(filteredEvents);
+      updateActivityCount(filteredEvents.length);
+    }
+  }
+  
+  function handleDaysFilterChange() {
+    applyFilters();
+  }
+  
+  function populateProductFilter(events) {
+    const productFilter = document.getElementById('product-filter');
+    const products = new Set();
+    
+    events.forEach(event => {
+      if (event.details && event.details.product_name) {
+        products.add(event.details.product_name);
+      }
+    });
+    
+    // Clear existing options except "All Products"
+    productFilter.innerHTML = '<option value="">All Products</option>';
+    
+    // Add product options
+    Array.from(products).sort().forEach(product => {
+      const option = new Option(product, product);
+      productFilter.add(option);
+    });
+  }
+  
+  function startRealTimeUpdates() {
+    // Check for new dose events every 30 seconds
+    setInterval(() => {
+      checkForRecentDoses();
+    }, 30000);
+  }
+  
+  function checkForRecentDoses() {
+    fetch('/api/v1/audit/dose-events/recent', {
+      method: 'GET',
+      cache: 'no-store'
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && data.data.length > 0) {
+        const latestDose = data.data[0];
+        showDoseConfirmation(latestDose);
+        
+        // Refresh the activity feed to show new events
+        loadActivityFeed();
+      }
+    })
+    .catch(error => {
+      console.debug('Error checking for recent doses:', error);
+    });
+  }
+  
+  function showDoseConfirmation(doseEvent) {
+    const overlay = document.getElementById('dose-confirmation-overlay');
+    const timestamp = new Date(doseEvent.timestamp);
+    
+    // Populate confirmation details
+    document.getElementById('confirm-amount').textContent = doseEvent.amount || '-';
+    document.getElementById('confirm-product').textContent = doseEvent.title.replace('Dosed ', '') || '-';
+    document.getElementById('confirm-schedule-id').textContent = doseEvent.schedule_id || '-';
+    document.getElementById('confirm-time').textContent = timestamp.toLocaleTimeString();
+    document.getElementById('confirm-next-dose').textContent = 'Calculating...';
+    
+    // Show the overlay
+    overlay.style.display = 'block';
+    
+    // Auto-dismiss timer
+    let dismissTime = 5;
+    const timerElement = document.getElementById('dismiss-timer');
+    
+    const countdown = setInterval(() => {
+      dismissTime--;
+      timerElement.textContent = dismissTime;
+      
+      if (dismissTime <= 0) {
+        clearInterval(countdown);
+        overlay.style.display = 'none';
+      }
+    }, 1000);
+    
+    // Allow manual dismiss by clicking
+    overlay.addEventListener('click', () => {
+      clearInterval(countdown);
+      overlay.style.display = 'none';
+    });
+  }
+  
+  function showActivityError(message) {
+    const container = document.getElementById('activity-feed-container');
+    container.innerHTML = `
+      <div class="activity-empty">
+        <div class="empty-icon">⚠️</div>
+        <div class="empty-message">Error Loading Activity</div>
+        <div class="empty-description">${message}</div>
+      </div>
+    `;
+  }
+  
+  function formatTimeAgo(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  }
+});
+</script>
+
+<style>
+.performance-rating {
+  margin: 1rem 0;
+}
+
+.rating-circle {
+  width: 100px;
+  height: 100px;
+  border: 4px solid #6c757d;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  transition: all 0.3s ease;
+}
+
+.rating-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #6c757d;
+  line-height: 1;
+}
+
+.rating-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.performance-details {
+  margin-top: 1rem;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.detail-row .label {
+  color: var(--text-muted);
+}
+
+.detail-row .value {
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+.activity-comprehensive-msg-card {
+  background: var(--card-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 8px rgba(80,90,91,0.08);
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  padding: 0.75em 1em 0.75em 1em;
+  font-size: 0.97em;
+  transition: box-shadow 0.2s;
+}
+.activity-comprehensive-msg-card:hover {
+  box-shadow: 0 4px 16px rgba(80,90,91,0.16);
+}
+.comprehensive-msg-header {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.98em;
+  margin-bottom: 0.25em;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+.comprehensive-msg-body {
+  color: var(--text-color);
+  font-size: 0.97em;
+  margin-left: 1.2em;
+  margin-bottom: 0.1em;
+  word-break: break-word;
+}
+
+.doser-badge {
+  background: var(--powder-blue);
+  color: var(--outer-space);
+  border: 1px solid var(--border-color);
+  border-radius: 0.4em;
+  margin-left: 0.25em;
+  padding: 0.15em 0.5em;
+  font-weight: 500;
+  font-size: 0.93em;
+  display: inline-block;
+}
+
+.activity-comprehensive-table.card {
+  background: var(--card-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  font-size: 0.97em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  box-shadow: 0 2px 8px rgba(80,90,91,0.08);
+}
+.activity-comprehensive-table .row {
+  margin-bottom: 0.15em;
+}
+.activity-comprehensive-table .doser-badge {
+  background: var(--powder-blue);
+  color: var(--outer-space);
+  border: 1px solid var(--border-color);
+  border-radius: 0.4em;
+  padding: 0.15em 0.5em;
+  font-weight: 500;
+  font-size: 0.93em;
+  display: inline-block;
+}
+</style>
+{% endblock %}

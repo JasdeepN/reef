@@ -145,21 +145,14 @@
   background: var(--accent-colour-2);
 }
 
-.btn {
-  color: white;
-}
-
+// Legacy button styles - kept for backward compatibility
 .btn.btn-custom-1 {
     background-color: var(--button-background ) ; /* Light slate gray background */
     color: var(--button-text); /* White text */
     border: none !important;
-    // padding: 5px 10px ;
-    // margin: 0rem 0.5rem 0.5rem 0rem;
-    // transition: red 0.3s ease, color 0.3s ease;  
 }
 
 .btn.btn-custom-1:hover {
-// button.btn-custom:hover {
   background-color: var(--button-hover) ; /* Example hover background color (orange) */
   color: #FFFFFF !important; /* White text on hover */
   border: none !important;
@@ -172,9 +165,7 @@
   background: linear-gradient(to bottom, var(--button-background) 0%, var(--button-hover) 100%);
 }
 
-
 .btn.btn-custom-2:hover {
-  // button.btn-custom:hover {
   background-color: red ; /* Example hover background color (orange) */
   color: #FFFFFF !important; /* White text on hover */
   border: none !important;
@@ -215,6 +206,25 @@
 
 // Tank Context Modal Styles
 #tankContextModal {
+  // Critical z-index fix to prevent UI blocking when hidden
+  z-index: -1;
+  
+  &.show {
+    z-index: 1050 !important;
+    
+    .modal-backdrop {
+      z-index: 1049 !important;
+    }
+    
+    .modal-dialog {
+      z-index: 1051 !important;
+    }
+    
+    .modal-content {
+      z-index: 1051 !important;
+    }
+  }
+  
   .modal-content {
     background-color: var(--card-bg);
     border: 1px solid var(--border-color);

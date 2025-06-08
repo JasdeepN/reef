@@ -47,8 +47,8 @@ def create_dosing():
 
     update_sql = "UPDATE products SET current_avail = current_avail - :amount WHERE id = :product_id"
     insert_sql = """
-        INSERT INTO dosing (product_id, schedule_id, tank_id, amount, trigger_time)
-        VALUES (:product_id, :schedule_id, :tank_id, :amount, :trigger_time)
+        INSERT INTO dosing (product_id, schedule_id, tank_id, amount, trigger_time, dose_type)
+        VALUES (:product_id, :schedule_id, :tank_id, :amount, :trigger_time, :dose_type)
     """
     # Use datetime(3) precision for trigger_time in configured timezone
     tzname = current_app.config.get('TIMEZONE', 'UTC')
@@ -65,11 +65,13 @@ def create_dosing():
                 'schedule_id': schedule_id,
                 'tank_id': tank_id,
                 'amount': amount_float,
-                'trigger_time': trigger_time
+                'trigger_time': trigger_time,
+                'dose_type': 'scheduled'  # This is a scheduled dose from existing schedule
             }
         )
         db.session.flush()  # Force write to database
         db.session.commit()
+        db.session.expire_all()  # Ensure all ORM objects are refreshed from DB
         return jsonify({'success': True}), 201
     except Exception as e:
         db.session.rollback()
@@ -138,6 +140,78 @@ def refill_product():
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@bp.route('/dose/manual', methods=['POST'])
+def create_manual_dosing():
+    """Create a manual dosing record (not from a schedule)"""
+    data = request.get_json()
+    product_id = data.get('product_id')
+    amount = data.get('amount')
+    tank_id = data.get('tank_id')
+    doser_id = data.get('doser_id')  # Optional
+    notes = data.get('notes')  # Optional
+
+    if not product_id:
+        return jsonify({'success': False, 'error': 'Missing product ID'}), 400
+    if not amount:
+        return jsonify({'success': False, 'error': 'Missing dose amount'}), 400
+    if not tank_id:
+        return jsonify({'success': False, 'error': 'Missing tank ID'}), 400
+
+    try:
+        amount_float = float(amount)
+    except Exception:
+        return jsonify({'success': False, 'error': 'Invalid dose amount'}), 400
+
+    if amount_float <= 0:
+        return jsonify({'success': False, 'error': 'Dose amount must be positive'}), 400
+
+    # Check product availability
+    sql = """
+        SELECT current_avail
+        FROM products
+        WHERE id = :product_id
+    """
+    result = db.session.execute(text(sql), {'product_id': product_id}).fetchone()
+    if not result:
+        return jsonify({'success': False, 'error': 'Product not found'}), 404
+
+    current_avail = result[0]
+    if current_avail is None or current_avail < amount_float:
+        return jsonify({'success': False, 'error': 'Not enough available product'}), 400
+
+    # Use datetime(3) precision for trigger_time in configured timezone
+    tzname = current_app.config.get('TIMEZONE', 'UTC')
+    tz = pytz.timezone(tzname)
+    trigger_time = datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+    update_sql = "UPDATE products SET current_avail = current_avail - :amount WHERE id = :product_id"
+    insert_sql = """
+        INSERT INTO dosing (product_id, tank_id, amount, trigger_time, dose_type, doser_id, notes)
+        VALUES (:product_id, :tank_id, :amount, :trigger_time, :dose_type, :doser_id, :notes)
+    """
+
+    try:
+        db.session.execute(text(update_sql), {'amount': amount_float, 'product_id': product_id})
+        db.session.execute(
+            text(insert_sql),
+            {
+                'product_id': product_id,
+                'tank_id': tank_id,
+                'amount': amount_float,
+                'trigger_time': trigger_time,
+                'dose_type': 'manual',
+                'doser_id': doser_id,
+                'notes': notes
+            }
+        )
+        db.session.flush()
+        db.session.commit()
+        db.session.expire_all()
+        return jsonify({'success': True, 'message': 'Manual dose recorded successfully'}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @bp.route('/toggle/schedule', methods=['POST'])
 def toggle_schedule():
     data = request.get_json()
@@ -176,4 +250,71 @@ def toggle_dosing_pump():
         return jsonify({'success': False, 'error': 'Missing dosing pump ID'}), 400
     # Placeholder: No action performed
     return jsonify({'success': True, 'message': 'Dosing pump toggle placeholder', 'id': pump_id}), 200
+
+@bp.route('/dosers', methods=['GET'])
+def get_dosers():
+    """Get active dosers for current tank"""
+    from modules.tank_context import get_current_tank_id
+    
+    tank_id = get_current_tank_id()
+    if not tank_id:
+        return jsonify({'success': False, 'error': 'No tank selected'}), 400
+    
+    try:
+        # Get active dosers for current tank
+        sql = """
+            SELECT id, doser_name, doser_type 
+            FROM dosers 
+            WHERE tank_id = :tank_id AND is_active = 1 
+            ORDER BY doser_name
+        """
+        result = db.session.execute(text(sql), {'tank_id': tank_id}).fetchall()
+        
+        dosers = []
+        for row in result:
+            dosers.append({
+                'id': row[0],
+                'name': row[1], 
+                'type': row[2]
+            })
+            
+        return jsonify({'success': True, 'data': dosers})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/products', methods=['GET'])
+def get_products():
+    """Get products available for manual dosing"""
+    from modules.tank_context import get_current_tank_id
+    
+    tank_id = get_current_tank_id()
+    if not tank_id:
+        return jsonify({'success': False, 'error': 'No tank selected'}), 400
+    
+    try:
+        # Get products that have available stock
+        sql = """
+            SELECT DISTINCT p.id, p.name, p.current_avail, p.total_volume
+            FROM products p
+            INNER JOIN d_schedule ds ON p.id = ds.product_id
+            WHERE ds.tank_id = :tank_id 
+            AND p.current_avail > 0
+            ORDER BY p.name
+        """
+        result = db.session.execute(text(sql), {'tank_id': tank_id}).fetchall()
+        
+        products = []
+        for row in result:
+            products.append({
+                'id': row[0],
+                'name': row[1],
+                'current_avail': float(row[2]) if row[2] else 0,
+                'total_volume': float(row[3]) if row[3] else 0
+            })
+            
+        return jsonify({'success': True, 'data': products})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 

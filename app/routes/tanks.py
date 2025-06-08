@@ -15,7 +15,7 @@ def tank_manage():
 
         # Aggregate stats for each tank
         tank_stats = []
-        from modules.models import Coral, DSchedule, MissedDoseRequest
+        from modules.models import Coral, DSchedule
         for tank in tanks:
             # Water volumes
             gross_vol = tank.gross_water_vol
@@ -38,11 +38,7 @@ def tank_manage():
             dosing_total = len(schedules)
             dosing_suspended = sum(1 for s in schedules if s.suspended)
             dosing_active = dosing_total - dosing_suspended
-            # Missed doses
-            missed_dose_count = 0
-            for sched in schedules:
-                missed_dose_count += MissedDoseRequest.query.filter_by(schedule_id=sched.id, status='pending').count()
-
+            # Simplified stats (missed dose tracking removed)
             tank_stats.append({
                 'tank': tank,
                 'gross_water_vol': gross_vol,
@@ -67,7 +63,7 @@ def tank_new():
     """Create a new tank."""
     if request.method == 'POST':
         try:
-            name = request.form.get('name', '').strip()
+            name = (request.form.get('name') or '').strip()
             gross_water_vol = request.form.get('gross_water_vol', 0, type=int)
             net_water_vol = request.form.get('net_water_vol', 0, type=int)
             live_rock_lbs = request.form.get('live_rock_lbs', 0, type=float)
@@ -118,7 +114,7 @@ def tank_edit(tank_id):
     
     if request.method == 'POST':
         try:
-            name = request.form.get('name', '').strip()
+            name = (request.form.get('name') or '').strip()
             gross_water_vol = request.form.get('gross_water_vol', 0, type=int)
             net_water_vol = request.form.get('net_water_vol', 0, type=int)
             live_rock_lbs = request.form.get('live_rock_lbs', 0, type=float)

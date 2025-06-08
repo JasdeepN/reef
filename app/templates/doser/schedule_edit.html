@@ -1,579 +1,394 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% from "macros/schedule_stats_cards.html" import schedule_stats_cards %}
 
-{% block page_title %}Edit Dosing Schedule{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/schedule.css') }}">
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid schedule-edit-page">
-  <div class="row">
-    <!-- Edit Schedule Form -->
-    <div class="col-lg-8">
-      <div class="card">
-        <div class="card-header bg-warning text-dark">
-          <h5 class="mb-0">✏️ Edit Dosing Schedule - {{ schedule.product_name }} (Tank {{ tank_id }})</h5>
-        </div>
-        <div class="card-body">
-          <form id="scheduleForm">
-            <!-- Product Selection -->
-            <div class="row mb-3">
-              <div class="col-md-6">
-                <label for="product_id" class="form-label">💊 Product *</label>
-                <select class="form-select" id="product_id" name="product_id" required>
-                  <option value="">Select a product...</option>
-                  {% for product in products %}
-                  <option value="{{ product.id }}" data-avail="{{ product.current_avail }}" 
-                    {% if product.id == schedule.product_id %}selected{% endif %}>
-                    {{ product.name }} (Available: {{ product.current_avail }}ml)
-                  </option>
-                  {% endfor %}
-                </select>
-              </div>
-              <div class="col-md-6">
-                <label for="amount" class="form-label">📏 Amount (ml) *</label>
-                <input type="number" step="0.1" min="0.1" class="form-control" id="amount" name="amount" 
-                       value="{{ schedule.amount }}" required>
-                <div class="form-text">Amount to dose each time</div>
-              </div>
-            </div>
-
-            <!-- Doser Selection -->
-            <div class="row mb-3">
-              <div class="col-md-6">
-                <label for="doser_id" class="form-label">🔧 Doser</label>
-                <select class="form-select" id="doser_id" name="doser_id">
-                  <option value="">No specific doser</option>
-                  {% for doser in dosers %}
-                  <option value="{{ doser.id }}" data-type="{{ doser.doser_type }}" data-max-daily="{{ doser.max_daily_volume }}"
-                    {% if doser.id == schedule.doser_id %}selected{% endif %}>
-                    {{ doser.doser_name }} ({{ doser.doser_type.value if doser.doser_type else 'other' }})
-                    {% if doser.max_daily_volume %} - Max: {{ doser.max_daily_volume }}ml/day{% endif %}
-                  </option>
-                  {% endfor %}
-                </select>
-                <div class="form-text">Optional: Assign to specific physical doser</div>
-              </div>
-              <div class="col-md-6">
-                <label for="doser_name" class="form-label">⚙️ Doser Name (Legacy)</label>
-                <input type="text" class="form-control" id="doser_name" name="doser_name" 
-                       value="{{ schedule.doser_name or '' }}" maxlength="64">
-                <div class="form-text">Legacy text field for doser identification</div>
-              </div>
-            </div>
-
-            <!-- Schedule Type Selection -->
-            <div class="mb-3">
-              <label class="form-label">⏰ Schedule Type *</label>
-              <div class="row">
-                <div class="col-md-3">
-                  <div class="form-check">
-                    <input class="form-check-input" type="radio" name="schedule_type" id="type_interval" value="interval" checked>
-                    <label class="form-check-label" for="type_interval">
-                      Regular Intervals
-                    </label>
-                  </div>
+    <div class="row">
+        <!-- Edit Schedule Form -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white">
+                    <h5 class="mb-0">📅 Edit Dosing Schedule</h5>
+                    <a href="{{ url_for('doser_main') }}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-arrow-left"></i> Back to Schedules
+                    </a>
                 </div>
-                <div class="col-md-3">
-                  <div class="form-check">
-                    <input class="form-check-input" type="radio" name="schedule_type" id="type_daily" value="daily">
-                    <label class="form-check-label" for="type_daily">
-                      Daily
-                    </label>
-                  </div>
-                </div>
-                <div class="col-md-3">
-                  <div class="form-check">
-                    <input class="form-check-input" type="radio" name="schedule_type" id="type_weekly" value="weekly">
-                    <label class="form-check-label" for="type_weekly">
-                      Weekly
-                    </label>
-                  </div>
-                </div>
-                <div class="col-md-3">
-                  <div class="form-check">
-                    <input class="form-check-input" type="radio" name="schedule_type" id="type_custom" value="custom">
-                    <label class="form-check-label" for="type_custom">
-                      Custom
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Schedule Configuration Sections -->
-            <!-- Regular Intervals -->
-            <div class="schedule-config" id="interval_config">
-              <div class="card bg-light mb-3">
                 <div class="card-body">
-                  <h6 class="card-title">Regular Interval Configuration</h6>
-                  <div class="row">
-                    <div class="col-md-6">
-                      <label for="interval_value" class="form-label">Every *</label>
-                      <input type="number" min="1" class="form-control" id="interval_value" name="interval_value" value="8">
-                    </div>
-                    <div class="col-md-6">
-                      <label for="interval_unit" class="form-label">Unit *</label>
-                      <select class="form-select" id="interval_unit" name="interval_unit">
-                        <option value="minutes">Minutes</option>
-                        <option value="hours" selected>Hours</option>
-                        <option value="days">Days</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="mt-2">
-                    <small class="text-muted">Current: Dose every <span id="interval_display">8 hours</span></small>
-                  </div>
+                    <form method="POST" id="scheduleForm">
+                        <!-- Product Selection -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="product_id" class="form-label">💊 Product *</label>
+                                <select class="form-select" id="product_id" name="product_id" required>
+                                    <option value="">Select a product...</option>
+                                    {% for product in products %}
+                                    <option value="{{ product.id }}" 
+                                            data-avail="{{ product.current_avail }}"
+                                            {% if schedule and schedule.product_id == product.id %}selected{% endif %}>
+                                        {{ product.name }} (Available: {{ product.current_avail }}ml)
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="amount" class="form-label">📏 Amount (ml) *</label>
+                                <input type="number" step="0.1" min="0.1" class="form-control" id="amount" name="amount" required
+                                       value="{% if schedule %}{{ schedule.amount }}{% endif %}"
+                                       placeholder="5.0">
+                                <div class="form-text">Amount to dose each time</div>
+                            </div>
+                        </div>
+
+                        <!-- Doser Selection -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="doser_id" class="form-label">🔧 Doser</label>
+                                <select class="form-select" id="doser_id" name="doser_id">
+                                    <option value="">No specific doser</option>
+                                    {% for doser in dosers %}
+                                    <option value="{{ doser.id }}" 
+                                            data-type="{{ doser.doser_type }}" 
+                                            data-max-daily="{{ doser.max_daily_volume }}"
+                                            {% if schedule and schedule.doser_id == doser.id %}selected{% endif %}>
+                                        {{ doser.doser_name }} ({{ doser.doser_type }})
+                                        {% if doser.max_daily_volume %} - Max: {{ doser.max_daily_volume }}ml/day{% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">Optional: Assign to specific physical doser</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="doser_name" class="form-label">⚙️ Doser Name (Legacy)</label>
+                                <input type="text" class="form-control" id="doser_name" name="doser_name" maxlength="64"
+                                       value="{% if schedule %}{{ schedule.doser_name or '' }}{% endif %}">
+                                <div class="form-text">Optional: Manual doser identification</div>
+                            </div>
+                        </div>
+
+                        <!-- Enhanced Dosing Schedule -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-secondary text-white">
+                                <h6 class="mb-0">⏰ Dosing Schedule</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="interval_value" class="form-label">Dose Every *</label>
+                                        <input type="number" min="1" max="1440" class="form-control" id="interval_value" name="interval_value" required
+                                               value="{% if schedule %}{{ schedule.interval_value or 8 }}{% endif %}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="interval_unit" class="form-label">Time Unit *</label>
+                                        <select class="form-select" id="interval_unit" name="interval_unit" required>
+                                            <option value="minutes" {% if schedule and schedule.interval_unit == 'minutes' %}selected{% endif %}>Minutes (1-1440)</option>
+                                            <option value="hours" {% if schedule and schedule.interval_unit == 'hours' %}selected{% elif not schedule %}selected{% endif %}>Hours (1-24)</option>
+                                            <option value="days" {% if schedule and schedule.interval_unit == 'days' %}selected{% endif %}>Days (1-7)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-md-6">
+                                        <label for="start_time" class="form-label">⏰ Start Time (optional)</label>
+                                        <input type="time" class="form-control" id="start_time" name="start_time"
+                                               value="{% if schedule and schedule.start_time %}{{ schedule.start_time }}{% endif %}">
+                                        <div class="form-text">When to start the first dose (leave empty to use current schedule)</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch mt-4">
+                                            <input class="form-check-input" type="checkbox" id="suspended" name="suspended" 
+                                                   {% if schedule and schedule.suspended %}checked{% endif %}>
+                                            <label class="form-check-label" for="suspended">
+                                                ⏸️ Suspend Schedule
+                                            </label>
+                                            <div class="form-text">When suspended, this schedule will not execute doses</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <div class="alert alert-info">
+                                        <strong>Preview:</strong> Every <span id="interval_display">8 hours</span>, dose <span id="amount_display">{{ schedule.amount if schedule else 0 }}</span>ml <span id="start_display">{% if schedule and schedule.start_time %}starting at {{ schedule.start_time }}{% else %}with current timing{% endif %}</span>.
+                                        <br><small class="text-muted">Daily total: approximately <span id="daily_total">{{ ((24 / (schedule.trigger_interval / 3600)) * schedule.amount) | round(1) if schedule and schedule.trigger_interval else 0 }}</span>ml</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <a href="{{ url_for('doser_main') }}" class="btn btn-secondary">
+                                    <i class="fas fa-times"></i> Cancel
+                                </a>
+                                <button type="button" class="btn btn-danger ms-2" 
+                                        onclick="deleteSchedule({{ schedule.id | tojson }}, {{ stats_api_urls.DELETE | tojson }})">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Schedule
+                            </button>
+                        </div>
+                    </form>
                 </div>
-              </div>
             </div>
-
-            <!-- Daily Schedule -->
-            <div class="schedule-config" id="daily_config" style="display: none;">
-              <div class="card bg-light mb-3">
-                <div class="card-body">
-                  <h6 class="card-title">Daily Schedule Configuration</h6>
-                  <div class="row">
-                    <div class="col-md-6">
-                      <label for="times_per_day" class="form-label">Times per Day *</label>
-                      <input type="number" min="1" max="1440" class="form-control" id="times_per_day" name="times_per_day" value="3">
-                    </div>
-                  </div>
-                  <div class="mt-2">
-                    <small class="text-muted">Current: Dose <span id="daily_display">3 times per day</span> (every <span id="daily_interval">8 hours</span>)</small>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Weekly Schedule -->
-            <div class="schedule-config" id="weekly_config" style="display: none;">
-              <div class="card bg-light mb-3">
-                <div class="card-body">
-                  <h6 class="card-title">Weekly Schedule Configuration</h6>
-                  <div class="row">
-                    <div class="col-md-6">
-                      <label for="times_per_week" class="form-label">Times per Week *</label>
-                      <input type="number" min="1" max="10080" class="form-control" id="times_per_week" name="times_per_week" value="21">
-                    </div>
-                  </div>
-                  <div class="mt-2">
-                    <small class="text-muted">Current: Dose <span id="weekly_display">21 times per week</span> (every <span id="weekly_interval">8 hours</span>)</small>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Custom Schedule -->
-            <div class="schedule-config" id="custom_config" style="display: none;">
-              <div class="card bg-light mb-3">
-                <div class="card-body">
-                  <h6 class="card-title">Custom Schedule Configuration</h6>
-                  <div class="row">
-                    <div class="col-md-6">
-                      <label for="repeat_every_n_days" class="form-label">Repeat Every N Days</label>
-                      <input type="number" min="1" max="365" class="form-control" id="repeat_every_n_days" name="repeat_every_n_days" value="1">
-                      <div class="form-text">Dose every N days at specified time</div>
-                    </div>
-                    <div class="col-md-6">
-                      <label for="custom_time" class="form-label">🕐 Dose Time</label>
-                      <input type="time" class="form-control" id="custom_time" name="custom_time" value="09:00">
-                      <div class="form-text">Time of day to dose</div>
-                    </div>
-                  </div>
-                  <div class="row mt-2">
-                    <div class="col-md-6">
-                      <label for="custom_seconds" class="form-label">OR Interval (seconds)</label>
-                      <input type="number" min="60" class="form-control" id="custom_seconds" name="custom_seconds" value="3600">
-                      <div class="form-text">Alternative: exact seconds interval</div>
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Human Readable</label>
-                      <input type="text" class="form-control" id="custom_display" readonly>
-                    </div>
-                  </div>
-                  <div class="form-text mt-2">
-                    ⚙️ <strong>Advanced:</strong> Use either day-based scheduling or exact second intervals.
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Suspended Toggle -->
-            <div class="mb-3">
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="suspended" name="suspended" 
-                       {% if schedule.suspended %}checked{% endif %}>
-                <label class="form-check-label" for="suspended">
-                  ⏸️ Suspend this schedule
-                </label>
-                <div class="form-text">Suspended schedules won't trigger automatically</div>
-              </div>
-            </div>
-
-            <!-- Missed Dose Handling Configuration -->
-            <div class="card mb-4">
-              <div class="card-header">
-                <h6 class="mb-0">⏰ Missed Dose Handling</h6>
-              </div>
-              <div class="card-body">
-                <div class="row">
-                  <div class="col-md-6">
-                    <label for="missed_dose_handling" class="form-label">When a dose is missed:</label>
-                    <select class="form-select" id="missed_dose_handling" name="missed_dose_handling">
-                      <option value="alert_only" {% if schedule.missed_dose_handling == 'alert_only' %}selected{% endif %}>
-                        🚨 Alert Only - Skip missed doses
-                      </option>
-                      <option value="grace_period" {% if schedule.missed_dose_handling == 'grace_period' %}selected{% endif %}>
-                        ⏰ Grace Period - Allow dosing within time window
-                      </option>
-                      <option value="manual_approval" {% if schedule.missed_dose_handling == 'manual_approval' %}selected{% endif %}>
-                        ✋ Manual Approval - Require user confirmation
-                      </option>
-                    </select>
-                  </div>
-                  <div class="col-md-3" id="grace-period-config" style="display: none;">
-                    <label for="missed_dose_grace_period_hours" class="form-label">Grace Period (hours)</label>
-                    <input type="number" class="form-control" id="missed_dose_grace_period_hours" name="missed_dose_grace_period_hours" 
-                           value="{{ schedule.missed_dose_grace_period_hours or 12 }}" min="1" max="72" step="1">
-                    <div class="form-text">Allow dosing up to this many hours late</div>
-                  </div>
-                </div>
-                <div class="row mt-3">
-                  <div class="col-12">
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" id="missed_dose_notification_enabled" 
-                             name="missed_dose_notification_enabled" 
-                             {% if schedule.missed_dose_notification_enabled %}checked{% endif %}>
-                      <label class="form-check-label" for="missed_dose_notification_enabled">
-                        📧 Enable missed dose notifications
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-              <a href="{{ url_for('schedule_new') }}" class="btn btn-secondary">Cancel</a>
-              <button type="submit" class="btn btn-warning">💾 Update Schedule</button>
-            </div>
-
-            <!-- Loading indicator -->
-            <div id="loading" class="text-center mt-3" style="display: none;">
-              <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Updating...</span>
-              </div>
-              <div class="mt-2">Updating schedule...</div>
-            </div>
-          </form>
         </div>
-      </div>
 
-      <!-- Quick Reference Guide -->
-      <div class="card mt-3">
-        <div class="card-header bg-info text-white">
-          <h6 class="mb-0">📖 Quick Reference</h6>
-        </div>
-        <div class="card-body">
-          <div class="row">
-            <div class="col-md-6">
-              <h6>Common Intervals</h6>
-              <ul class="list-unstyled">
-                <li><strong>2-part dosing:</strong> Every 12 hours</li>
-                <li><strong>Calcium reactor:</strong> Every 6-8 hours</li>
-                <li><strong>Trace elements:</strong> Daily or weekly</li>
-                <li><strong>Amino acids:</strong> Every 2-3 days</li>
-              </ul>
+        <!-- Schedule Information Sidebar -->
+        <div class="col-lg-4">
+            {% if schedule %}
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="fas fa-info-circle"></i> Current Schedule Info</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <strong>Created:</strong> {{ schedule.created.strftime('%Y-%m-%d %H:%M') if schedule.created else 'Unknown' }}<br>
+                            <strong>Last Executed:</strong> {{ schedule.last_executed.strftime('%Y-%m-%d %H:%M') if schedule.last_executed else 'Never' }}<br>
+                            <strong>Status:</strong> 
+                            <span class="badge {% if schedule.suspended %}bg-warning{% else %}bg-success{% endif %}">
+                                {% if schedule.suspended %}Suspended{% else %}Active{% endif %}
+                            </span><br>
+                            <strong>Total Doses:</strong> {{ schedule.times_executed or 0 }}
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-6">
-              <h6>Tips</h6>
-              <ul class="list-unstyled">
-                <li>• Start with conservative amounts</li>
-                <li>• Monitor consumption rates</li>
-                <li>• Adjust based on test results</li>
-                <li>• Use suspension for maintenance</li>
-              </ul>
+
+            <!-- Quick Reference -->
+            <div class="card mt-3">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0">📖 Common Intervals</h6>
+                </div>
+                <div class="card-body py-2">
+                    <small>
+                        <strong>Popular Schedules:</strong><br>
+                        • Every 6 hours = 4 times/day<br>
+                        • Every 8 hours = 3 times/day<br>
+                        • Every 12 hours = 2 times/day<br>
+                        • Daily = 1 time/day<br>
+                        • Every 2 days = 3-4 times/week<br>
+                        <br>
+                        <strong>Precision:</strong> Timing accuracy ±1 second
+                    </small>
+                </div>
             </div>
-          </div>
+            {% endif %}
         </div>
-      </div>
     </div>
 
-    <!-- Existing Schedules Sidebar -->
-    <div class="col-lg-4">
-      <div class="card">
-        <div class="card-header bg-secondary text-white">
-          <h6 class="mb-0">📋 Other Active Schedules</h6>
-        </div>
-        <div class="card-body">
-          {% if existing_schedules %}
-            {% for sched in existing_schedules %}
-            <div class="card mb-2">
-              <div class="card-body p-2">
-                <div class="d-flex justify-content-between align-items-start">
-                  <div>
-                    <strong>{{ sched.product_name }}</strong><br>
-                    <small class="text-muted">{{ sched.amount }}ml every {{ (sched.trigger_interval / 3600) | round(1) }} hours</small>
-                    {% if sched.suspended %}
-                    <br><span class="badge bg-warning">Suspended</span>
-                    {% endif %}
-                  </div>
-                  <div class="btn-group-vertical btn-group-sm">
-                    <a href="{{ url_for('schedule_edit', schedule_id=sched.id) }}" class="btn btn-outline-primary btn-sm">Edit</a>
-                  </div>
-                </div>
-              </div>
-            </div>
-            {% endfor %}
-          {% else %}
-            <p class="text-muted">No other schedules for this tank.</p>
-          {% endif %}
-        </div>
-      </div>
-
-      <!-- Product Statistics -->
-      {{ schedule_stats_cards(stats_api_urls["GET"], stats_api_urls["DELETE"], enable_tooltips=false, filter_product_id=schedule.product_id) }}
+    <!-- Product Statistics - 3 Column Layout -->
+    <div class="mt-4">
+        {{ schedule_stats_cards(stats_api_urls["GET"], stats_api_urls["DELETE"], 'columns') }}
     </div>
-  </div>
 </div>
 
+<!-- Loading Overlay -->
+<div id="loading" style="display: none;">
+    <div class="spinner-border text-primary" aria-hidden="true">
+        <span class="visually-hidden">Saving schedule...</span>
+    </div>
+    <div class="mt-2">Updating dosing schedule...</div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('scheduleForm');
     const loadingDiv = document.getElementById('loading');
-    const scheduleTypeRadios = document.querySelectorAll('input[name="schedule_type"]');
-    
-    // Pre-populate form based on existing schedule data
-    const existingSchedule = {{ schedule | tojson }};
-    console.log('Existing schedule:', existingSchedule);
-    
-    // Calculate which schedule type this interval represents
-    function detectScheduleType(triggerInterval) {
-        // Try to match common patterns
-        const hours = triggerInterval / 3600;
-        const days = triggerInterval / 86400;
-        
-        // Check if it's a clean hour interval (most common)
-        if (triggerInterval % 3600 === 0 && hours <= 24) {
-            return 'interval';
-        }
-        
-        // Check if it divides evenly into daily intervals
-        if (86400 % triggerInterval === 0) {
-            return 'daily';
-        }
-        
-        // Check if it divides evenly into weekly intervals
-        if (604800 % triggerInterval === 0) {
-            return 'weekly';
-        }
-        
-        // Default to custom for irregular intervals
-        return 'custom';
-    }
-    
-    // Pre-populate based on existing trigger_interval
-    const detectedType = detectScheduleType(existingSchedule.trigger_interval);
-    document.getElementById('type_' + detectedType).checked = true;
-    
-    // Set values based on detected type
-    if (detectedType === 'interval') {
-        const hours = existingSchedule.trigger_interval / 3600;
-        if (hours >= 24) {
-            document.getElementById('interval_value').value = Math.round(hours / 24);
-            document.getElementById('interval_unit').value = 'days';
-        } else if (hours >= 1) {
-            document.getElementById('interval_value').value = Math.round(hours);
-            document.getElementById('interval_unit').value = 'hours';
-        } else {
-            document.getElementById('interval_value').value = Math.round(existingSchedule.trigger_interval / 60);
-            document.getElementById('interval_unit').value = 'minutes';
-        }
-    } else if (detectedType === 'daily') {
-        const timesPerDay = Math.round(86400 / existingSchedule.trigger_interval);
-        document.getElementById('times_per_day').value = timesPerDay;
-    } else if (detectedType === 'weekly') {
-        const timesPerWeek = Math.round(604800 / existingSchedule.trigger_interval);
-        document.getElementById('times_per_week').value = timesPerWeek;
-    } else {
-        // Custom - populate enhanced custom fields
-        const totalSeconds = existingSchedule.trigger_interval;
-        
-        // If it's a day-based schedule (using repeat_every_n_days from database)
-        if (existingSchedule.repeat_every_n_days && existingSchedule.trigger_time) {
-            document.getElementById('repeat_every_n_days').value = existingSchedule.repeat_every_n_days;
-            document.getElementById('custom_time').value = existingSchedule.trigger_time;
-        } else {
-            // Fallback to second-based scheduling
-            document.getElementById('custom_seconds').value = totalSeconds;
-            
-            // Try to detect if it's a day interval that can be converted
-            if (totalSeconds >= 86400 && totalSeconds % 86400 === 0) {
-                const days = totalSeconds / 86400;
-                document.getElementById('repeat_every_n_days').value = days;
-                document.getElementById('custom_time').value = '09:00';
-            }
-        }
-    }
-    
-    // Show/hide schedule config sections
-    function updateScheduleConfig() {
-        const selectedType = document.querySelector('input[name="schedule_type"]:checked').value;
-        
-        // Hide all configs
-        document.querySelectorAll('.schedule-config').forEach(config => {
-            config.style.display = 'none';
-        });
-        
-        // Show selected config
-        document.getElementById(selectedType + '_config').style.display = 'block';
-        
-        // Update displays
-        updateDisplays();
-    }
-    
-    // Update interval displays
+
+    // Form fields are already correctly populated by the template from backend conversion
+    // No need for JavaScript initialization since backend handles trigger_interval conversion
+
+    // Update display values when inputs change
     function updateDisplays() {
-        const selectedType = document.querySelector('input[name="schedule_type"]:checked').value;
-        
-        if (selectedType === 'interval') {
-            const value = parseInt(document.getElementById('interval_value').value) || 0;
-            const unit = document.getElementById('interval_unit').value;
-            document.getElementById('interval_display').textContent = `${value} ${unit}`;
-        } else if (selectedType === 'daily') {
-            const times = parseInt(document.getElementById('times_per_day').value) || 0;
-            const intervalHours = Math.round((24 / times) * 10) / 10;
-            document.getElementById('daily_display').textContent = `${times} times per day`;
-            document.getElementById('daily_interval').textContent = `${intervalHours} hours`;
-        } else if (selectedType === 'weekly') {
-            const times = parseInt(document.getElementById('times_per_week').value) || 0;
-            const intervalHours = Math.round((168 / times) * 10) / 10;
-            document.getElementById('weekly_display').textContent = `${times} times per week`;
-            document.getElementById('weekly_interval').textContent = `${intervalHours} hours`;
-        } else if (selectedType === 'custom') {
-            const repeatDays = parseInt(document.getElementById('repeat_every_n_days').value) || 0;
-            const customTime = document.getElementById('custom_time').value;
-            const customSeconds = parseInt(document.getElementById('custom_seconds').value) || 0;
-            
-            // Build display based on which fields are used
-            let displayText = '';
-            if (repeatDays > 0 && customTime) {
-                displayText = `Every ${repeatDays} day${repeatDays > 1 ? 's' : ''} at ${customTime}`;
-            } else if (customSeconds > 0) {
-                const hours = Math.floor(customSeconds / 3600);
-                const minutes = Math.floor((customSeconds % 3600) / 60);
-                const seconds = customSeconds % 60;
-                
-                let parts = [];
-                if (hours > 0) parts.push(`${hours} hour${hours > 1 ? 's' : ''}`);
-                if (minutes > 0) parts.push(`${minutes} minute${minutes > 1 ? 's' : ''}`);
-                if (seconds > 0) parts.push(`${seconds} second${seconds > 1 ? 's' : ''}`);
-                
-                displayText = parts.length > 0 ? `Every ${parts.join(', ')}` : 'No interval set';
-            } else {
-                displayText = 'Configure day-based or second-based schedule';
-            }
-            
-            document.getElementById('custom_display').value = displayText;
+        const amount = parseFloat(document.getElementById('amount').value) || 0;
+        const intervalValue = parseInt(document.getElementById('interval_value').value) || 1;
+        const intervalUnit = document.getElementById('interval_unit').value;
+        const startTime = document.getElementById('start_time').value;
+
+        // Update amount display
+        document.getElementById('amount_display').textContent = amount;
+
+        // Update interval display
+        let intervalText = `${intervalValue} ${intervalUnit}`;
+        if (intervalValue === 1) {
+            intervalText = intervalText.slice(0, -1); // Remove 's' for singular
         }
+        document.getElementById('interval_display').textContent = intervalText;
+        document.getElementById('interval_text_display').textContent = intervalText;
+
+        // Update start display
+        if (startTime) {
+            document.getElementById('start_display').textContent = `at ${startTime}`;
+        } else {
+            document.getElementById('start_display').textContent = 'with current timing';
+        }
+
+        // Calculate daily total
+        let dailyTotal = 0;
+        if (amount > 0 && intervalValue > 0) {
+            let hoursInterval;
+            switch (intervalUnit) {
+                case 'minutes':
+                    hoursInterval = intervalValue / 60;
+                    break;
+                case 'hours':
+                    hoursInterval = intervalValue;
+                    break;
+                case 'days':
+                    hoursInterval = intervalValue * 24;
+                    break;
+            }
+            dailyTotal = (24 / hoursInterval) * amount;
+        }
+        document.getElementById('daily_total').textContent = dailyTotal.toFixed(1);
     }
-    
-    // Event listeners for schedule type changes
-    scheduleTypeRadios.forEach(radio => {
-        radio.addEventListener('change', updateScheduleConfig);
-    });
-    
-    // Event listeners for value changes
+
+    // Add event listeners for real-time updates
+    document.getElementById('amount').addEventListener('input', updateDisplays);
     document.getElementById('interval_value').addEventListener('input', updateDisplays);
     document.getElementById('interval_unit').addEventListener('change', updateDisplays);
-    document.getElementById('times_per_day').addEventListener('input', updateDisplays);
-    document.getElementById('times_per_week').addEventListener('input', updateDisplays);
-    document.getElementById('repeat_every_n_days').addEventListener('input', updateDisplays);
-    document.getElementById('custom_time').addEventListener('change', updateDisplays);
-    document.getElementById('custom_seconds').addEventListener('input', updateDisplays);
-    
-    // Initialize display
-    updateScheduleConfig();
-    
-    // Handle missed dose strategy changes
-    const missedDoseHandlingSelect = document.getElementById('missed_dose_handling');
-    const gracePeriodConfig = document.getElementById('grace-period-config');
-    
-    function updateMissedDoseConfig() {
-        const strategy = missedDoseHandlingSelect.value;
-        
-        // Hide all config sections first
-        gracePeriodConfig.style.display = 'none';
-        
-        // Show relevant config based on strategy
-        if (strategy === 'grace_period') {
-            gracePeriodConfig.style.display = 'block';
+    document.getElementById('start_time').addEventListener('change', updateDisplays);
+
+    // Initialize displays
+    updateDisplays();
+
+    // Form validation
+    function validateForm() {
+        const productId = document.getElementById('product_id').value;
+        const amount = parseFloat(document.getElementById('amount').value);
+        const intervalValue = parseInt(document.getElementById('interval_value').value);
+        const intervalUnit = document.getElementById('interval_unit').value;
+
+        if (!productId) {
+            return { valid: false, message: 'Please select a product.' };
         }
+
+        if (!amount || amount <= 0) {
+            return { valid: false, message: 'Please enter a valid amount greater than 0.' };
+        }
+
+        if (!intervalValue || intervalValue <= 0) {
+            return { valid: false, message: 'Please enter a valid interval greater than 0.' };
+        }
+
+        if (!intervalUnit || !['minutes', 'hours', 'days'].includes(intervalUnit)) {
+            return { valid: false, message: 'Please select a valid time unit (minutes, hours, or days).' };
+        }
+
+        // Validate interval ranges
+        const maxValues = {
+            'minutes': 1440, // 24 hours
+            'hours': 24,     // 24 hours  
+            'days': 7        // 7 days
+        };
+
+        if (intervalValue > maxValues[intervalUnit]) {
+            return { 
+                valid: false, 
+                message: `Interval too large. Maximum for ${intervalUnit}: ${maxValues[intervalUnit]}` 
+            };
+        }
+
+        return { valid: true };
     }
-    
-    missedDoseHandlingSelect.addEventListener('change', updateMissedDoseConfig);
-    updateMissedDoseConfig(); // Initialize on page load
-    
+
     // Form submission
     form.addEventListener('submit', function(e) {
         e.preventDefault();
-        
+
+        // Validate form
+        const validation = validateForm();
+        if (!validation.valid) {
+            alert(validation.message);
+            return;
+        }
+
         // Show loading
         loadingDiv.style.display = 'block';
         form.style.opacity = '0.6';
-        
+
         // Collect form data
         const formData = new FormData(form);
         const data = {};
-        
+
+        // Collect all form fields, including empty ones
         formData.forEach((value, key) => {
-            if (value !== '') {
-                data[key] = value;
-            }
+            data[key] = value;
         });
-        
-        // Convert checkbox to boolean
+
+        // Always include critical fields that may not be in FormData
         data.suspended = document.getElementById('suspended').checked;
-        data.missed_dose_notification_enabled = document.getElementById('missed_dose_notification_enabled').checked;
-        
-        // Calculate custom_seconds for custom schedule type
-        if (data.schedule_type === 'custom') {
-            const hours = parseInt(data.custom_hours || 0);
-            const minutes = parseInt(data.custom_minutes || 0);
-            const seconds = parseInt(data.custom_seconds || 0);
-            data.custom_seconds = hours * 3600 + minutes * 60 + seconds;
-        }
-        
-        console.log('Submitting edit data:', data);
-        
-        // Submit to server
-        fetch(window.location.href, {
+        data.schedule_type = 'interval';
+
+        // Debug logging
+        console.log('Form data being submitted:', data);
+
+        // Submit via AJAX (similar to new schedule page)
+        fetch(window.location.pathname, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(data)
         })
         .then(response => response.json())
-        .then(result => {
+        .then(data => {
             loadingDiv.style.display = 'none';
             form.style.opacity = '1';
-            
-            if (result.success) {
-                alert('✅ Schedule updated successfully!');
-                // Redirect to schedule manager
-                window.location.href = '{{ url_for("schedule_new") }}';
+
+            if (data.success) {
+                alert('Dosing schedule updated successfully!');
+                window.location.href = "{{ url_for('doser_main') }}";
             } else {
-                alert('❌ Error: ' + (result.error || 'Unknown error occurred'));
+                alert('Error updating schedule: ' + data.error);
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             loadingDiv.style.display = 'none';
             form.style.opacity = '1';
-            alert('❌ Network error occurred. Please try again.');
+            alert('Error updating schedule: ' + error.message);
         });
     });
 });
+
+function deleteSchedule(scheduleId, deleteUrl) {
+    if (!confirm('Are you sure you want to delete this dosing schedule? This action cannot be undone.')) {
+        return;
+    }
+    
+    fetch(deleteUrl, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            id: scheduleId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Schedule deleted successfully!');
+            // Redirect to main doser page after successful deletion
+            window.location.href = "{{ url_for('doser_main') }}";
+        } else {
+            // Handle both error formats: {error: "msg"} and {success: false, message: "msg"}
+            const errorMessage = data.error || data.message || 'Unknown error';
+            alert('Error deleting schedule: ' + errorMessage);
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting schedule:', error);
+        alert('Error deleting schedule. Please try again.');
+    });
+}
 </script>
 {% endblock %}

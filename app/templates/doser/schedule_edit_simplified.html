@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/schedule.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="dashboard-header">
+        <h1>Edit Dosing Schedule</h1>
+        <p>Modify an existing dosing schedule with simple interval-based timing</p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Schedule Configuration</h5>
+                    <a href="{{ url_for('doser_main') }}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-arrow-left"></i> Back to Schedules
+                    </a>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="scheduleForm">
+                        <!-- Product Selection -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="product_id" class="form-label">Product</label>
+                                <select class="form-select" id="product_id" name="product_id" required>
+                                    <option value="">Select a product...</option>
+                                    {% for product in products %}
+                                    <option value="{{ product.id }}" 
+                                            {% if schedule and schedule.product_id == product.id %}selected{% endif %}>
+                                        {{ product.name }}
+                                        {% if product.current_avail %}
+                                            ({{ "%.1f"|format(product.current_avail) }}ml available)
+                                        {% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="doser_id" class="form-label">Doser</label>
+                                <select class="form-select" id="doser_id" name="doser_id" required>
+                                    <option value="">Select a doser...</option>
+                                    {% for doser in dosers %}
+                                    <option value="{{ doser.id }}" 
+                                            {% if schedule and schedule.doser_id == doser.id %}selected{% endif %}>
+                                        {{ doser.doser_name }} ({{ doser.doser_type }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Amount and Interval -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="amount" class="form-label">Amount (ml)</label>
+                                <input type="number" class="form-control" id="amount" name="amount" 
+                                       step="0.1" min="0.1" max="100" required
+                                       value="{% if schedule %}{{ schedule.amount }}{% endif %}"
+                                       placeholder="5.0">
+                                <div class="form-text">Volume to dose each time (0.1 - 100ml)</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="trigger_interval_hours" class="form-label">Interval (hours)</label>
+                                <select class="form-select" id="trigger_interval_hours" name="trigger_interval_hours" required>
+                                    <option value="">Select interval...</option>
+                                    <option value="1" {% if schedule and schedule.trigger_interval == 3600 %}selected{% endif %}>Every 1 hour</option>
+                                    <option value="2" {% if schedule and schedule.trigger_interval == 7200 %}selected{% endif %}>Every 2 hours</option>
+                                    <option value="3" {% if schedule and schedule.trigger_interval == 10800 %}selected{% endif %}>Every 3 hours</option>
+                                    <option value="4" {% if schedule and schedule.trigger_interval == 14400 %}selected{% endif %}>Every 4 hours</option>
+                                    <option value="6" {% if schedule and schedule.trigger_interval == 21600 %}selected{% endif %}>Every 6 hours</option>
+                                    <option value="8" {% if schedule and schedule.trigger_interval == 28800 %}selected{% endif %}>Every 8 hours</option>
+                                    <option value="12" {% if schedule and schedule.trigger_interval == 43200 %}selected{% endif %}>Every 12 hours</option>
+                                    <option value="24" {% if schedule and schedule.trigger_interval == 86400 %}selected{% endif %}>Every 24 hours</option>
+                                </select>
+                                <div class="form-text">How often to dose this product</div>
+                            </div>
+                        </div>
+
+                        <!-- Schedule Status -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="suspended" name="suspended" 
+                                           {% if schedule and schedule.suspended %}checked{% endif %}>
+                                    <label class="form-check-label" for="suspended">
+                                        Suspend Schedule
+                                    </label>
+                                    <div class="form-text">When suspended, this schedule will not execute doses</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Current Schedule Info (if editing) -->
+                        {% if schedule %}
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle"></i> Current Schedule Info</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Created:</strong> {{ schedule.created.strftime('%Y-%m-%d %H:%M') if schedule.created else 'Unknown' }}<br>
+                                    <strong>Last Executed:</strong> {{ schedule.last_executed.strftime('%Y-%m-%d %H:%M') if schedule.last_executed else 'Never' }}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Status:</strong> 
+                                    <span class="badge {% if schedule.suspended %}bg-warning{% else %}bg-success{% endif %}">
+                                        {% if schedule.suspended %}Suspended{% else %}Active{% endif %}
+                                    </span><br>
+                                    <strong>Total Doses:</strong> {{ schedule.times_executed or 0 }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('doser_main') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Schedule
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('scheduleForm');
+    
+    form.addEventListener('submit', function(e) {
+        const productId = document.getElementById('product_id').value;
+        const doserId = document.getElementById('doser_id').value;
+        const amount = document.getElementById('amount').value;
+        const interval = document.getElementById('trigger_interval_hours').value;
+        
+        if (!productId || !doserId || !amount || !interval) {
+            e.preventDefault();
+            alert('Please fill in all required fields.');
+            return;
+        }
+        
+        const amountNum = parseFloat(amount);
+        if (amountNum < 0.1 || amountNum > 100) {
+            e.preventDefault();
+            alert('Amount must be between 0.1 and 100 ml.');
+            return;
+        }
+    });
+});
+</script>
+{% endblock %}

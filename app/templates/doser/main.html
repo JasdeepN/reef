@@ -5,105 +5,173 @@
 {% block styles %}
   {{ super() }}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/doser-modern.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid doser-dashboard">
-  <!-- Dashboard Header -->
-  <div class="dashboard-header">
-    <h1 class="mb-2">🧪 Dosing Control Panel</h1>
-    <p class="mb-0">Monitor and control your reef tank dosing schedules</p>
+<!-- SVG Definitions for Bottle Graphics -->
+<svg class="bottle-svg-defs" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="liquidGradient-low" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#dc3545;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#fd7e14;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="liquidGradient-medium" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffc107;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#28a745;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="liquidGradient-high" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#28a745;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#20c997;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="container-fluid doser-dashboard-modern">
+  <!-- Modern Dashboard Header -->
+  <div class="dashboard-header-modern">
+    <div class="header-content">
+      <div class="header-icon">
+        <svg class="dosing-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="headerBottleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#007bff;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#17a2b8;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <path d="M35 20 L35 15 Q35 10 40 10 L60 10 Q65 10 65 15 L65 20 L60 25 L60 80 Q60 85 55 85 L45 85 Q40 85 40 80 L40 25 Z" 
+                fill="url(#headerBottleGradient)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+          <rect x="42" y="30" width="16" height="30" fill="rgba(255,255,255,0.2)" rx="2"/>
+        </svg>
+      </div>
+      <div class="header-text">
+        <h1>Dosing Control Center</h1>
+        <p>Advanced reef tank dosing management with real-time monitoring</p>
+      </div>
+    </div>
   </div>
   
   <!-- Dashboard Stats Overview -->
-  <div class="dashboard-stats" id="dashboard-overview">
-    <div class="dashboard-stat-card">
-      <div class="dashboard-stat-value" id="total-schedules">-</div>
-      <div class="dashboard-stat-label">Active Schedules</div>
+  <div class="dashboard-stats-modern" id="dashboard-overview">
+    <div class="stat-card-modern active-schedules">
+      <div class="stat-value" id="total-schedules">-</div>
+      <div class="stat-label">Active Schedules</div>
     </div>
-    <div class="dashboard-stat-card">
-      <div class="dashboard-stat-value" id="suspended-schedules">-</div>
-      <div class="dashboard-stat-label">Suspended</div>
+    <div class="stat-card-modern suspended-schedules">
+      <div class="stat-value" id="suspended-schedules">-</div>
+      <div class="stat-label">Suspended</div>
     </div>
-    <div class="dashboard-stat-card">
-      <div class="dashboard-stat-value" id="low-products">-</div>
-      <div class="dashboard-stat-label">Low Products</div>
+    <div class="stat-card-modern low-products">
+      <div class="stat-value" id="low-products">-</div>
+      <div class="stat-label">Low Products</div>
     </div>
-    <div class="dashboard-stat-card">
-      <div class="dashboard-stat-value" id="next-dose-time">-</div>
-      <div class="dashboard-stat-label">Next Dose</div>
+    <div class="stat-card-modern next-dose">
+      <div class="stat-value" id="next-dose-time">-</div>
+      <div class="stat-label">Next Dose</div>
     </div>
   </div>
   
   <!-- Upcoming Doses Section -->
-  <div class="row mt-4 upcoming-doses-section">
-    <div class="col-12">
-      <div class="card">
-        <div class="card-header bg-primary text-white">
-          <h5 class="mb-0">📅 Next 3 Scheduled Doses</h5>
-        </div>
-        <div class="card-body" id="upcoming-doses-container">
-          <div class="text-center p-3">
-            <div class="spinner-border spinner-border-sm text-primary" role="status">
-              <span class="visually-hidden">Loading upcoming doses...</span>
-            </div>
-            <div class="mt-2 text-muted">Loading upcoming doses...</div>
-          </div>
+  <div class="upcoming-doses-modern">
+    <div class="section-card">
+      <div class="section-header">
+        <h5>📅 Next 3 Scheduled Doses</h5>
+      </div>
+      <div class="section-body" id="upcoming-doses-container">
+        <div class="text-center p-3">
+          <output class="spinner-border spinner-border-sm text-primary" aria-live="polite">
+            <span class="visually-hidden">Loading upcoming doses...</span>
+          </output>
+          <div class="mt-2 text-muted">Loading upcoming doses...</div>
         </div>
       </div>
     </div>
   </div>
   
   <!-- Dosing Schedule Cards Container -->
-  <div class="row g-3 mt-4" id="dosing-cards-container">
-    <!-- Loading state -->
-    <div class="col-12 text-center p-5" id="loading-indicator">
-      <div class="spinner-border spinner-border-lg text-primary" role="status">
-        <span class="visually-hidden">Loading dosing schedules...</span>
+  <div class="dosing-cards-modern">
+    <div class="row" id="dosing-cards-container">
+      <!-- Loading state -->
+      <div class="col-12 text-center p-5" id="loading-indicator">
+        <output class="spinner-border spinner-border-lg text-primary" aria-live="polite">
+          <span class="visually-hidden">Loading dosing schedules...</span>
+        </output>
+        <div class="mt-3 text-muted">Loading your dosing schedules...</div>
       </div>
-      <div class="mt-3 text-muted">Loading your dosing schedules...</div>
     </div>
   </div>
   
   <!-- Quick Actions -->
-  <div class="row mt-4">
-    <div class="col-12">
-      <div class="card">
-        <div class="card-header bg-info text-white">
-          <h5 class="mb-0">⚡ Quick Actions</h5>
-        </div>
-        <div class="card-body">
-          <div class="d-flex gap-2 flex-wrap">
-          <a href="{{ url_for('schedule_new') }}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Add New Schedule
+  <div class="quick-actions-modern">
+    <div class="section-card">
+      <div class="section-header">
+        <h5>⚡ Quick Actions</h5>
+      </div>
+      <div class="section-body">
+        <div class="action-grid">
+          <a href="{{ url_for('schedule_new') }}" class="action-btn">
+            <svg class="action-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+            <div class="action-text">Add New Schedule</div>
           </a>
-          <a href="{{ url_for('get_products') }}" class="btn btn-secondary">
-            <i class="fas fa-flask"></i> Manage Products
+          <a href="{{ url_for('get_products') }}" class="action-btn">
+            <svg class="action-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M9 2v2h6V2h2v2h1c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h1V2h2z"/>
+            </svg>
+            <div class="action-text">Manage Products</div>
           </a>
-            <button id="refresh-dashboard" class="btn btn-outline-primary">
-              <i class="fas fa-sync-alt"></i> Refresh Dashboard
-            </button>
-          </div>
+          <a href="{{ url_for('doser_audit') }}" class="action-btn">
+            <svg class="action-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"/>
+            </svg>
+            <div class="action-text">Audit Log</div>
+          </a>
+          <a href="{{ url_for('doser_history') }}" class="action-btn">
+            <svg class="action-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
+            </svg>
+            <div class="action-text">History</div>
+          </a>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+<!-- Manual dosing modal removed for fully automated operation -->
+
 {% endblock %}
 
 {% block page_scripts %}
 <script>
+console.log('Simple test script loaded');
+
 document.addEventListener('DOMContentLoaded', function() {
-  const apiUrls = {{ api_urls | tojson }};
-  const tankId = {{ tank_id }};
-  
-  let dosingData = [];
+  console.log('Doser main script started');
+  try {
+    const apiUrls = {{ api_urls | tojson }};
+    const tankId = {{ tank_id | tojson }};
+    console.log('Variables loaded successfully');
+    console.log('API URLs:', apiUrls);
+    console.log('Tank ID:', tankId);
+    
+    let dosingData = [];
   
   // Load the dashboard on page load
   loadDosingDashboard();
   
-  // Refresh button handler
-  document.getElementById('refresh-dashboard').addEventListener('click', loadDosingDashboard);
+  // Load upcoming doses independently (don't wait for dashboard to load)
+  loadUpcomingDoses();
+  
+  // Implement automatic refresh every 2 minutes (120,000 ms)
+  setInterval(function() {
+    console.log('Auto-refreshing dashboard...');
+    loadDosingDashboard();
+    loadUpcomingDoses();
+  }, 120000); // 2 minutes
+
+  // Manual dosing controls removed for fully automated operation
   
   function loadDosingDashboard() {
     const container = document.getElementById('dosing-cards-container');
@@ -120,9 +188,9 @@ document.addEventListener('DOMContentLoaded', function() {
       newLoadingIndicator.id = 'loading-indicator';
       newLoadingIndicator.className = 'col-12 text-center p-5';
       newLoadingIndicator.innerHTML = `
-        <div class="spinner-border spinner-border-lg text-primary" role="status">
+        <output class="spinner-border spinner-border-lg text-primary" aria-live="polite">
           <span class="visually-hidden">Loading dosing schedules...</span>
-        </div>
+        </output>
         <div class="mt-3 text-muted">Loading your dosing schedules...</div>
       `;
       container.innerHTML = '';
@@ -173,9 +241,6 @@ document.addEventListener('DOMContentLoaded', function() {
       // Generate schedule cards
       generateScheduleCards();
       
-      // Load upcoming doses
-      loadUpcomingDoses();
-      
     })
     .catch(error => {
       console.error('Error loading dosing dashboard:', error);
@@ -213,34 +278,71 @@ document.addEventListener('DOMContentLoaded', function() {
       return percentRemaining !== null && percentRemaining < 20;
     }).length;
     
-    // Calculate next dose time (simplified - using trigger_interval)
-    let nextDoseText = 'N/A';
-    const activeSchedules = dosingData.filter(item => 
-      !item.suspended || item.suspended[1] !== true
-    );
-    
-    if (activeSchedules.length > 0) {
-      const intervals = activeSchedules
-        .map(item => item.trigger_interval && item.trigger_interval[1])
-        .filter(interval => interval !== null)
-        .sort((a, b) => a - b);
-      
-      if (intervals.length > 0) {
-        const nextInterval = intervals[0];
-        if (nextInterval < 3600) {
-          nextDoseText = Math.round(nextInterval / 60) + 'm';
-        } else if (nextInterval < 86400) {
-          nextDoseText = Math.round(nextInterval / 3600) + 'h';
-        } else {
-          nextDoseText = Math.round(nextInterval / 86400) + 'd';
-        }
-      }
-    }
-    
+    // Update stats
     document.getElementById('total-schedules').textContent = totalSchedules;
     document.getElementById('suspended-schedules').textContent = suspendedSchedules;
     document.getElementById('low-products').textContent = lowProducts;
-    document.getElementById('next-dose-time').textContent = nextDoseText;
+    
+    // Next dose time will be updated from upcoming doses API
+    document.getElementById('next-dose-time').textContent = 'Loading...';
+    
+    // Load upcoming doses to get accurate next dose time
+    loadUpcomingDosesForOverview();
+  }
+  
+  function loadUpcomingDosesForOverview() {
+    // Create fresh URL to bypass caching
+    const timestamp = new Date().getTime();
+    const nextDosesUrl = apiUrls.next_doses + '?_=' + timestamp + '&bust=' + Math.random();
+
+    fetch(nextDosesUrl, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok: ' + response.status);
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.success && data.data && data.data.length > 0) {
+        const nextDose = data.data[0]; // First upcoming dose
+        const nextDoseDate = new Date(nextDose.next_dose_time);
+        const now = new Date();
+        const timeDiff = nextDoseDate - now;
+        
+        let nextDoseText = 'N/A';
+        if (timeDiff > 0) {
+          const diffMinutes = Math.floor(timeDiff / (1000 * 60));
+          const diffHours = Math.floor(diffMinutes / 60);
+          const diffDays = Math.floor(diffHours / 24);
+          
+          if (diffDays > 0) {
+            nextDoseText = `${diffDays}d ${diffHours % 24}h`;
+          } else if (diffHours > 0) {
+            nextDoseText = `${diffHours}h ${diffMinutes % 60}m`;
+          } else {
+            nextDoseText = `${diffMinutes}m`;
+          }
+        } else {
+          nextDoseText = 'Due now';
+        }
+        
+        document.getElementById('next-dose-time').textContent = nextDoseText;
+      } else {
+        document.getElementById('next-dose-time').textContent = 'N/A';
+      }
+    })
+    .catch(error => {
+      console.error('Error loading next dose time:', error);
+      document.getElementById('next-dose-time').textContent = 'Error';
+    });
   }
   
   function generateScheduleCards() {
@@ -248,13 +350,22 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (dosingData.length === 0) {
       container.innerHTML = `
-        <div class="col-12 text-center p-5">
-          <i class="fas fa-flask fa-3x text-muted mb-3"></i>
-          <h5 class="text-muted">No Dosing Schedules Found</h5>
-          <p class="text-muted">Create your first dosing schedule to get started</p>
-          <a href="/doser/schedule/new" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Add First Schedule
-          </a>
+        <div class="no-schedules-modern">
+          <div class="empty-state">
+            <svg class="empty-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+              <path d="M35 20 L35 15 Q35 10 40 10 L60 10 Q65 10 65 15 L65 20 L62 25 L62 100 Q62 105 57 105 L43 105 Q38 105 38 100 L38 25 Z" 
+                    fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+              <text x="50" y="65" text-anchor="middle" font-size="20" fill="currentColor" opacity="0.5">?</text>
+            </svg>
+            <h3>No Dosing Schedules</h3>
+            <p>Create your first automated dosing schedule to maintain perfect water chemistry</p>
+            <a href="/doser/schedule/new" class="btn-modern-primary">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              Create First Schedule
+            </a>
+          </div>
         </div>
       `;
       return;
@@ -271,7 +382,7 @@ document.addEventListener('DOMContentLoaded', function() {
   
   function generateScheduleCard(schedule) {
     const col = document.createElement('div');
-    col.className = 'col-lg-4 col-md-6 col-sm-12';
+    col.className = 'col-lg-3 col-md-6 col-sm-12';
     
     const productName = schedule.card_title && schedule.card_title[1] || 'Unknown Product';
     const scheduleId = schedule.schedule_id && schedule.schedule_id[1];
@@ -287,108 +398,310 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Calculate next dose time more accurately
     let nextDoseText = 'Unknown';
-    if (triggerInterval > 0 && !suspended) {
-      const lastTrigger = schedule.last_trigger && schedule.last_trigger[1];
+    if (!suspended) {
+      const scheduleType = schedule.schedule_type && schedule.schedule_type[1];
+      const triggerTime = schedule.trigger_time && schedule.trigger_time[1];
       
-      if (lastTrigger) {
+      if (scheduleType === 'daily' && triggerTime) {
+        // Daily schedule - calculate next occurrence of trigger_time
         try {
-          const lastTriggerDate = new Date(lastTrigger);
-          let nextDoseDate = new Date(lastTriggerDate.getTime() + (triggerInterval * 1000));
           const now = new Date();
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
           
-          // Skip missed doses by calculating forward to the next future dose
-          while (nextDoseDate <= now) {
-            nextDoseDate = new Date(nextDoseDate.getTime() + (triggerInterval * 1000));
+          // Parse trigger_time (format: "HH:MM:SS" or "HH:MM")
+          const timeParts = triggerTime.split(':');
+          const hours = parseInt(timeParts[0], 10);
+          const minutes = parseInt(timeParts[1], 10);
+          
+          // Create today's dose time
+          const todayDoseTime = new Date(today);
+          todayDoseTime.setHours(hours, minutes, 0, 0);
+          
+          let nextDoseDate;
+          if (now < todayDoseTime) {
+            // Today's dose hasn't happened yet
+            nextDoseDate = todayDoseTime;
+          } else {
+            // Today's dose already happened, next dose is tomorrow
+            nextDoseDate = new Date(todayDoseTime);
+            nextDoseDate.setDate(nextDoseDate.getDate() + 1);
           }
           
           const diffMs = nextDoseDate - now;
-          const diffMinutes = Math.floor(diffMs / (1000 * 60));
-          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
           
-          if (diffMinutes < 60) {
-            nextDoseText = `${diffMinutes} minutes`;
-          } else if (diffHours < 24) {
-            nextDoseText = `${diffHours} hours, ${diffMinutes % 60} min`;
+          if (diffMs <= 0) {
+            nextDoseText = 'Due now';
           } else {
-            nextDoseText = `${diffDays} days, ${diffHours % 24} hrs`;
+            const diffMinutes = Math.floor(diffMs / (1000 * 60));
+            const diffHours = Math.floor(diffMinutes / 60);
+            const diffDays = Math.floor(diffHours / 24);
+            
+            if (diffDays > 0) {
+              nextDoseText = `${diffDays} days, ${diffHours % 24} hrs`;
+            } else if (diffHours > 0) {
+              nextDoseText = `${diffHours} hours, ${diffMinutes % 60} min`;
+            } else {
+              nextDoseText = `${diffMinutes} minutes`;
+            }
           }
         } catch (e) {
-          // Fallback to interval-based calculation
+          console.error('Error calculating daily schedule next dose:', e);
+          nextDoseText = `Daily at ${triggerTime}`;
+        }
+      } else if (triggerInterval > 0) {
+        // Interval-based schedule - use existing logic
+        const lastTrigger = schedule.last_trigger && schedule.last_trigger[1];
+        
+        if (lastTrigger) {
+          try {
+            // Check if lastTrigger is a time-only string (e.g., "14:00") or full datetime
+            let lastTriggerDate;
+            
+            if (typeof lastTrigger === 'string') {
+              // Check if it's a time-only format (HH:MM or HH:MM:SS)
+              const timeOnlyPattern = /^\d{1,2}:\d{2}(:\d{2})?$/;
+              
+              if (timeOnlyPattern.test(lastTrigger)) {
+                // Time-only format - we can't calculate accurate next dose without date
+                throw new Error('Time-only format - using interval fallback');
+              } else if (lastTrigger.includes('T')) {
+                // ISO datetime format - parse normally
+                lastTriggerDate = new Date(lastTrigger);
+                
+                // Fallback parsing if Date constructor fails with timezone
+                if (isNaN(lastTriggerDate.getTime())) {
+                  // Try parsing without timezone info
+                  const dateOnly = lastTrigger.split('T')[0];
+                  const timeOnly = lastTrigger.split('T')[1].split('-')[0].split('+')[0];
+                  lastTriggerDate = new Date(`${dateOnly}T${timeOnly}`);
+                }
+              } else {
+                // Try parsing as-is (legacy format)
+                lastTriggerDate = new Date(lastTrigger);
+              }
+            } else {
+              // Non-string value - convert to date
+              lastTriggerDate = new Date(lastTrigger);
+            }
+            
+            // Validate the parsed date
+            if (isNaN(lastTriggerDate.getTime())) {
+              throw new Error('Invalid date format');
+            }
+            
+            let nextDoseDate = new Date(lastTriggerDate.getTime() + (triggerInterval * 1000));
+            const now = new Date();
+            
+            // Skip missed doses by calculating forward to the next future dose
+            let iterations = 0;
+            while (nextDoseDate <= now && iterations < 100) { // Safety limit
+              nextDoseDate = new Date(nextDoseDate.getTime() + (triggerInterval * 1000));
+              iterations++;
+            }
+            
+            const diffMs = nextDoseDate - now;
+            
+            if (diffMs <= 0) {
+              nextDoseText = 'Due now';
+            } else {
+              const diffMinutes = Math.floor(diffMs / (1000 * 60));
+              const diffHours = Math.floor(diffMinutes / 60);
+              const diffDays = Math.floor(diffHours / 24);
+              
+              if (diffDays > 0) {
+                nextDoseText = `${diffDays} days, ${diffHours % 24} hrs`;
+              } else if (diffHours > 0) {
+                nextDoseText = `${diffHours} hours, ${diffMinutes % 60} min`;
+              } else {
+                nextDoseText = `${diffMinutes} minutes`;
+              }
+            }
+          } catch (e) {
+            // Fallback to interval-based calculation
+            if (triggerInterval < 3600) {
+              nextDoseText = Math.round(triggerInterval / 60) + ' minutes';
+            } else if (triggerInterval < 86400) {
+              nextDoseText = Math.round(triggerInterval / 3600) + ' hours';
+            } else {
+              nextDoseText = Math.round(triggerInterval / 86400) + ' days';
+            }
+          }
+        } else {
+          // No last trigger, show interval
           if (triggerInterval < 3600) {
-            nextDoseText = Math.round(triggerInterval / 60) + ' minutes';
+            nextDoseText = 'Next: ' + Math.round(triggerInterval / 60) + ' min';
           } else if (triggerInterval < 86400) {
-            nextDoseText = Math.round(triggerInterval / 3600) + ' hours';
+            nextDoseText = 'Next: ' + Math.round(triggerInterval / 3600) + ' hrs';
           } else {
-            nextDoseText = Math.round(triggerInterval / 86400) + ' days';
+            nextDoseText = 'Next: ' + Math.round(triggerInterval / 86400) + ' days';
           }
         }
       } else {
-        // No last trigger, show interval
-        if (triggerInterval < 3600) {
-          nextDoseText = 'Next: ' + Math.round(triggerInterval / 60) + ' min';
-        } else if (triggerInterval < 86400) {
-          nextDoseText = 'Next: ' + Math.round(triggerInterval / 3600) + ' hrs';
-        } else {
-          nextDoseText = 'Next: ' + Math.round(triggerInterval / 86400) + ' days';
-        }
+        nextDoseText = 'No schedule configured';
       }
-    } else if (suspended) {
+    } else {
       nextDoseText = 'Suspended';
     }
     
+    // Determine liquid level for bottle graphics
+    const liquidLevel = Math.max(5, Math.min(95, percentRemaining)); // Keep between 5-95% for visual appeal
+    let liquidGradient = 'liquidGradient-high';
+    let statusClass = 'status-high';
+    
+    if (percentRemaining < 20) {
+      liquidGradient = 'liquidGradient-low';
+      statusClass = 'status-low';
+    } else if (percentRemaining < 50) {
+      liquidGradient = 'liquidGradient-medium';
+      statusClass = 'status-medium';
+    }
+    
     col.innerHTML = `
-      <div class="doser-dashboard-card card h-100">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h6 class="mb-0">${productName}</h6>
-          <span class="badge ${suspended ? 'bg-warning' : 'bg-success'}">${suspended ? 'Suspended' : 'Active'}</span>
+      <div class="dosing-card-modern ${suspended ? 'suspended' : ''} ${statusClass}">
+        <div class="card-header-modern">
+          <h5 class="product-title">${productName}</h5>
+          <div class="status-badge ${suspended ? 'suspended' : 'active'}">${suspended ? 'Suspended' : 'Active'}</div>
         </div>
-        <div class="card-body">
-          <!-- Next Dose Info -->
-          <div class="next-dose-info">
-            <div class="small">Next Dose In:</div>
-            <div class="fw-bold">${nextDoseText}</div>
+        
+        <div class="card-body-modern">
+          <!-- Bottle Visualization -->
+          <div class="bottle-container">
+            <svg class="bottle-graphic" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+              <!-- Bottle outline -->
+              <path d="M35 20 L35 15 Q35 10 40 10 L60 10 Q65 10 65 15 L65 20 L62 25 L62 100 Q62 105 57 105 L43 105 Q38 105 38 100 L38 25 Z" 
+                    fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+              
+              <!-- Liquid fill -->
+              <defs>
+                <clipPath id="bottleClip-${scheduleId}">
+                  <path d="M38 25 L38 100 Q38 105 43 105 L57 105 Q62 105 62 100 L62 25 Z"/>
+                </clipPath>
+              </defs>
+              
+              <rect x="38" y="${25 + (75 * (100 - liquidLevel) / 100)}" 
+                    width="24" height="${75 * liquidLevel / 100}" 
+                    fill="url(#${liquidGradient})" 
+                    clip-path="url(#bottleClip-${scheduleId})"
+                    class="liquid-fill">
+                <animate attributeName="y" 
+                         values="${25 + (75 * (100 - liquidLevel) / 100) + 2};${25 + (75 * (100 - liquidLevel) / 100)};${25 + (75 * (100 - liquidLevel) / 100) + 2}" 
+                         dur="3s" repeatCount="indefinite"/>
+              </rect>
+              
+              <!-- Bottle cap -->
+              <rect x="40" y="10" width="20" height="10" rx="2" fill="rgba(255,255,255,0.4)"/>
+              
+              <!-- Volume Scale -->
+              <g class="volume-scale">
+                <!-- Scale line -->
+                <line x1="70" y1="25" x2="70" y2="100" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+                
+                <!-- Scale tick marks and labels -->
+                ${(() => {
+                  let scaleMarks = '';
+                  const maxVolume = totalVolume;
+                  const currentVolume = currentAvail;
+                  
+                  // Create 4-5 scale marks based on volume
+                  let intervals;
+                  if (maxVolume <= 100) {
+                    intervals = [0, 25, 50, 75, 100];
+                  } else if (maxVolume <= 500) {
+                    intervals = [0, Math.round(maxVolume * 0.25), Math.round(maxVolume * 0.5), Math.round(maxVolume * 0.75), maxVolume];
+                  } else if (maxVolume <= 1000) {
+                    intervals = [0, Math.round(maxVolume * 0.2), Math.round(maxVolume * 0.4), Math.round(maxVolume * 0.6), Math.round(maxVolume * 0.8), maxVolume];
+                  } else {
+                    intervals = [0, Math.round(maxVolume * 0.33), Math.round(maxVolume * 0.66), maxVolume];
+                  }
+                  
+                  intervals.forEach(volume => {
+                    const percentage = (volume / maxVolume) * 100;
+                    const yPos = 100 - (75 * percentage / 100);
+                    const isCurrentLevel = Math.abs(volume - currentVolume) < (maxVolume * 0.05); // Within 5% of current level
+                    
+                    scaleMarks += `
+                      <!-- Scale tick -->
+                      <line x1="68" y1="${yPos}" x2="72" y2="${yPos}" 
+                            stroke="rgba(255,255,255,${isCurrentLevel ? '0.9' : '0.6'})" 
+                            stroke-width="${isCurrentLevel ? '2' : '1'}"/>
+                      
+                      <!-- Volume label -->
+                      <text x="78" y="${yPos + 2}" 
+                            fill="rgba(255,255,255,${isCurrentLevel ? '1' : '0.7'})" 
+                            font-size="${maxVolume > 1000 ? '6' : '7'}" 
+                            font-weight="${isCurrentLevel ? '700' : '500'}"
+                            text-anchor="start">${volume > 0 ? volume + 'ml' : '0'}</text>
+                    `;
+                  });
+                  
+                  // Current level indicator
+                  const currentLevelY = 100 - (75 * liquidLevel / 100);
+                  scaleMarks += `
+                    <!-- Current level arrow -->
+                    <polygon points="66,${currentLevelY - 2} 70,${currentLevelY} 66,${currentLevelY + 2}" 
+                             fill="${liquidGradient === 'liquidGradient-low' ? '#dc3545' : 
+                                     liquidGradient === 'liquidGradient-medium' ? '#ffc107' : '#28a745'}" 
+                             stroke="white" stroke-width="0.5"/>
+                    
+                    <!-- Current level label (highlighted) -->
+                    <rect x="75" y="${currentLevelY - 6}" width="35" height="12" rx="2" 
+                          fill="rgba(0,0,0,0.8)" stroke="white" stroke-width="0.5"/>
+                    <text x="92.5" y="${currentLevelY + 1}" 
+                          fill="white" 
+                          font-size="6" 
+                          font-weight="700"
+                          text-anchor="middle">${Math.round(currentAvail)}ml</text>
+                  `;
+                  
+                  return scaleMarks;
+                })()}
+              </g>
+            </svg>
+            
+            <!-- Level percentage overlay -->
+            <div class="level-percentage">${Math.round(percentRemaining)}%</div>
           </div>
           
-          <!-- Product Level -->
-          <div class="progress-container">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <small class="text-dark">Product Level</small>
-              <small class="fw-bold">${Math.round(percentRemaining)}%</small>
+          <!-- Schedule Info -->
+          <div class="schedule-info">
+            <div class="product-info">
+              <div class="volume-info">
+                <span class="current-volume">${currentAvail}ml</span>
+                <span class="volume-separator">/</span>
+                <span class="total-volume">${totalVolume}ml</span>
+              </div>
+              <div class="doses-info">~${Math.round(dosesRemaining)} doses remaining</div>
             </div>
-            <div class="product-level-bar">
-              <div class="product-level-fill" style="width: ${Math.max(0, Math.min(100, percentRemaining))}%"></div>
-              <div class="product-level-text">${currentAvail}ml / ${totalVolume}ml</div>
+            
+            <div class="next-dose-info">
+              <div class="next-dose-label">Next Dose</div>
+              <div class="next-dose-time">${nextDoseText}</div>
             </div>
-            <div class="d-flex justify-content-between mt-1">
-              <small class="text-dark">~${Math.round(dosesRemaining)} doses left</small>
-              <small class="text-dark">Last refill: ${lastRefill}</small>
+            
+            <div class="schedule-details">
+              <div class="dose-amount">${amount}ml every ${formatInterval(triggerInterval)}</div>
+              <div class="last-refill">Last refill: ${lastRefill === 'Never' ? 'Never' : new Date(lastRefill).toLocaleDateString()}</div>
             </div>
           </div>
           
-          <!-- Schedule Controls -->
-          <div class="schedule-status">
-            <label class="toggle-switch">
-              <input type="checkbox" ${suspended ? '' : 'checked'} onchange="toggleSchedule(${scheduleId}, this)">
-              <span class="toggle-slider"></span>
-            </label>
-            <span class="small text-muted">Schedule ${suspended ? 'Off' : 'On'}</span>
-          </div>
-          
-          <!-- Action Buttons -->
-          <div class="schedule-control-buttons">
-            <button class="btn btn-dose-now btn-sm flex-fill" onclick="doseNow(${scheduleId}, '${productName}')">
-              <i class="fas fa-play"></i> Dose Now (${amount}ml)
+          <!-- Card Actions -->
+          <div class="card-actions">
+            <div class="schedule-toggle">
+              <label class="modern-toggle">
+                <input type="checkbox" ${suspended ? '' : 'checked'} onchange="toggleSchedule(${scheduleId}, this)">
+                <span class="toggle-slider">
+                  <span class="toggle-button"></span>
+                </span>
+              </label>
+              <span class="toggle-label">${suspended ? 'Disabled' : 'Enabled'}</span>
+            </div>
+            
+            <button class="btn-modern btn-secondary-modern refill-btn" onclick="refillProduct(${productId}, '${productName}')">
+              <svg class="refill-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C13.1 2 14 2.9 14 4V8L19 13V20C19 21.1 18.1 22 17 22H7C5.9 22 5 21.1 5 20V13L10 8V4C10 2.9 10.9 2 12 2M12 4V8.5L8 12.5V20H16V12.5L12 8.5V4Z"/>
+              </svg>
+              Refill
             </button>
-            <button class="btn btn-refill btn-sm flex-fill" onclick="refillProduct(${productId}, '${productName}')">
-              <i class="fas fa-fill-drip"></i> Refill
-            </button>
-          </div>
-          
-          <!-- Additional Info -->
-          <div class="mt-2 small text-muted">
-            <div>Amount: ${amount}ml every ${formatInterval(triggerInterval)}</div>
-            <div>Schedule ID: ${scheduleId}</div>
           </div>
         </div>
       </div>
@@ -440,42 +753,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   };
   
-  window.doseNow = function(scheduleId, productName) {
-    if (!confirm(`Dose ${productName} now?`)) {
-      return;
-    }
-    
-    // Store the function reference to avoid scope issues
-    const refreshDashboard = loadDosingDashboard;
-    
-    fetch(apiUrls.dose, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        schedule_id: scheduleId,
-        tank_id: tankId
-      })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        showNotification(`✅ ${productName} dosed successfully!`, 'success');
-        
-        // Wait a moment for database to update, then refresh once
-        setTimeout(function() {
-          refreshDashboard();
-        }, 1000);
-      } else {
-        showNotification('❌ Dosing failed: ' + (data.error || 'Unknown error'), 'error');
-      }
-    })
-    .catch(error => {
-      console.error('Error dosing:', error);
-      showNotification('❌ Network error during dosing', 'error');
-    });
-  };
+  // Manual dosing function removed for fully automated operation
   
   window.refillProduct = function(productId, productName) {
     if (!confirm(`Refill ${productName} to maximum capacity?`)) {
@@ -506,71 +784,63 @@ document.addEventListener('DOMContentLoaded', function() {
       showNotification('❌ Network error during refill', 'error');
     });
   };
-   function loadUpcomingDoses() {
-    console.log('🔥 loadUpcomingDoses() called');
+  
+  function loadUpcomingDoses() {
+    const container = document.getElementById('upcoming-doses-container');
     
-    // Use a longer timeout to ensure DOM is ready
-    setTimeout(function() {
-      console.log('🕒 Timeout executed, looking for container...');
-      const container = document.getElementById('upcoming-doses-container');
-      
-      if (!container) {
-        console.error('❌ Container not found. Available elements:');
-        document.querySelectorAll('[id]').forEach(el => console.log('- ID:', el.id));
-        return;
+    if (!container) {
+      console.error('Upcoming doses container not found');
+      return;
+    }
+    
+    // Show loading state
+    container.innerHTML = `
+      <div class="text-center p-3">
+        <div class="spinner-border spinner-border-sm text-primary" role="status">
+          <span class="visually-hidden">Loading upcoming doses...</span>
+        </div>
+        <div class="mt-2 text-muted">Loading upcoming doses...</div>
+      </div>
+    `;
+
+    // Create fresh URL to bypass caching
+    const timestamp = new Date().getTime();
+    const nextDosesUrl = apiUrls.next_doses + '?_=' + timestamp + '&bust=' + Math.random();
+
+    fetch(nextDosesUrl, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok: ' + response.status);
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to load upcoming doses');
       }
       
-      console.log('✅ Container found, proceeding with API call');
+      const upcomingDoses = data.data || [];
+      displayUpcomingDoses(upcomingDoses);
       
-      // Show loading state
+    })
+    .catch(error => {
+      console.error('Error loading upcoming doses:', error);
       container.innerHTML = `
-        <div class="text-center p-3">
-          <div class="spinner-border spinner-border-sm text-primary" role="status">
-            <span class="visually-hidden">Loading upcoming doses...</span>
-          </div>
-          <div class="mt-2 text-muted">Loading upcoming doses...</div>
+        <div class="text-center text-danger p-3">
+          <i class="fas fa-exclamation-triangle mb-2"></i>
+          <div>Error loading upcoming doses</div>
+          <small>${error.message}</small>
         </div>
       `;
-
-      // Create fresh URL to bypass caching
-      const timestamp = new Date().getTime();
-      const nextDosesUrl = apiUrls.next_doses + '?_=' + timestamp + '&bust=' + Math.random();
-
-      fetch(nextDosesUrl, {
-        method: 'GET',
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Network response was not ok: ' + response.status);
-        }
-        return response.json();
-      })
-      .then(data => {
-        if (!data.success) {
-          throw new Error(data.message || 'Failed to load upcoming doses');
-        }
-        
-        const upcomingDoses = data.data || [];
-        displayUpcomingDoses(upcomingDoses);
-        
-      })
-      .catch(error => {
-        console.error('Error loading upcoming doses:', error);
-        container.innerHTML = `
-          <div class="text-center text-danger p-3">
-            <i class="fas fa-exclamation-triangle mb-2"></i>
-            <div>Error loading upcoming doses</div>
-            <small>${error.message}</small>
-          </div>
-        `;
-      });
-    }, 500); // Longer delay to ensure DOM is ready
+    });
   }
   
   function displayUpcomingDoses(doses) {
@@ -579,18 +849,20 @@ document.addEventListener('DOMContentLoaded', function() {
     if (doses.length === 0) {
       container.innerHTML = `
         <div class="text-center text-muted p-3">
-          <i class="fas fa-clock fa-2x mb-2"></i>
+          <i class="fas fa-info-circle mb-2"></i>
           <div>No upcoming doses scheduled</div>
-          <small>All schedules may be suspended or products unavailable</small>
         </div>
       `;
       return;
     }
     
-    // Create dose cards
-    let dosesHtml = '<div class="row">';
+    // Simple text-based display of next 3 doses
+    let dosesHtml = '<div class="upcoming-doses-simple">';
+    dosesHtml += '<h6 class="text-center mb-3"><i class="fas fa-clock"></i> Next 3 Doses</h6>';
     
-    doses.forEach((dose, index) => {
+    const displayCount = Math.min(3, doses.length);
+    for (let i = 0; i < displayCount; i++) {
+      const dose = doses[i];
       const nextDoseDate = new Date(dose.next_dose_time);
       const now = new Date();
       const timeDiff = nextDoseDate - now;
@@ -603,37 +875,24 @@ document.addEventListener('DOMContentLoaded', function() {
         const diffDays = Math.floor(diffHours / 24);
         
         if (diffDays > 0) {
-          timeText = `${diffDays}d ${diffHours % 24}h`;
+          timeText = `in ${diffDays}d ${diffHours % 24}h`;
         } else if (diffHours > 0) {
-          timeText = `${diffHours}h ${diffMinutes % 60}m`;
+          timeText = `in ${diffHours}h ${diffMinutes % 60}m`;
         } else {
-          timeText = `${diffMinutes}m`;
+          timeText = `in ${diffMinutes}m`;
         }
       } else {
         timeText = 'Due now';
       }
       
-      // Format the absolute time
-      const dateText = nextDoseDate.toLocaleDateString();
       const timeOnly = nextDoseDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       
       dosesHtml += `
-        <div class="col-md-4 mb-3 dose-card">
-          <div class="card h-100 ${index === 0 ? 'border-primary' : ''}">
-            <div class="card-body text-center">
-              <h6 class="card-title text-primary">${dose.product_name}</h6>
-              <div class="dose-amount mb-2">
-                <span class="badge bg-info">${dose.amount}ml</span>
-              </div>
-              <div class="dose-timing">
-                <div class="fw-bold ${timeDiff <= 300000 ? 'text-danger' : ''}">${timeText}</div>
-                <small class="text-muted">${dateText} ${timeOnly}</small>
-              </div>
-            </div>
-          </div>
+        <div class="dose-line ${i === 0 ? 'fw-bold' : ''}">
+          ${i + 1}. ${dose.product_name} - ${dose.amount}ml ${timeText} (${timeOnly})
         </div>
       `;
-    });
+    }
     
     dosesHtml += '</div>';
     container.innerHTML = dosesHtml;
@@ -657,6 +916,10 @@ document.addEventListener('DOMContentLoaded', function() {
         notification.parentNode.removeChild(notification);
       }
     }, 5000);
+  }
+
+  } catch (error) {
+    console.error('Error in doser main script:', error);
   }
 });
 </script>

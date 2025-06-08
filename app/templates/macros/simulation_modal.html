@@ -1,0 +1,281 @@
+<!-- Simulation Modal Macro -->
+{% macro simulation_modal() %}
+<!-- Simulation Modal -->
+<div class="modal fade" id="simulationModal" tabindex="-1" aria-labelledby="simulationModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="simulationModalLabel">
+          <i class="bi bi-play-circle me-2"></i>
+          Schedule Simulation Preview
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Loading State -->
+        <div id="simulation-loading" class="text-center py-4" style="display: none;">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Simulating schedule...</span>
+          </div>
+          <p class="mt-2 text-muted">Calculating dose schedule...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="simulation-error" class="alert alert-danger" style="display: none;">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          <span id="simulation-error-message">Error simulating schedule</span>
+        </div>
+
+        <!-- Results Container -->
+        <div id="simulation-results" style="display: none;">
+          <!-- Schedule Summary -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <h6 class="text-primary mb-3">
+                <i class="bi bi-info-circle me-2"></i>
+                Schedule Summary
+              </h6>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <div class="card bg-light border-0">
+                    <div class="card-body py-2">
+                      <small class="text-muted d-block">Schedule Type</small>
+                      <strong id="summary-schedule-type">-</strong>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="card bg-light border-0">
+                    <div class="card-body py-2">
+                      <small class="text-muted d-block">Interval</small>
+                      <strong id="summary-interval">-</strong>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="card bg-light border-0">
+                    <div class="card-body py-2">
+                      <small class="text-muted d-block">Amount per Dose</small>
+                      <strong id="summary-amount">-</strong>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="card bg-light border-0">
+                    <div class="card-body py-2">
+                      <small class="text-muted d-block">Est. Daily Volume</small>
+                      <strong id="summary-daily-volume">-</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Next Dose Info -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <div class="alert alert-info mb-0">
+                <i class="bi bi-clock me-2"></i>
+                <strong>Next Dose:</strong> 
+                <span id="next-dose-time">-</span>
+                <small class="text-muted">(<span id="next-dose-relative">-</span>)</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dose Schedule Table -->
+          <div class="row">
+            <div class="col-12">
+              <h6 class="text-primary mb-3">
+                <i class="bi bi-calendar-event me-2"></i>
+                Upcoming Doses (Next 10)
+              </h6>
+              <div class="table-responsive">
+                <table class="table table-sm table-striped">
+                  <thead class="table-dark">
+                    <tr>
+                      <th>#</th>
+                      <th>Scheduled Time</th>
+                      <th>Relative</th>
+                      <th>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dose-schedule-table">
+                    <!-- Populated by JavaScript -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Preview Note -->
+          <div class="row mt-3">
+            <div class="col-12">
+              <div class="alert alert-warning mb-0">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Note:</strong> This is a preview only. No doses will be scheduled until you save the form.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-circle me-2"></i>
+          Close
+        </button>
+        <button type="button" class="btn btn-success" id="simulate-again-btn" onclick="runScheduleSimulation()">
+          <i class="bi bi-arrow-clockwise me-2"></i>
+          Simulate Again
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Simulation JavaScript -->
+<script>
+function runScheduleSimulation() {
+  // Show loading state
+  document.getElementById('simulation-loading').style.display = 'block';
+  document.getElementById('simulation-error').style.display = 'none';
+  document.getElementById('simulation-results').style.display = 'none';
+
+  // Collect form data
+  const formData = collectScheduleFormData();
+  if (!formData) {
+    showSimulationError('Please fill out the required schedule fields before simulating.');
+    return;
+  }
+
+  // Make API request
+  fetch('/api/v1/scheduler/simulate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(formData)
+  })
+  .then(response => response.json())
+  .then(data => {
+    document.getElementById('simulation-loading').style.display = 'none';
+    
+    if (data.success) {
+      displaySimulationResults(data.simulation);
+    } else {
+      showSimulationError(data.error || 'Unknown error occurred');
+    }
+  })
+  .catch(error => {
+    document.getElementById('simulation-loading').style.display = 'none';
+    showSimulationError('Network error: ' + error.message);
+  });
+}
+
+function collectScheduleFormData() {
+  // Get schedule type
+  const scheduleTypeInputs = document.querySelectorAll('input[name="schedule_type"]');
+  let scheduleType = null;
+  for (const input of scheduleTypeInputs) {
+    if (input.checked) {
+      scheduleType = input.value;
+      break;
+    }
+  }
+
+  if (!scheduleType) {
+    return null;
+  }
+
+  // Base form data
+  const formData = {
+    schedule_type: scheduleType,
+    amount: document.getElementById('amount')?.value || ''
+  };
+
+  // Add schedule-type specific fields
+  if (scheduleType === 'interval') {
+    formData.trigger_interval = document.getElementById('trigger_interval')?.value || '';
+    formData.start_time = document.getElementById('start_time')?.value || '';
+  } else if (scheduleType === 'daily') {
+    formData.times_per_day = document.getElementById('times_per_day')?.value || '1';
+    formData.daily_time = document.getElementById('daily_time')?.value || '';
+  } else if (scheduleType === 'weekly') {
+    formData.weekly_time = document.getElementById('weekly_time')?.value || '';
+    const checkedDays = [];
+    const dayCheckboxes = document.querySelectorAll('input[name="days_of_week[]"]:checked');
+    dayCheckboxes.forEach(cb => checkedDays.push(cb.value));
+    formData.days_of_week = checkedDays.join(',');
+  } else if (scheduleType === 'custom') {
+    formData.repeat_every_n_days = document.getElementById('repeat_every_n_days')?.value || '';
+    formData.custom_time = document.getElementById('custom_time')?.value || '';
+    formData.custom_seconds = document.getElementById('custom_seconds')?.value || '';
+  }
+
+  // Validate required fields
+  if (!formData.amount || parseFloat(formData.amount) <= 0) {
+    return null;
+  }
+
+  return formData;
+}
+
+function displaySimulationResults(simulation) {
+  // Update summary
+  document.getElementById('summary-schedule-type').textContent = 
+    simulation.schedule_type.charAt(0).toUpperCase() + simulation.schedule_type.slice(1);
+  document.getElementById('summary-interval').textContent = simulation.trigger_interval_human;
+  document.getElementById('summary-amount').textContent = simulation.amount_per_dose + ' mL';
+  document.getElementById('summary-daily-volume').textContent = simulation.summary.estimated_ml_per_day + ' mL';
+
+  // Update next dose info
+  if (simulation.dose_schedule && simulation.dose_schedule.length > 0) {
+    const firstDose = simulation.dose_schedule[0];
+    document.getElementById('next-dose-time').textContent = firstDose.scheduled_time;
+    document.getElementById('next-dose-relative').textContent = firstDose.relative_time;
+  }
+
+  // Populate dose schedule table
+  const tableBody = document.getElementById('dose-schedule-table');
+  tableBody.innerHTML = '';
+
+  simulation.dose_schedule.forEach(dose => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${dose.dose_number}</td>
+      <td>${dose.scheduled_time}</td>
+      <td><span class="badge bg-primary">${dose.relative_time}</span></td>
+      <td>${dose.amount} mL</td>
+    `;
+    tableBody.appendChild(row);
+  });
+
+  // Show results
+  document.getElementById('simulation-results').style.display = 'block';
+}
+
+function showSimulationError(message) {
+  document.getElementById('simulation-loading').style.display = 'none';
+  document.getElementById('simulation-error-message').textContent = message;
+  document.getElementById('simulation-error').style.display = 'block';
+  document.getElementById('simulation-results').style.display = 'none';
+}
+
+// Initialize simulation modal when button is clicked
+document.addEventListener('DOMContentLoaded', function() {
+  const simulateBtn = document.getElementById('simulate-schedule-btn');
+  if (simulateBtn) {
+    simulateBtn.addEventListener('click', function() {
+      const modal = new bootstrap.Modal(document.getElementById('simulationModal'));
+      modal.show();
+      
+      // Auto-run simulation when modal opens
+      setTimeout(() => {
+        runScheduleSimulation();
+      }, 300);
+    });
+  }
+});
+</script>
+{% endmacro %}

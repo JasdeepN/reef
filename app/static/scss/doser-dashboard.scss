@@ -588,6 +588,24 @@
     
     .card-body {
       background: var(--card-bg, #56666B);
+      // Prevent container from jumping around during content updates
+      min-height: 100px;
+      // Use flexbox for consistent layout
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      
+      // Ensure consistent spacing for dose cards grid
+      .row {
+        margin: 0 !important;
+        
+        .dose-card {
+          // Ensure consistent card heights
+          .card {
+            min-height: 160px;
+          }
+        }
+      }
     }
   }
   
@@ -595,7 +613,7 @@
     .card {
       border: 1px solid var(--border-color, #8f91a2ff);
       background: var(--card-bg, #56666B);
-      transition: all 0.3s ease;
+      // Remove transition to prevent size changes during content updates
       
       &.border-primary {
         border-color: var(--doser-primary) !important;
@@ -603,7 +621,7 @@
       }
       
       &:hover {
-        transform: translateY(-2px);
+        // Simplified hover effect without transforms to prevent layout shifts
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
       }
       
@@ -631,7 +649,8 @@
             
             &.text-danger {
               color: var(--doser-danger) !important;
-              animation: pulse 2s infinite;
+              // Remove pulse animation to prevent size changes
+              opacity: 0.9;
             }
           }
           
@@ -645,21 +664,12 @@
   }
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
+// Remove duplicate and conflicting pulse animations
+// Keep only simple pulse animation without transforms
 
-// Animations
-@keyframes pulse {
-  0%, 100% {
-    opacity: 0.8;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
+@keyframes pulse-simple {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
 }
 
 @keyframes shimmer {

@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify
 from modules.tank_context import get_current_tank_id, ensure_tank_context
 from modules.models import Tank, TestResults
+from modules.timezone_utils import format_time_for_display
 
 bp = Blueprint('home_api', __name__, url_prefix='/home')
 
@@ -169,7 +170,7 @@ def _extract_test_values(tests, labels):
     for test in tests:
         # Format label
         if test.test_date and test.test_time:
-            label = f"{test.test_date.strftime('%Y-%m-%d')} {test.test_time.strftime('%H:%M')}"
+            label = f"{test.test_date.strftime('%Y-%m-%d')} {format_time_for_display(test.test_time)}"
         else:
             label = test.test_date.strftime('%Y-%m-%d') if test.test_date else 'Unknown'
         labels.append(label)

@@ -124,34 +124,33 @@ if not hasattr(app, '_metrics_initialized'):
     
     app._metrics_initialized = True
 
-# Initialize Dosing Scheduler (only in non-testing mode)
+# Initialize Enhanced Dosing Scheduler (only in non-testing mode)
 dosing_scheduler = None
 if not app.config.get('TESTING'):
     try:
-        from modules.dosing_scheduler import DosingScheduler
+        from modules.enhanced_dosing_scheduler import EnhancedDosingScheduler
         
         # Configure scheduler settings
         app.config['SCHEDULER_ENABLED'] = os.getenv('SCHEDULER_ENABLED', 'true').lower() == 'true'
         app.config['SCHEDULER_AUTOSTART'] = os.getenv('SCHEDULER_AUTOSTART', 'true').lower() == 'true'
-        app.config['SCHEDULER_CHECK_INTERVAL'] = int(os.getenv('SCHEDULER_CHECK_INTERVAL', '60'))  # seconds
-        app.config['SCHEDULER_TIMEZONE'] = os.getenv('SCHEDULER_TIMEZONE', 'UTC')
+        app.config['SCHEDULER_TIMEZONE'] = os.getenv('SCHEDULER_TIMEZONE', 'America/Toronto')
         app.config['SCHEDULER_BASE_URL'] = os.getenv('SCHEDULER_BASE_URL', 'http://localhost:5000')
         
         if app.config['SCHEDULER_ENABLED']:
-            dosing_scheduler = DosingScheduler(app, app.config['SCHEDULER_BASE_URL'])
+            dosing_scheduler = EnhancedDosingScheduler(app, app.config['SCHEDULER_BASE_URL'])
             app.dosing_scheduler = dosing_scheduler  # Make it accessible through app
             
             # Auto-start if enabled
             if app.config['SCHEDULER_AUTOSTART']:
                 try:
                     dosing_scheduler.start()
-                    print("[app/__init__.py] Dosing scheduler initialized and started", file=sys.stderr, flush=True)
+                    print(f"[app/__init__.py] Enhanced Dosing Scheduler initialized and started", file=sys.stderr, flush=True)
                 except Exception as start_error:
-                    print(f"[app/__init__.py] Warning: Failed to auto-start dosing scheduler: {start_error}", file=sys.stderr, flush=True)
+                    print(f"[app/__init__.py] Warning: Failed to auto-start enhanced dosing scheduler: {start_error}", file=sys.stderr, flush=True)
             else:
-                print("[app/__init__.py] Dosing scheduler initialized (auto-start disabled)", file=sys.stderr, flush=True)
+                print(f"[app/__init__.py] Enhanced Dosing Scheduler initialized (auto-start disabled)", file=sys.stderr, flush=True)
         else:
-            print("[app/__init__.py] Dosing scheduler disabled by configuration", file=sys.stderr, flush=True)
+            print(f"[app/__init__.py] Enhanced Dosing Scheduler disabled by configuration", file=sys.stderr, flush=True)
     except Exception as e:
         print(f"[app/__init__.py] Warning: Failed to initialize dosing scheduler: {e}", file=sys.stderr, flush=True)
 
@@ -160,7 +159,7 @@ from app.routes.api import api_bp
 from app.routes.web import web_fn
 app.register_blueprint(api_bp)
 app.register_blueprint(web_fn)
-from app.routes import corals, home, metrics, test, doser, models, scheduler, missed_dose, tanks
+from app.routes import corals, home, metrics, test, doser, models, tanks
 import modules
 
 # Move context processor registration here to avoid circular import

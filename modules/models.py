@@ -15,6 +15,12 @@ from flask import session
 # Import db from extensions to avoid circular imports
 from extensions import db
 
+# Import timezone utilities for consistent timezone handling
+from modules.timezone_utils import (
+    format_time_for_display, datetime_to_iso_format,
+    parse_trigger_time_from_db
+)
+
 class TestResults(db.Model):
     __tablename__ = 'test_results'
     id = db.Column(db.Integer, primary_key=True)
@@ -39,7 +45,7 @@ class TestResults(db.Model):
         return {
             "id": self.id,
             "test_date": self.test_date.isoformat() if self.test_date else None,
-            "test_time": self.test_time.strftime('%H:%M:%S') if self.test_time else None,
+            "test_time": format_time_for_display(self.test_time) if self.test_time else None,
             "alk": self.alk,
             "po4_ppm": self.po4_ppm,
             "po4_ppb": self.po4_ppb,
@@ -106,9 +112,7 @@ class DosingTypeEnum(enum.Enum):
     intermittent = 'intermittent'
 
 class MissedDoseHandlingEnum(enum.Enum):
-    alert_only = 'alert_only'           # Skip missed doses, show alert
-    grace_period = 'grace_period'       # Allow dosing within grace window
-    manual_approval = 'manual_approval' # Require user confirmation
+    alert_only = 'alert_only'           # Skip missed doses, show alert only (simplified system)
 
 class ScheduleTypeEnum(enum.Enum):
     interval = 'interval'    # Every X seconds/minutes/hours
@@ -131,8 +135,18 @@ class Dosing(db.Model):
     amount = db.Column(db.Float, nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'))
     schedule_id = db.Column(db.Integer, db.ForeignKey('d_schedule.id'), nullable=True)
+    
+    # Enhanced dosing tracking fields
+    dose_type = db.Column(db.Enum('scheduled', 'manual'), default='scheduled', nullable=False)
+    doser_id = db.Column(db.Integer, db.ForeignKey('dosers.id'), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    tank_id = db.Column(db.Integer, db.ForeignKey('tanks.id'), nullable=True)
+    
+    # Relationships
     product = db.relationship('Products', backref=db.backref('dosings', lazy=True))
     schedule = db.relationship('DSchedule', backref=db.backref('dosings', lazy=True))
+    doser = db.relationship('Doser', backref=db.backref('dosings', lazy=True))
+    tank = db.relationship('Tank', backref=db.backref('dosings', lazy=True))
 
     def validate(self):
         if self.amount is not None and self.amount < 0:
@@ -141,10 +155,28 @@ class Dosing(db.Model):
             raise ValueError("Product must be selected")
         if self.amount is None:
             raise ValueError("Amount must be specified")
-        if hasattr(self, '_type') and self._type is None:
+        if self.dose_type is None:
             raise ValueError("Dosing type must be specified")
         if self.trigger_time is None:
             raise ValueError("Dosing time must be specified")
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "trigger_time": self.trigger_time.isoformat() if self.trigger_time else None,
+            "amount": self.amount,
+            "product_id": self.product_id,
+            "schedule_id": self.schedule_id,
+            "dose_type": self.dose_type,
+            "doser_id": self.doser_id,
+            "notes": self.notes,
+            "tank_id": self.tank_id,
+            "product_name": self.product.name if self.product else None,
+            "doser_name": self.doser.doser_name if self.doser else None
+        }
+    
+    def __repr__(self):
+        return f"<Dosing id={self.id} product_id={self.product_id} amount={self.amount} type={self.dose_type}>"
 
 
 class DSchedule(db.Model):
@@ -202,12 +234,12 @@ def get_d_schedule_dict(d_schedule):
         
         # Enhanced scheduling fields
         "schedule_type": d_schedule.schedule_type.value if d_schedule.schedule_type else 'interval',
-        "trigger_time": d_schedule.trigger_time.strftime('%H:%M:%S') if d_schedule.trigger_time else None,
+        "trigger_time": format_time_for_display(d_schedule.trigger_time) if d_schedule.trigger_time else None,
         "offset_minutes": d_schedule.offset_minutes,
         "reference_schedule_id": d_schedule.reference_schedule_id,
         "days_of_week": d_schedule.days_of_week,
         "repeat_every_n_days": d_schedule.repeat_every_n_days,
-        "last_scheduled_time": d_schedule.last_scheduled_time.isoformat() if d_schedule.last_scheduled_time else None,
+        "last_scheduled_time": datetime_to_iso_format(d_schedule.last_scheduled_time) if d_schedule.last_scheduled_time else None,
         
         # Doser information
         "doser_name": d_schedule.doser_name,
@@ -215,41 +247,66 @@ def get_d_schedule_dict(d_schedule):
         "doser": d_schedule.doser.to_dict() if d_schedule.doser else None
     }
 
-class MissedDoseRequest(db.Model):
-    """Model for tracking missed doses that require manual approval or tracking."""
-    __tablename__ = 'missed_dose_requests'
+class DosingAudit(db.Model):
+    """Complete audit trail for dose executions with precise timing and confirmations."""
+    __tablename__ = 'dosing_audit'
     
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    schedule_id = db.Column(db.Integer, db.ForeignKey('d_schedule.id'), nullable=False)
-    missed_dose_time = db.Column(db.DateTime, nullable=False)  # When the dose was originally scheduled
-    detected_time = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())  # When missed dose was detected
-    hours_missed = db.Column(db.Float, nullable=False)  # Hours past scheduled time
-    status = db.Column(db.Enum('pending', 'approved', 'rejected', 'expired', 'auto_dosed'), nullable=False, default='pending')
-    approved_by = db.Column(db.String(64))  # User who approved/rejected
-    approved_time = db.Column(db.DateTime)
-    notes = db.Column(db.Text)
+    schedule_id = db.Column(db.Integer, db.ForeignKey('d_schedule.id'), nullable=False, index=True)
+    execution_start = db.Column(db.DateTime(3), nullable=False)  # When dose execution began
+    planned_time = db.Column(db.DateTime(3), nullable=False)     # When dose was originally scheduled
+    timing_precision_seconds = db.Column(db.Float, nullable=False)       # Seconds difference (planned vs actual)
+    amount = db.Column(db.Float, nullable=False)                 # Planned dose amount
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
+    tank_id = db.Column(db.Integer, db.ForeignKey('tanks.id'), nullable=False, index=True)
+    doser_id = db.Column(db.Integer, db.ForeignKey('dosers.id'), nullable=True, index=True)
+    
+    # Execution details
+    status = db.Column(db.Enum('scheduled', 'executing', 'confirmed', 'failed', 'timeout'), nullable=False)
+    confirmation_time = db.Column(db.DateTime(3), nullable=True)  # When physical doser confirmed completion
+    actual_amount = db.Column(db.Float, nullable=True)            # Actual amount delivered (if different)
+    execution_end = db.Column(db.DateTime(3), nullable=True)      # When execution completed
+    error_message = db.Column(db.Text, nullable=True)             # Error details if failed
+    
+    # Metadata
+    raw_audit_data = db.Column(db.JSON, nullable=True)  # Complete audit payload for debugging
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     
     # Relationships
-    schedule = db.relationship('DSchedule', backref=db.backref('missed_dose_requests', lazy=True))
+    schedule = db.relationship('DSchedule', backref=db.backref('audit_logs', lazy=True))
+    product = db.relationship('Products', backref=db.backref('dose_audit_logs', lazy=True))
+    tank = db.relationship('Tank', backref=db.backref('dose_audit_logs', lazy=True))
+    doser = db.relationship('Doser', backref=db.backref('dose_audit_logs', lazy=True))
     
-    def __repr__(self):
-        return f"<MissedDoseRequest {self.id} (Schedule {self.schedule_id}, {self.hours_missed:.1f}h missed)>"
+    # Indexes for performance
+    __table_args__ = (
+        db.Index('idx_dosing_audit_schedule_time', 'schedule_id', 'execution_start'),
+        db.Index('idx_dosing_audit_tank_time', 'tank_id', 'execution_start'),
+        db.Index('idx_dosing_audit_status_time', 'status', 'execution_start'),
+    )
     
     def to_dict(self):
         return {
-            "id": self.id,
-            "schedule_id": self.schedule_id,
-            "product_name": self.schedule.product.name if self.schedule and self.schedule.product else "Unknown",
-            "missed_dose_time": self.missed_dose_time.isoformat() if self.missed_dose_time else None,
-            "detected_time": self.detected_time.isoformat() if self.detected_time else None,
-            "hours_missed": self.hours_missed,
-            "status": self.status,
-            "approved_by": self.approved_by,
-            "approved_time": self.approved_time.isoformat() if self.approved_time else None,
-            "notes": self.notes,
-            "amount": self.schedule.amount if self.schedule else None,
-            "tank_id": self.schedule.tank_id if self.schedule else None
+            'id': self.id,
+            'schedule_id': self.schedule_id,
+            'execution_start': self.execution_start.isoformat() if self.execution_start else None,
+            'planned_time': self.planned_time.isoformat() if self.planned_time else None,
+            'timing_precision': self.timing_precision_seconds,
+            'amount': self.amount,
+            'product_id': self.product_id,
+            'product_name': self.product.name if self.product else None,
+            'tank_id': self.tank_id,
+            'doser_id': self.doser_id,
+            'status': self.status,
+            'confirmation_time': self.confirmation_time.isoformat() if self.confirmation_time else None,
+            'actual_amount': self.actual_amount,
+            'execution_end': self.execution_end.isoformat() if self.execution_end else None,
+            'error_message': self.error_message,
+            'created_at': self.created_at.isoformat() if self.created_at else None
         }
+    
+    def __repr__(self):
+        return f"<DosingAudit {self.id} (Schedule {self.schedule_id}, {self.status}, {self.timing_precision_seconds:.1f}s precision)>"
 
 class Coral(db.Model):
     __tablename__ = 'corals'

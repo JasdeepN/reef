@@ -26,7 +26,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
 import heapq
-from threading import Lock
+from threading import Lock, Thread
 
 # Flask app imports (will be imported when initialized)
 db = None
@@ -38,6 +38,9 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger('reef_scheduler')
+
+# Constants
+EXECUTOR_SHUTDOWN_ERROR = "cannot schedule new futures after shutdown"
 
 class DosingScheduler:
     """
@@ -132,14 +135,49 @@ class DosingScheduler:
             self._refresh_dose_queue()
             
             # Schedule queue management - refresh queue every 5 minutes
-            self.scheduler.add_job(
-                func=self._manage_dose_queue,
-                trigger="interval",
-                minutes=5,
-                id="queue_manager",
-                name="Manage Dose Queue",
-                replace_existing=True
-            )
+            try:
+                self.scheduler.add_job(
+                    func=self._manage_dose_queue,
+                    trigger="interval",
+                    minutes=5,
+                    id="queue_manager",
+                    name="Manage Dose Queue",
+                    replace_existing=True
+                )
+            except RuntimeError as e:
+                if EXECUTOR_SHUTDOWN_ERROR in str(e):
+                    logger.error("Cannot add queue management job - scheduler executor has been shut down. Reinitializing...")
+                    self._reinitialize_scheduler()
+                    self.scheduler.start()
+                    # Retry adding the job
+                    self.scheduler.add_job(
+                        func=self._manage_dose_queue,
+                        trigger="interval",
+                        minutes=5,
+                        id="queue_manager",
+                        name="Manage Dose Queue",
+                        replace_existing=True
+                    )
+                else:
+                    raise
+            
+            # Schedule periodic check for missed doses every minute (monitoring only)
+            try:
+                self.scheduler.add_job(
+                    func=self._check_due_doses,
+                    trigger="interval",
+                    minutes=1,
+                    id="missed_dose_monitor",
+                    name="Monitor Missed Doses (Audit Only)",
+                    replace_existing=True
+                )
+            except RuntimeError as e:
+                if EXECUTOR_SHUTDOWN_ERROR in str(e):
+                    logger.error("Cannot add missed dose monitor job - scheduler executor has been shut down. This should have been handled above.")
+                    # Don't retry here as we already reinitialized above
+                    raise RuntimeError("Scheduler in inconsistent state after reinitialization")
+                else:
+                    raise
             
             # Schedule the next doses from the queue
             self._schedule_next_doses()
@@ -151,38 +189,56 @@ class DosingScheduler:
             raise
     
     def stop(self):
-        """Stop the dosing scheduler"""
+        """Stop the dosing scheduler gracefully"""
         if not self.is_running:
             return
             
         try:
-            self.scheduler.shutdown(wait=False)
+            # Set flag immediately to prevent new job submissions
             self.is_running = False
-            logger.info("Dosing scheduler stopped")
+            
+            if self.scheduler and self.scheduler.state != 2:  # Not STATE_STOPPED
+                # Shutdown gracefully, waiting for running jobs to complete
+                self.scheduler.shutdown(wait=True)
+                logger.info("Dosing scheduler stopped gracefully")
+            else:
+                logger.info("Scheduler was already stopped")
+                
         except Exception as e:
             logger.error(f"Error stopping scheduler: {e}")
+            # Force cleanup even if shutdown failed
+            try:
+                if self.scheduler:
+                    self.scheduler.shutdown(wait=False)
+            except Exception:
+                pass  # Ignore errors during force cleanup
     
     def restart(self):
         """Restart the dosing scheduler with a fresh instance"""
         try:
             # Stop current scheduler if running
             if self.is_running:
+                logger.info("Stopping current scheduler before restart...")
                 self.stop()
             
             # Wait a moment for cleanup
             import time
-            time.sleep(1)
+            time.sleep(2)  # Increased wait time for better cleanup
             
             # Reinitialize the scheduler with fresh thread pool
+            logger.info("Reinitializing scheduler with fresh thread pool...")
             self._reinitialize_scheduler()
             
             # Start the fresh scheduler
+            logger.info("Starting fresh scheduler...")
             self.start()
             
             logger.info("Dosing scheduler restarted successfully")
             
         except Exception as e:
             logger.error(f"Error restarting scheduler: {e}")
+            # Ensure we're in a clean state even if restart fails
+            self.is_running = False
             raise
     
     def _reinitialize_scheduler(self):
@@ -347,13 +403,33 @@ class DosingScheduler:
                             'hours_missed': analysis.hours_missed
                         }
                         scheduled_doses.append(dose_data)
-                    elif analysis.action == 'manual_approval':
-                        # No immediate dose scheduled
+                else:
+                    # No immediate dose scheduled, but calculate next dose time for overdue alert_only schedules
+                    if analysis.hours_missed > 0 and analysis.action == 'skip':
+                        # For overdue alert_only schedules, calculate when the next dose should be
+                        next_dose_time = analysis.missed_dose_time + timedelta(seconds=schedule.trigger_interval)
+                        dose_data = {
+                            'schedule_id': schedule.id,
+                            'tank_id': schedule.tank_id,
+                            'product_id': schedule.product_id,
+                            'amount': schedule.amount,
+                            'trigger_interval': schedule.trigger_interval,
+                            'product_name': schedule.product.name,
+                            'current_avail': schedule.product.current_avail,
+                            'next_dose_time': next_dose_time,
+                            'missed_dose_status': 'alert_only_overdue',
+                            'hours_missed': analysis.hours_missed
+                        }
+                        scheduled_doses.append(dose_data)
+                        logger.info(f"Schedule {schedule.id} ({schedule.product.name}): Alert-only overdue schedule added to queue for next dose at {next_dose_time}")
+                    else:
                         logger.info(f"Schedule {schedule.id} requires manual approval for missed dose")
                 if analysis.hours_missed > 0:
                     logger.info(f"Schedule {schedule.id} ({schedule.product.name}): "
                                 f"{analysis.action} - {analysis.reason}")
 
+            # Include all valid doses (both current and future)
+            # The scheduler will handle timing appropriately
             scheduled_doses.sort(key=lambda x: x['next_dose_time'])
             return scheduled_doses[:limit]
         except Exception as e:
@@ -367,6 +443,11 @@ class DosingScheduler:
         2. Remove executed doses from queue
         3. Add new scheduled doses if queue is low
         """
+        # Check if scheduler is still running before proceeding
+        if not self.is_running or not self.scheduler or self.scheduler.state == 2:  # STATE_STOPPED
+            logger.debug("Skipping queue management - scheduler is not running")
+            return
+            
         try:
             with self.queue_lock:
                 current_time = datetime.now().timestamp()
@@ -375,6 +456,12 @@ class DosingScheduler:
                 while self.dose_queue and self.dose_queue[0][0] < current_time:
                     past_dose = heapq.heappop(self.dose_queue)
                     logger.warning(f"Removed past dose from queue: {past_dose[1]['product_name']}")
+                    self._log_audit_event(
+                        event_type="dose_missed",
+                        schedule_id=past_dose[1]['schedule_id'],
+                        tank_id=past_dose[1]['tank_id'],
+                        message=f"Removed past dose from queue: {past_dose[1]['product_name']} ({past_dose[1]['amount']}ml)"
+                    )
                 
                 queue_count = len(self.dose_queue)
             
@@ -387,6 +474,12 @@ class DosingScheduler:
             
             if should_refresh:
                 logger.info(f"Queue management: refreshing (current size: {queue_count})")
+                self._log_audit_event(
+                    event_type="queue_refresh",
+                    schedule_id=0,
+                    tank_id=0,
+                    message=f"Refreshing dose queue (current size: {queue_count})"
+                )
                 self._refresh_dose_queue()
                 self._schedule_next_doses()
             else:
@@ -397,6 +490,11 @@ class DosingScheduler:
     
     def _schedule_next_doses(self):
         """Schedule the next doses from the queue as individual APScheduler jobs"""
+        # Check if scheduler is still running before proceeding
+        if not self.is_running or not self.scheduler or self.scheduler.state == 2:  # STATE_STOPPED
+            logger.debug("Skipping dose scheduling - scheduler is not running")
+            return
+            
         try:
             with self.queue_lock:
                 scheduled_count = 0
@@ -410,16 +508,29 @@ class DosingScheduler:
                         
                         # Check if job already exists
                         if not self.scheduler.get_job(job_id):
-                            self.scheduler.add_job(
-                                func=self._execute_scheduled_dose,
-                                trigger="date",
-                                run_date=dose_time,
-                                args=[dose_data],
-                                id=job_id,
-                                name=f"Dose {dose_data['product_name']} (Tank {dose_data['tank_id']})",
-                                replace_existing=True
-                            )
-                            scheduled_count += 1
+                            try:
+                                self.scheduler.add_job(
+                                    func=self._execute_scheduled_dose,
+                                    trigger="date",
+                                    run_date=dose_time,
+                                    args=[dose_data],
+                                    id=job_id,
+                                    name=f"Dose {dose_data['product_name']} (Tank {dose_data['tank_id']})",
+                                    replace_existing=True
+                                )
+                                scheduled_count += 1
+                                self._log_audit_event(
+                                    event_type="dose_scheduled",
+                                    schedule_id=dose_data['schedule_id'],
+                                    tank_id=dose_data['tank_id'],
+                                    message=f"Scheduled dose: {dose_data['product_name']} ({dose_data['amount']}ml) at {dose_time.strftime('%Y-%m-%d %H:%M:%S')}"
+                                )
+                            except RuntimeError as e:
+                                if EXECUTOR_SHUTDOWN_ERROR in str(e):
+                                    logger.warning(f"Cannot schedule dose job {job_id} - scheduler executor has been shut down")
+                                    break  # Stop trying to schedule more jobs
+                                else:
+                                    raise
                 
                 if scheduled_count > 0:
                     logger.info(f"Scheduled {scheduled_count} individual dose jobs")
@@ -429,6 +540,11 @@ class DosingScheduler:
     
     def _execute_scheduled_dose(self, dose_data: Dict):
         """Execute a scheduled dose and refresh the queue"""
+        # Check if scheduler is still running before proceeding
+        if not self.is_running or not self.scheduler or self.scheduler.state == 2:  # STATE_STOPPED
+            logger.debug("Skipping dose execution - scheduler is not running")
+            return
+            
         if not self.app:
             logger.error("No Flask app context available for dose execution")
             return
@@ -508,106 +624,84 @@ class DosingScheduler:
     
     def _check_due_doses(self):
         """
-        Main monitoring function that checks for due doses and triggers them.
+        Monitoring function that checks for missed doses and logs them to audit system.
         This runs every minute to check all active schedules.
+        NEVER triggers doses automatically - all dose execution is handled by the queue system.
+        Overdue doses are logged as missed doses requiring manual approval.
         """
+        # Check if scheduler is still running before proceeding
+        if not self.is_running or not self.scheduler or self.scheduler.state == 2:  # STATE_STOPPED
+            logger.debug("Skipping dose check - scheduler is not running")
+            return
+            
         if not self.app:
             logger.error("No Flask app context available")
             return
-            
+        
         with self.app.app_context():
             try:
-                due_schedules = self._get_due_schedules()
+                # Check for missed doses that need to be logged to audit system
+                from app import db
+                from modules.models import DSchedule, Products
                 
-                if due_schedules:
-                    logger.info(f"Found {len(due_schedules)} due doses to trigger")
-                    
-                    for schedule in due_schedules:
-                        self._trigger_dose(schedule)
+                schedules = db.session.query(DSchedule).join(Products).filter(
+                    DSchedule.suspended == False,
+                    Products.current_avail >= DSchedule.amount
+                ).all()
+                
+                current_time = datetime.now()
+                missed_count = 0
+                
+                for schedule in schedules:
+                    # Skip fixed-time and reference schedules for this check
+                    if schedule.trigger_time or (schedule.offset_minutes and schedule.reference_schedule_id):
+                        continue
                         
-                        # Small delay between doses to avoid overwhelming the system
-                        time.sleep(0.5)
+                    # Only check interval-based schedules for missed doses
+                    analysis = self._get_missed_dose_handler().analyze_schedule_for_missed_dose(schedule, current_time)
+                    
+                    if analysis.hours_missed > 0:
+                        # Log missed dose to audit system
+                        self._log_audit_event(
+                            event_type="dose_missed_detected",
+                            schedule_id=schedule.id,
+                            tank_id=schedule.tank_id,
+                            message=f"Missed dose detected: {schedule.product.name} ({schedule.amount}ml) - {analysis.hours_missed:.1f}h overdue - strategy: {analysis.action}",
+                            details={
+                                'hours_missed': analysis.hours_missed,
+                                'missed_dose_handling': schedule.missed_dose_handling.value if schedule.missed_dose_handling else None,
+                                'action': analysis.action,
+                                'reason': analysis.reason
+                            }
+                        )
+                        
+                        # Create missed dose request for manual approval or alert strategies
+                        # This ensures the UI can display missed doses to users regardless of strategy
+                        if analysis.action in ['manual_approval', 'skip']:
+                            missed_dose_handler = self._get_missed_dose_handler()
+                            # Check if missed dose request already exists to avoid duplicates
+                            from modules.models import MissedDoseRequest
+                            existing_request = db.session.query(MissedDoseRequest).filter_by(
+                                schedule_id=schedule.id,
+                                status='pending'
+                            ).filter(
+                                MissedDoseRequest.missed_dose_time == analysis.missed_dose_time
+                            ).first()
+                            
+                            if not existing_request:
+                                missed_dose_handler._create_approval_request(schedule, analysis.missed_dose_time, analysis.hours_missed)
+                                logger.info(f"Created missed dose request for schedule {schedule.id} ({schedule.product.name}) - {analysis.hours_missed:.1f}h overdue")
+                        
+                        missed_count += 1
+                        logger.info(f"Missed dose processed: Schedule {schedule.id} ({schedule.product.name}) - {analysis.hours_missed:.1f}h overdue")
+                
+                if missed_count > 0:
+                    logger.info(f"Logged {missed_count} missed doses requiring manual approval")
                 else:
-                    logger.debug("No doses due at this time")
+                    logger.debug("No missed doses detected")
                     
             except Exception as e:
-                logger.error(f"Error checking due doses: {e}")
-    
-    def _get_due_schedules(self, tank_id: int = None) -> List[Dict]:
-        """
-        Query the database for dosing schedules that are due for their next dose.
-        
-        A schedule is due if:
-        1. It's not suspended
-        2. The time since last_refill (or creation) >= trigger_interval
-        3. The product has sufficient availability
-        
-        Args:
-            tank_id (int, optional): Filter results to specific tank. If None, returns all tanks.
-        """
-        from app import db
-        
-        sql = """
-            SELECT 
-                ds.id as schedule_id,
-                ds.tank_id,
-                ds.product_id,
-                ds.amount,
-                ds.trigger_interval,
-                ds.last_refill,
-                p.name as product_name,
-                p.current_avail,
-                COALESCE(
-                    MAX(d.trigger_time), 
-                    ds.last_refill,
-                    DATE_SUB(NOW(), INTERVAL ds.trigger_interval SECOND)
-                ) as last_dose_time
-            FROM d_schedule ds
-            LEFT JOIN products p ON ds.product_id = p.id
-            LEFT JOIN dosing d ON ds.id = d.schedule_id
-            WHERE ds.suspended = 0
-            AND p.current_avail >= ds.amount"""
-        
-        # Add tank filtering if tank_id is provided
-        if tank_id is not None:
-            sql += f" AND ds.tank_id = {tank_id}"
-        
-        sql += """
-            GROUP BY ds.id, ds.tank_id, ds.product_id, ds.amount, ds.trigger_interval, 
-                     ds.last_refill, p.name, p.current_avail
-            HAVING TIMESTAMPDIFF(SECOND, last_dose_time, NOW()) >= ds.trigger_interval
-            ORDER BY ds.tank_id, TIMESTAMPDIFF(SECOND, last_dose_time, NOW()) DESC
-        """
-        
-        try:
-            result = db.session.execute(text(sql))
-            schedules = []
-            
-            for row in result:
-                schedule_data = {
-                    'schedule_id': row.schedule_id,
-                    'tank_id': row.tank_id,
-                    'product_id': row.product_id,
-                    'amount': row.amount,
-                    'trigger_interval': row.trigger_interval,
-                    'product_name': row.product_name,
-                    'current_avail': row.current_avail,
-                    'last_dose_time': row.last_dose_time,
-                    'seconds_missed': None
-                }
-                
-                # Calculate how long since this dose was missed
-                if row.last_dose_time:
-                    time_diff = datetime.now() - row.last_dose_time
-                    schedule_data['seconds_missed'] = int(time_diff.total_seconds())
-                
-                schedules.append(schedule_data)
-            
-            return schedules
-            
-        except Exception as e:
-            logger.error(f"Database error getting due schedules: {e}")
-            return []
+                logger.error(f"Error checking for missed doses: {e}")
     
     def _trigger_dose(self, schedule: Dict):
         """
@@ -640,9 +734,19 @@ class DosingScheduler:
             if response.status_code == 201:
                 data = response.json()
                 if data.get('success'):
+                    # Update last_scheduled_time in the database to track when this dose was executed
+                    self._update_schedule_last_executed(schedule_id)
+                    
                     logger.info(
                         f"✅ Successfully dosed {product_name} ({amount}ml) "
                         f"for tank {tank_id}"
+                    )
+                    self._log_audit_event(
+                        event_type="dose_executed",
+                        schedule_id=schedule_id,
+                        tank_id=tank_id,
+                        message=f"Dosed {product_name} ({amount}ml) successfully",
+                        details={"response": data}
                     )
                     return True
                 else:
@@ -650,20 +754,138 @@ class DosingScheduler:
                         f"❌ Dose API returned success=False for {product_name}: "
                         f"{data.get('error', 'Unknown error')}"
                     )
+                    self._log_audit_event(
+                        event_type="dose_failed",
+                        schedule_id=schedule_id,
+                        tank_id=tank_id,
+                        message=f"Failed to dose {product_name} ({amount}ml)",
+                        details={"response": data}
+                    )
             else:
                 logger.error(
                     f"❌ Dose API returned status {response.status_code} "
                     f"for {product_name}: {response.text}"
                 )
+                self._log_audit_event(
+                    event_type="dose_failed",
+                    schedule_id=schedule_id,
+                    tank_id=tank_id,
+                    message=f"Failed to dose {product_name} ({amount}ml)",
+                    details={"status_code": response.status_code, "response_text": response.text}
+                )
                 
         except requests.exceptions.Timeout:
             logger.error(f"⏱️ Timeout dosing {product_name} for tank {tank_id}")
+            self._log_audit_event(
+                event_type="dose_failed",
+                schedule_id=schedule_id,
+                tank_id=tank_id,
+                message=f"Timeout dosing {product_name} ({amount}ml)"
+            )
         except requests.exceptions.ConnectionError:
             logger.error(f"🔌 Connection error dosing {product_name} for tank {tank_id}")
+            self._log_audit_event(
+                event_type="dose_failed",
+                schedule_id=schedule_id,
+                tank_id=tank_id,
+                message=f"Connection error dosing {product_name} ({amount}ml)"
+            )
         except Exception as e:
             logger.error(f"💥 Unexpected error dosing {product_name}: {e}")
+            self._log_audit_event(
+                event_type="dose_failed",
+                schedule_id=schedule_id,
+                tank_id=tank_id,
+                message=f"Unexpected error dosing {product_name} ({amount}ml)",
+                details={"error": str(e)}
+            )
         
         return False
+    
+    def _update_schedule_last_executed(self, schedule_id: int):
+        """
+        Update the last_scheduled_time field for a schedule after successful dose execution.
+        This field tracks when the scheduler last processed this schedule.
+        """
+        try:
+            from app import db
+            from modules.timezone_utils import get_system_timezone
+            
+            # Get current time in system timezone
+            current_time = datetime.now(get_system_timezone())
+            
+            # Update the schedule's last_scheduled_time
+            update_sql = """
+                UPDATE d_schedule 
+                SET last_scheduled_time = :last_scheduled_time
+                WHERE id = :schedule_id
+            """
+            
+            db.session.execute(text(update_sql), {
+                'schedule_id': schedule_id,
+                'last_scheduled_time': current_time
+            })
+            db.session.commit()
+            
+            logger.debug(f"Updated last_scheduled_time for schedule {schedule_id} to {current_time}")
+            
+        except Exception as e:
+            logger.error(f"Error updating last_scheduled_time for schedule {schedule_id}: {e}")
+            # Don't raise the exception since the dose was successful, just log the issue
+            try:
+                db.session.rollback()
+            except:
+                pass
+    
+    def _log_audit_event(self, event_type: str, schedule_id: int, tank_id: int, 
+                         message: str, details: Dict = None):
+        """
+        Log scheduler events to the audit system for tracking and monitoring.
+        
+        Args:
+            event_type: Type of event (dose_scheduled, dose_executed, dose_failed, etc.)
+            schedule_id: ID of the dosing schedule
+            tank_id: ID of the tank
+            message: Human-readable message
+            details: Additional event details
+        """
+        try:
+            if not self.app:
+                logger.warning("No Flask app context for audit logging")
+                return
+                
+            audit_data = {
+                'event_type': event_type,
+                'schedule_id': schedule_id,
+                'tank_id': tank_id,
+                'message': message,
+                'timestamp': datetime.now().isoformat(),
+                'source': 'dosing_scheduler',
+                'details': details or {}
+            }
+            
+            # Send audit event to internal API (non-blocking)
+            Thread(
+                target=self._send_audit_event,
+                args=(audit_data,),
+                daemon=True
+            ).start()
+            
+        except Exception as e:
+            logger.error(f"Error logging audit event: {e}")
+    
+    def _send_audit_event(self, audit_data: Dict):
+        """Send audit event to internal API endpoint"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/v1/audit/scheduler-event",
+                json=audit_data,
+                timeout=5
+            )
+            if response.status_code != 201:
+                logger.warning(f"Audit API returned status {response.status_code}")
+        except Exception as e:
+            logger.warning(f"Failed to send audit event: {e}")
     
     def _job_executed_listener(self, event):
         """Listen to job execution events for monitoring and logging"""
@@ -713,6 +935,54 @@ class DosingScheduler:
             'next_doses': queue_info
         }
     
+    def get_queue_status(self) -> Dict:
+        """Get current queue status for monitoring (API compatibility with enhanced scheduler)"""
+        if not self.scheduler:
+            return {
+                'queue_size': 0,
+                'last_refresh': None,
+                'pending_confirmations': 0,
+                'precision_target_seconds': 60,  # Default precision for legacy scheduler
+                'queue_data': []
+            }
+        
+        queue_data = []
+        last_refresh = None
+        
+        if self.is_running and hasattr(self, 'dose_queue'):
+            try:
+                # Get the next run time for the queue manager job as last refresh
+                queue_manager_job = self.scheduler.get_job('queue_manager')
+                if queue_manager_job and queue_manager_job.next_run_time:
+                    # Use previous run time as last refresh
+                    last_refresh = (queue_manager_job.next_run_time - timedelta(minutes=1)).isoformat()
+            except Exception:
+                pass
+            
+            # Get queue information in enhanced scheduler format
+            try:
+                with self.queue_lock:
+                    for timestamp, dose_data in list(self.dose_queue)[:5]:  # Return next 5 doses
+                        dose_time = datetime.fromtimestamp(timestamp)
+                        queue_data.append({
+                            'schedule_id': dose_data.get('schedule_id'),
+                            'product_name': dose_data['product_name'],
+                            'amount': dose_data['amount'],
+                            'next_dose_time': dose_time.isoformat(),
+                            'time_until_dose': (dose_time - datetime.now()).total_seconds(),
+                            'precision_target': 60  # Legacy scheduler precision
+                        })
+            except Exception:
+                pass
+        
+        return {
+            'queue_size': len(self.dose_queue) if hasattr(self, 'dose_queue') else 0,
+            'last_refresh': last_refresh,
+            'pending_confirmations': 0,  # Legacy scheduler doesn't track confirmations
+            'precision_target_seconds': 60,  # Legacy scheduler runs every minute
+            'queue_data': queue_data
+        }
+    
     def force_check(self):
         """Manually refresh the dose queue and schedule next doses (for testing/debugging)"""
         if not self.is_running:
@@ -736,7 +1006,7 @@ class DosingScheduler:
             return False
 
 
-# Global scheduler instance (will be initialized by Flask app)
+# Global scheduler instance
 dosing_scheduler = DosingScheduler()
 
 

@@ -67,12 +67,12 @@
               Doser
             </a>
             <ul class="dropdown-menu">
-              <li><a class="dropdown-item" href="/doser">Main</a></li>
-              <li><a class="dropdown-item" href="/doser/schedule/new">📅 Schedule Manager</a></li>
-              <li><a class="dropdown-item" href="/missed-dose/dashboard">⏰ Missed Dose Management</a></li>
-              <li><a class="dropdown-item" href="/doser/products">Products</a></li>
-              <li><a class="dropdown-item" href="/doser/history">History</a></li>
-              <li><a class="dropdown-item" href="/doser/db">View</a></li>
+              <li><a class="dropdown-item" href="/doser">📊 Dashboard</a></li>
+              <li><a class="dropdown-item" href="/doser/schedule/view">📅 View Schedules</a></li>
+              <li><a class="dropdown-item" href="/doser/schedule/new">➕ New Schedule</a></li>
+              <li><a class="dropdown-item" href="/doser/history">📈 Dose History</a></li>
+              <li><a class="dropdown-item" href="/doser/audit">📊 Audit Log</a></li>
+              <li><a class="dropdown-item" href="/doser/products">📦 Products</a></li>
             </ul>
           </li>
           </li>
@@ -99,11 +99,6 @@
               <li><a class="dropdown-item" href="/x/test">DB TEST</a></li>
               <li><a class="dropdown-item" href="/x/metrics">X/metrics</a></li>
             </ul>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/scheduler">
-              <i class="fas fa-clock"></i> Scheduler
-            </a>
           </li>
           <li class="nav-item">
             <a class="nav-link" href="/tanks/manage">
@@ -142,8 +137,8 @@
     </div>
   </nav>
 
-  <!-- Global Tank Context Modal - Only render for non-VS Code browsers and only if no tank is selected -->
-  {% if not is_vscode_browser and (not tank_id and tanks|length > 0) %}
+  <!-- Global Tank Context Modal - Only render for non-VS Code browsers when no tank is selected -->
+  {% if not is_vscode_browser and tanks|length > 0 %}
   <div class="modal fade" id="tankContextModal" tabindex="-1" aria-labelledby="tankContextModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -199,7 +194,8 @@
     <script src="{{url_for('static',filename='js/utils.js')}}"></script>
   {% block scripts %}  
 <!-- Bootstrap 5 JavaScript -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js" integrity="sha512-ykZ1QQr0Jy/4ZkvKuqWn4iF3lqPZyij9iRv6sGqLRdTPkY69YX6+7wvVGmsdBbiIfN/8OdsI7HABjvEok6ZopQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js" integrity="sha512-ykZ1QQr0Jy/4ZkvKuqWn4iF3lqPZyij9iRv6sGqLRdTPkY69YX6+7wvVGmsdBbiIfN/8OdsI7HABjvEok6ZopQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
     <!-- {{ bootstrap.load_js() }} -->
   
    
@@ -208,6 +204,8 @@
   <script>
     // Tank Context Management - Regular Browsers Only
     document.addEventListener('DOMContentLoaded', function() {
+      console.log('[Tank Context] Page loaded for regular browser');
+      
       // Basic tank selector functionality
       const tankSelect = document.getElementById('tank-select');
       if (tankSelect) {
@@ -224,12 +222,23 @@
         });
       }
 
-      // If no tank is selected and tanks are available, show the modal
+      // Improved tank context detection and automatic modal display
       const currentTankId = tankSelect ? tankSelect.value : null;
       const hasOptions = tankSelect && tankSelect.options.length > 1;
+      const modalElement = document.getElementById('tankContextModal');
       
-      if (!currentTankId && hasOptions) {
-        const modal = new bootstrap.Modal(document.getElementById('tankContextModal'));
+      // Check if user has no tank selected (empty value or "Select a tank..." option)
+      const noTankSelected = !currentTankId || currentTankId === '' || currentTankId === 'null';
+      
+      console.log('[Tank Context] Current tank ID:', currentTankId);
+      console.log('[Tank Context] Has tank options:', hasOptions);
+      console.log('[Tank Context] No tank selected:', noTankSelected);
+      console.log('[Tank Context] Modal element exists:', !!modalElement);
+      
+      // If no tank is selected and tanks are available, show the modal immediately
+      if (noTankSelected && hasOptions && modalElement) {
+        console.log('[Tank Context] Showing tank selection modal');
+        const modal = new bootstrap.Modal(modalElement);
         modal.show();
       }
       
@@ -240,15 +249,16 @@
           const selectedTankId = document.getElementById('modal-tank-select').value;
           if (!selectedTankId) {
             e.preventDefault();
-            alert('Please select a tank');
+            alert('Please select a tank to continue');
             return;
           }
           
           // Store the selection
           try {
             localStorage.setItem('reefdb_tank_id', selectedTankId);
+            console.log('[Tank Context] Stored tank selection:', selectedTankId);
           } catch (e) {
-            // Continue without localStorage
+            console.warn('[Tank Context] Could not store in localStorage:', e);
           }
         });
       }

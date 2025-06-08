@@ -132,3 +132,4 @@ WTForms==2.3.3
 yarg==0.1.9
 zope.event==5.0
 zope.interface==7.2
+aiohttp==3.10.11

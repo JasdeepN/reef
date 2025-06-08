@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block page_title %}Schedule Overview - ReefDB{% endblock %}
+
+{% block styles %}
+<link href="{{url_for('static',filename='css/doser.css')}}" rel="stylesheet">
+<style>
+.schedule-card {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    background: var(--card-bg);
+    color: var(--text-color);
+}
+
+.schedule-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.product-name {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.schedule-type-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.type-interval { background-color: #28a745; color: white; }
+.type-daily { background-color: #007bff; color: white; }
+.type-weekly { background-color: #6f42c1; color: white; }
+.type-custom { background-color: #fd7e14; color: white; }
+
+/* Status badges */
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-left: 0.5rem;
+}
+
+.status-active { background-color: #28a745; color: white; }
+.status-suspended { background-color: #dc3545; color: white; }
+
+.status-active { background-color: #28a745; color: white; }
+.status-suspended { background-color: #dc3545; color: white; }
+
+.schedule-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.detail-item {
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.detail-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+}
+
+.detail-value {
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.dashboard-header {
+    text-align: center;
+    padding: 2rem 1.5rem;
+    margin-bottom: 2rem;
+    color: var(--text-color);
+}
+
+.dashboard-header h1 {
+    color: inherit;
+    margin-bottom: 0.5rem;
+}
+
+.dashboard-header p {
+    color: var(--text-muted);
+    margin-bottom: 0;
+}
+
+.action-buttons {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="dashboard-header">
+        <h1><i class="fas fa-calendar-alt"></i> Dosing Schedules</h1>
+        <p>Overview of all dosing schedules (active and suspended) for the current tank</p>
+    </div>
+
+    {% if schedules %}
+        <div class="row">
+            {% for schedule in schedules %}
+            <div class="col-lg-6 col-md-12 mb-3">
+                <div class="schedule-card">
+                    <div class="schedule-header">
+                        <div class="product-name">{{ schedule.product_name }}</div>
+                        <div>
+                            <span class="schedule-type-badge type-{{ schedule.schedule_type }}">
+                                {{ schedule.schedule_type|title }}
+                            </span>
+                            <span class="status-badge status-{{ 'suspended' if schedule.suspended else 'active' }}">
+                                {{ 'Suspended' if schedule.suspended else 'Active' }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="schedule-details">
+                        <div class="detail-item">
+                            <div class="detail-label">Amount</div>
+                            <div class="detail-value">{{ schedule.amount }}ml</div>
+                        </div>
+                        
+                        <div class="detail-item">
+                            <div class="detail-label">Frequency</div>
+                            <div class="detail-value">{{ schedule.interval_display }}</div>
+                        </div>
+                        
+                        {% if schedule.trigger_time %}
+                        <div class="detail-item">
+                            <div class="detail-label">Time</div>
+                            <div class="detail-value">{{ schedule.trigger_time }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="detail-item">
+                            <div class="detail-label">Doser</div>
+                            <div class="detail-value">{{ schedule.doser_name }}</div>
+                        </div>
+                        
+                        {% if schedule.last_scheduled %}
+                        <div class="detail-item">
+                            <div class="detail-label">Last Scheduled</div>
+                            <div class="detail-value">{{ schedule.last_scheduled[:16] }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <a href="{{ url_for('schedule_edit', schedule_id=schedule.id) }}" 
+                           class="btn btn-primary btn-sm">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        <button class="btn btn-warning btn-sm" 
+                                onclick="toggleSchedule({{ schedule.id }}, {{ 'true' if schedule.suspended else 'false' }})">
+                            <i class="fas fa-{{ 'play' if schedule.suspended else 'pause' }}"></i> 
+                            {{ 'Resume' if schedule.suspended else 'Suspend' }}
+                        </button>
+                        <button class="btn btn-danger btn-sm" 
+                                onclick="deleteSchedule({{ schedule.id }})">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <h4><i class="fas fa-info-circle"></i> No Schedules Found</h4>
+                    <p>There are no dosing schedules for this tank.</p>
+                    <a href="{{ url_for('schedule_new') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Create First Schedule
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
+    <div class="row mt-4">
+        <div class="col-12 text-center">
+            <a href="{{ url_for('schedule_new') }}" class="btn btn-success me-2">
+                <i class="fas fa-plus"></i> New Schedule
+            </a>
+            <a href="{{ url_for('doser_main') }}" class="btn btn-secondary me-2">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+            <a href="{{ url_for('doser_history') }}" class="btn btn-info">
+                <i class="fas fa-history"></i> Dose History
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleSchedule(scheduleId, currentlySuspended = null) {
+    const action = currentlySuspended ? 'resume' : 'suspend';
+    const message = currentlySuspended ? 
+        'Are you sure you want to resume this schedule?' : 
+        'Are you sure you want to suspend this schedule?';
+    
+    if (!confirm(message)) {
+        return;
+    }
+    
+    fetch('/api/v1/controller/toggle/schedule', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            sched_id: scheduleId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Schedule ${action}ed successfully!`);
+            // Refresh the page to reflect changes
+            window.location.reload();
+        } else {
+            alert('Error toggling schedule: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error toggling schedule:', error);
+        alert('Error toggling schedule. Please try again.');
+    });
+}
+
+function deleteSchedule(scheduleId) {
+    if (!confirm('Are you sure you want to delete this schedule? This action cannot be undone.')) {
+        return;
+    }
+    
+    fetch('/web/fn/ops/delete/d_schedule', {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            id: scheduleId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Schedule deleted successfully!');
+            // Refresh the page to reflect changes
+            window.location.reload();
+        } else {
+            alert('Error deleting schedule: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting schedule:', error);
+        alert('Error deleting schedule. Please try again.');
+    });
+}
+</script>
+{% endblock %}

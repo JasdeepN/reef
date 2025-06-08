@@ -4,6 +4,7 @@ from sqlalchemy import text
 from app import app, db
 from modules.models import Tank, TestResults
 from modules.tank_context import get_current_tank_id, ensure_tank_context
+from modules.timezone_utils import format_time_for_display, datetime_to_iso_format
 
 @app.route("/", methods=["GET"])
 def index():
@@ -86,7 +87,7 @@ def _create_chart_datasets():
 def _format_test_label(test):
     """Format test date and time for chart labels"""
     if test.test_date and test.test_time:
-        return f"{test.test_date.strftime('%Y-%m-%d')} {test.test_time.strftime('%H:%M')}"
+        return f"{test.test_date.strftime('%Y-%m-%d')} {format_time_for_display(test.test_time)}"
     return test.test_date.strftime('%Y-%m-%d') if test.test_date else 'Unknown'
 
 def _extract_test_values(test):
