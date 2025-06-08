@@ -1,0 +1,1441 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Dosing Calendar Audit{% endblock %}
+
+{% block styles %}
+  {{ super() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/audit-calendar.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/doser-dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid audit-calendar-dashboard">
+  <!-- Dashboard Header -->
+  <div class="dashboard-header">
+    <h1 class="mb-2">📅 Dosing Calendar</h1>
+    <p class="mb-0">Visual calendar view of daily dose events with detailed drill-down</p>
+  </div>
+  
+  <!-- Calendar Navigation & Controls -->
+  <div class="calendar-controls mb-4">
+    <div class="row align-items-center">
+      <div class="col-md-6">
+        <div class="calendar-navigation">
+          <button class="btn btn-outline-secondary" id="prev-month">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <h4 class="current-month-year mx-3 mb-0" id="current-month-year">Loading...</h4>
+          <button class="btn btn-outline-secondary" id="next-month">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+      <div class="col-md-6 text-end">
+        <div class="calendar-actions">
+          <a href="{{ url_for('doser_audit') }}" class="btn btn-outline-info btn-sm">
+            <i class="fas fa-list"></i> Activity View
+          </a>
+          <button class="btn btn-outline-primary btn-sm" id="today-btn">
+            <i class="fas fa-calendar-day"></i> Today
+          </button>
+          <button class="btn btn-outline-success btn-sm" id="refresh-calendar">
+            <i class="fas fa-sync-alt"></i> Refresh
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Monthly Summary Stats -->
+  <div class="monthly-summary mb-4" id="monthly-summary">
+    <div class="row">
+      <div class="col-md-3">
+        <div class="summary-stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-tint"></i>
+          </div>
+          <div class="stat-value" id="month-total-doses">-</div>
+          <div class="stat-label">Total Doses</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="summary-stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-flask"></i>
+          </div>
+          <div class="stat-value" id="month-total-volume">-</div>
+          <div class="stat-label">Volume (mL)</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="summary-stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-calendar-check"></i>
+          </div>
+          <div class="stat-value" id="month-active-days">-</div>
+          <div class="stat-label">Active Days</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="summary-stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-chart-line"></i>
+          </div>
+          <div class="stat-value" id="month-avg-doses">-</div>
+          <div class="stat-label">Avg/Day</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Product Legend -->
+  <div class="product-legend mb-4" id="product-legend">
+    <h6><i class="fas fa-palette"></i> Product Legend</h6>
+    <div class="legend-items" id="legend-items">
+      <!-- Product legend items will be populated dynamically -->
+    </div>
+  </div>
+  
+  <!-- Calendar Grid -->
+  <div class="calendar-container">
+    <div class="calendar-grid" id="calendar-grid">
+      <!-- Calendar will be populated dynamically -->
+      <div class="calendar-loading">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading calendar...</span>
+        </div>
+        <p>Loading dose calendar...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Enhanced Day Details Modal -->
+<div class="modal fade" id="dayDetailsModal" tabindex="-1" aria-labelledby="dayDetailsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="d-flex justify-content-between align-items-center w-100">
+          <h5 class="modal-title" id="dayDetailsModalLabel">
+            <i class="fas fa-calendar-day"></i> Dose Details for <span id="selected-date">-</span>
+          </h5>
+          <div class="modal-header-controls d-flex gap-3 align-items-center">
+            <!-- Day Navigation -->
+            <div class="day-navigation">
+              <button type="button" class="btn btn-outline-primary btn-sm" id="prev-day-btn" onclick="navigateDay(-1)">
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <button type="button" class="btn btn-outline-primary btn-sm" id="next-day-btn" onclick="navigateDay(1)">
+                <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+            <!-- View Mode Controls -->
+            <div class="view-mode-controls">
+              <div class="btn-group" role="group" aria-label="View mode">
+                <button type="button" class="btn btn-outline-primary btn-sm active" id="quick-view-btn" onclick="switchViewMode('quick')">
+                  <i class="fas fa-list"></i> Quick View
+                </button>
+                <button type="button" class="btn btn-outline-success btn-sm" id="advanced-view-btn" onclick="switchViewMode('advanced')">
+                  <i class="fas fa-chart-line"></i> Advanced View
+                </button>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+      </div>
+      <div class="modal-body" id="day-details-content">
+        <div class="text-center">
+          <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading details...</span>
+          </div>
+          <p>Loading dose details...</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="d-flex justify-content-between w-100 align-items-center">
+          <div class="modal-footer-info">
+            <small class="text-muted" id="modal-data-timestamp">Last updated: -</small>
+          </div>
+          <div class="modal-footer-actions">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="refreshModalData()">
+              <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const tankId = {{ tank_id }};
+  const apiUrls = {{ api_urls | tojson }};
+  
+  // Current calendar state - default to June 2025 where test data exists
+  let currentYear = 2025;
+  let currentMonth = 6; // June 2025 where we have rich dosing data
+  let calendarData = {};
+  let refillEvents = {};
+  let monthSummary = {};
+  
+  // View mode state for day details modal
+  let currentViewMode = 'quick';
+  let currentDayData = null;
+  let currentSelectedDate = null;
+  
+  // Product colors for legend
+  const productColors = {};
+  const colorPalette = [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+    '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
+  ];
+  
+  console.log('Calendar script loaded, initializing...');
+  
+  // Initialize modal z-index to prevent UI blocking when hidden
+  const dayDetailsModal = document.getElementById('dayDetailsModal');
+  if (dayDetailsModal) {
+    dayDetailsModal.style.zIndex = '-1';
+    console.log('Set initial dayDetailsModal z-index to -1');
+  }
+  
+  // Test that switchViewMode will be accessible
+  console.log('About to define switchViewMode function');
+  console.log('Current window object:', window);
+  
+  // After page load, test the global function
+  setTimeout(() => {
+    console.log('=== TESTING GLOBAL FUNCTION ACCESSIBILITY ===');
+    console.log('Testing global switchViewMode function:');
+    console.log('window.switchViewMode exists?', typeof window.switchViewMode === 'function');
+    console.log('switchViewMode exists?', typeof switchViewMode);
+    
+    if (typeof window.switchViewMode === 'function') {
+      console.log('✓ switchViewMode is globally accessible');
+      
+      // Test a direct call to see if it works
+      try {
+        console.log('Testing direct function call...');
+        window.switchViewMode('quick');
+        console.log('✓ Direct function call succeeded');
+      } catch (testError) {
+        console.error('✗ Direct function call failed:', testError);
+      }
+    } else {
+      console.error('✗ switchViewMode is NOT globally accessible');
+      console.error('Available window functions:', Object.keys(window).filter(key => typeof window[key] === 'function').slice(0, 20));
+    }
+    console.log('=== END FUNCTION ACCESSIBILITY TEST ===');
+  }, 1000);
+  
+  // Initialize calendar
+  initializeCalendar();
+  
+  // Event listeners
+  document.getElementById('prev-month').addEventListener('click', () => navigateMonth(-1));
+  document.getElementById('next-month').addEventListener('click', () => navigateMonth(1));
+  document.getElementById('today-btn').addEventListener('click', goToToday);
+  document.getElementById('refresh-calendar').addEventListener('click', refreshCalendar);
+  
+  function initializeCalendar() {
+    updateMonthDisplay();
+    loadCalendarData();
+  }
+  
+  function updateMonthDisplay() {
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    document.getElementById('current-month-year').textContent = 
+      `${monthNames[currentMonth - 1]} ${currentYear}`;
+  }
+  
+  function navigateMonth(direction) {
+    currentMonth += direction;
+    if (currentMonth > 12) {
+      currentMonth = 1;
+      currentYear++;
+    } else if (currentMonth < 1) {
+      currentMonth = 12;
+      currentYear--;
+    }
+    updateMonthDisplay();
+    loadCalendarData();
+  }
+  
+  function goToToday() {
+    const today = new Date();
+    currentYear = today.getFullYear();
+    currentMonth = today.getMonth() + 1;
+    updateMonthDisplay();
+    loadCalendarData();
+  }
+  
+  function refreshCalendar() {
+    loadCalendarData();
+  }
+  
+  function loadCalendarData() {
+    const url = `${apiUrls.calendar_monthly}?year=${currentYear}&month=${currentMonth}`;
+    
+    fetch(url, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        calendarData = data.data.calendar;
+        refillEvents = data.data.refill_events || {};
+        monthSummary = data.data.summary;
+        
+        console.log('Calendar data loaded for', currentYear, currentMonth);
+        console.log('Available dates:', Object.keys(calendarData));
+        
+        updateMonthlySummary();
+        updateProductLegend();
+        renderCalendar();
+      } else {
+        console.error('API returned error:', data);
+        showError('Failed to load calendar data: ' + (data.error || 'Unknown error'));
+      }
+    })
+    .catch(error => {
+      console.error('Failed to load calendar data:', error);
+      showError('Failed to load calendar data');
+    });
+  }
+  
+  function updateMonthlySummary() {
+    document.getElementById('month-total-doses').textContent = monthSummary.total_doses || 0;
+    document.getElementById('month-total-volume').textContent = (monthSummary.total_volume || 0).toFixed(1);
+    document.getElementById('month-active-days').textContent = monthSummary.active_days || 0;
+    document.getElementById('month-avg-doses').textContent = (monthSummary.avg_doses_per_day || 0).toFixed(1);
+  }
+  
+  function updateProductLegend() {
+    const legendContainer = document.getElementById('legend-items');
+    legendContainer.innerHTML = '';
+    
+    if (!monthSummary.products || monthSummary.products.length === 0) {
+      legendContainer.innerHTML = '<span class="text-muted">No products used this month</span>';
+      return;
+    }
+    
+    monthSummary.products.forEach((product, index) => {
+      if (!productColors[product.product_name]) {
+        productColors[product.product_name] = colorPalette[index % colorPalette.length];
+      }
+      
+      const legendItem = document.createElement('div');
+      legendItem.className = 'legend-item';
+      legendItem.innerHTML = `
+        <span class="legend-color" style="background-color: ${productColors[product.product_name]}"></span>
+        <span class="legend-label">${product.product_name}</span>
+        <span class="legend-stats">${product.total_doses} doses (${product.total_volume.toFixed(1)}mL)</span>
+      `;
+      legendContainer.appendChild(legendItem);
+    });
+  }
+  
+  function renderCalendar() {
+    const calendarGrid = document.getElementById('calendar-grid');
+    
+    // Remove existing event listeners by cloning the element
+    const newCalendarGrid = calendarGrid.cloneNode(false);
+    calendarGrid.parentNode.replaceChild(newCalendarGrid, calendarGrid);
+    
+    // Calculate first day of month and number of days
+    const firstDay = new Date(currentYear, currentMonth - 1, 1);
+    const lastDay = new Date(currentYear, currentMonth, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay(); // 0 = Sunday
+    
+    // Create calendar HTML
+    let calendarHTML = `
+      <div class="calendar-weekdays">
+        <div class="calendar-weekday">Sun</div>
+        <div class="calendar-weekday">Mon</div>
+        <div class="calendar-weekday">Tue</div>
+        <div class="calendar-weekday">Wed</div>
+        <div class="calendar-weekday">Thu</div>
+        <div class="calendar-weekday">Fri</div>
+        <div class="calendar-weekday">Sat</div>
+      </div>
+      <div class="calendar-days">
+    `;
+    
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      calendarHTML += '<div class="calendar-day empty"></div>';
+    }
+    
+    // Add days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dayData = calendarData[dateStr];
+      const refillData = refillEvents[dateStr];
+      const isToday = isDateToday(dateStr);
+      
+      let dayClass = 'calendar-day';
+      if (isToday) dayClass += ' today';
+      if (dayData) dayClass += ' has-data';
+      if (refillData && (refillData.refills.length > 0 || refillData.estimates.length > 0)) {
+        dayClass += ' has-refill';
+      }
+      
+      let dayContent = `<div class="day-number">${day}</div>`;
+      
+      // Add refill indicators at the top
+      if (refillData) {
+        if (refillData.refills.length > 0) {
+          const refillProducts = refillData.refills.map(r => r.product_name).join(', ');
+          const refillTitle = `Products Refilled: ${refillProducts}`;
+          dayContent += `<div class="refill-indicator historical" title="${refillTitle}">
+            <i class="fas fa-tint"></i>
+            <span class="refill-count">${refillData.refills.length}</span>
+          </div>`;
+          
+          // Add individual product refill badges
+          if (refillData.refills.length <= 3) {
+            refillData.refills.forEach(refill => {
+              dayContent += `<div class="product-refill-badge historical" title="Refilled: ${refill.product_name}">
+                ${refill.product_name}
+              </div>`;
+            });
+          } else {
+            dayContent += `<div class="product-refill-badge historical multiple" title="${refillTitle}">
+              ${refillData.refills.length} Products
+            </div>`;
+          }
+        }
+        if (refillData.estimates.length > 0) {
+          const estimateProducts = refillData.estimates.map(e => e.product_name).join(', ');
+          const estimateTitle = `Refill Needed: ${estimateProducts}`;
+          dayContent += `<div class="refill-indicator estimate" title="${estimateTitle}">
+            <i class="fas fa-clock"></i>
+            <span class="refill-count">${refillData.estimates.length}</span>
+          </div>`;
+          
+          // Add individual product estimate badges
+          if (refillData.estimates.length <= 3) {
+            refillData.estimates.forEach(estimate => {
+              const isLow = estimate.current_avail <= estimate.low_threshold;
+              const badgeClass = isLow ? 'estimate low' : 'estimate';
+              const badgeText = isLow ? 'LOW' : 'REFILL';
+              dayContent += `<div class="product-refill-badge ${badgeClass}" title="${badgeText}: ${estimate.product_name}">
+                ${estimate.product_name}
+              </div>`;
+            });
+          } else {
+            dayContent += `<div class="product-refill-badge estimate multiple" title="${estimateTitle}">
+              ${refillData.estimates.length} Products
+            </div>`;
+          }
+        }
+      }
+      
+      if (dayData) {
+        dayContent += `<div class="day-summary">
+          <div class="dose-count">${dayData.total_doses} doses</div>
+          <div class="volume-count">${dayData.total_volume.toFixed(1)}mL</div>
+        </div>`;
+        
+        // Add product indicators
+        if (dayData.products && Object.keys(dayData.products).length > 0) {
+          dayContent += '<div class="product-indicators">';
+          Object.values(dayData.products).forEach(product => {
+            const color = productColors[product.product_name] || '#ccc';
+            dayContent += `<div class="product-indicator" style="background-color: ${color}" title="${product.product_name}: ${product.dose_count} doses"></div>`;
+          });
+          dayContent += '</div>';
+        }
+      }
+      
+      calendarHTML += `<div class="${dayClass}" data-date="${dateStr}" data-click-handler="true">${dayContent}</div>`;
+    }
+    
+    calendarHTML += '</div>';
+    newCalendarGrid.innerHTML = calendarHTML;
+    
+    // Add event delegation for calendar day clicks
+    console.log('Adding event delegation for calendar clicks');
+    newCalendarGrid.addEventListener('click', function(event) {
+      console.log('Calendar grid clicked', event.target);
+      console.log('Event target classes:', event.target.className);
+      console.log('Event target closest calendar-day:', event.target.closest('.calendar-day'));
+      
+      // Find the closest calendar day element
+      const dayElement = event.target.closest('.calendar-day');
+      if (dayElement && dayElement.dataset.clickHandler) {
+        const dateStr = dayElement.dataset.date;
+        console.log('Calendar day clicked via delegation:', dateStr);
+        console.log('Day element dataset:', dayElement.dataset);
+        
+        // Visual feedback - add a temporary border
+        dayElement.style.border = '2px solid #007bff';
+        setTimeout(() => {
+          dayElement.style.border = '';
+        }, 300);
+        
+        console.log('About to call handleDayClick with:', dateStr);
+        handleDayClick(event, dateStr);
+      } else {
+        console.log('Clicked element is not a calendar day or has no click handler');
+        console.log('dayElement:', dayElement);
+        console.log('clickHandler dataset:', dayElement ? dayElement.dataset.clickHandler : 'N/A');
+      }
+    });
+    
+    // Add double-click delegation
+    newCalendarGrid.addEventListener('dblclick', function(event) {
+      const dayElement = event.target.closest('.calendar-day');
+      if (dayElement && dayElement.dataset.clickHandler) {
+        const dateStr = dayElement.dataset.date;
+        console.log('Calendar day double-clicked:', dateStr);
+        goToAdvancedDayView(dateStr);
+      }
+    });
+  }
+  
+  function isDateToday(dateStr) {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    return dateStr === todayStr;
+  }
+  
+  // Make openDayDetails globally accessible for onclick handlers
+  window.openDayDetails = function(dateStr) {
+    const dayData = calendarData[dateStr];
+    const refillData = refillEvents[dateStr];
+    
+    // Open details if there's either dose data or refill events
+    if (!dayData && (!refillData || (refillData.refills.length === 0 && refillData.estimates.length === 0))) {
+      return; // No data for this day
+    }
+    
+    document.getElementById('selected-date').textContent = formatDateForDisplay(dateStr);
+    
+    // Show modal with proper z-index management
+    const modalElement = document.getElementById('dayDetailsModal');
+    const modal = new bootstrap.Modal(modalElement);
+    
+    // Listen for when modal is fully shown to apply z-index fix
+    modalElement.addEventListener('shown.bs.modal', function () {
+      console.log('Modal shown - applying z-index fix');
+      
+      // Log current z-index before fix
+      const currentZIndex = window.getComputedStyle(modalElement).zIndex;
+      console.log('Modal current z-index before fix:', currentZIndex);
+      
+      // Force high z-index to appear above stats tooltips
+      modalElement.style.zIndex = '10000001';
+      console.log('Applied z-index 10000001 to modal');
+      
+      // Also fix backdrop if it exists
+      const backdrop = document.querySelector('.modal-backdrop');
+      if (backdrop) {
+        const backdropZIndex = window.getComputedStyle(backdrop).zIndex;
+        console.log('Backdrop current z-index:', backdropZIndex);
+        backdrop.style.zIndex = '10000000';
+        console.log('Applied z-index 10000000 to backdrop');
+      }
+      
+      // Fix dialog and content z-index
+      const dialog = modalElement.querySelector('.modal-dialog');
+      const content = modalElement.querySelector('.modal-content');
+      if (dialog) {
+        dialog.style.zIndex = '10000001';
+        console.log('Applied z-index 10000001 to dialog');
+      }
+      if (content) {
+        content.style.zIndex = '10000001';
+        console.log('Applied z-index 10000001 to content');
+      }
+      
+      // Verify final z-index values
+      console.log('Final modal z-index:', window.getComputedStyle(modalElement).zIndex);
+    });
+    
+    // Listen for when modal is hidden to reset z-index
+    modalElement.addEventListener('hidden.bs.modal', function () {
+      console.log('Modal hidden - resetting z-index');
+      // Reset to negative z-index to prevent UI blocking
+      modalElement.style.zIndex = '-1';
+    });
+    
+    modal.show();
+    
+    // Load detailed day data
+    loadDayDetails(dateStr);
+  }
+  
+  function loadDayDetails(dateStr) {
+    const modalContent = document.getElementById('day-details-content');
+    modalContent.innerHTML = `
+      <div class="text-center">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading details...</span>
+        </div>
+        <p>Loading dose details...</p>
+      </div>
+    `;
+    
+    const url = `${apiUrls.calendar_day_details}?date=${dateStr}`;
+    
+    fetch(url, {
+      method: 'GET',
+      cache: 'no-store'
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        currentDayData = data.data;
+        currentSelectedDate = dateStr;
+        if (currentViewMode === 'quick') {
+          renderQuickView(currentDayData);
+        } else {
+          renderAdvancedView(currentDayData);
+        }
+      } else {
+        modalContent.innerHTML = `<div class="alert alert-danger">Failed to load details: ${data.error || 'Unknown error'}</div>`;
+      }
+    })
+    .catch(error => {
+      console.error('Failed to load day details:', error);
+      modalContent.innerHTML = `<div class="alert alert-danger">Failed to load day details</div>`;
+    });
+  }
+  
+  function renderDayDetails(dayData) {
+    const modalContent = document.getElementById('day-details-content');
+    
+    if (!dayData.doses || dayData.doses.length === 0) {
+      // Check if there are any refill events even when no doses
+      if (!dayData.refill_info || (dayData.refill_info.refills.length === 0 && dayData.refill_info.estimates.length === 0)) {
+        modalContent.innerHTML = '<div class="alert alert-info">No doses or refill events recorded for this date</div>';
+        return;
+      }
+    }
+    
+    let detailsHTML = `
+      <div class="day-summary-stats mb-4">
+        <div class="row">
+          <div class="col-3">
+            <div class="stat-card">
+              <div class="stat-value">${dayData.day_summary.total_doses}</div>
+              <div class="stat-label">Total Doses</div>
+            </div>
+          </div>
+          <div class="col-3">
+            <div class="stat-card">
+              <div class="stat-value">${dayData.day_summary.total_volume}</div>
+              <div class="stat-label">Volume (mL)</div>
+            </div>
+          </div>
+          <div class="col-3">
+            <div class="stat-card">
+              <div class="stat-value">${dayData.day_summary.unique_products}</div>
+              <div class="stat-label">Products</div>
+            </div>
+          </div>
+          <div class="col-3">
+            <div class="stat-card">
+              <div class="stat-value">${dayData.day_summary.avg_dose_amount}</div>
+              <div class="stat-label">Avg (mL)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Add refill information section
+    if (dayData.refill_info && (dayData.refill_info.refills.length > 0 || dayData.refill_info.estimates.length > 0)) {
+      detailsHTML += `
+        <div class="refill-info mb-4">
+          <h6><i class="fas fa-tint"></i> Refill Information</h6>
+      `;
+      
+      // Historical refills
+      if (dayData.refill_info.refills.length > 0) {
+        detailsHTML += `
+          <div class="refill-section mb-3">
+            <h7 class="text-success"><i class="fas fa-check-circle"></i> Products Refilled</h7>
+            <div class="refill-items">
+        `;
+        
+        dayData.refill_info.refills.forEach(refill => {
+          detailsHTML += `
+            <div class="refill-item">
+              <div class="refill-product">
+                <strong>${refill.product_name}</strong>
+                <span class="refill-time">${refill.refill_time_display}</span>
+              </div>
+              <div class="refill-details">
+                <span class="current-level">Current: ${refill.current_avail}mL / ${refill.total_volume}mL</span>
+                <div class="level-bar">
+                  <div class="level-fill" style="width: ${(refill.current_avail / refill.total_volume * 100).toFixed(1)}%"></div>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        
+        detailsHTML += `
+            </div>
+          </div>
+        `;
+      }
+      
+      // Estimated refills
+      if (dayData.refill_info.estimates.length > 0) {
+        detailsHTML += `
+          <div class="refill-section mb-3">
+            <h7 class="text-warning"><i class="fas fa-clock"></i> Refills Estimated</h7>
+            <div class="refill-items">
+        `;
+        
+        dayData.refill_info.estimates.forEach(estimate => {
+          const fillPercent = (estimate.current_avail / estimate.total_volume * 100).toFixed(1);
+          const isLow = estimate.current_avail <= estimate.low_threshold;
+          
+          detailsHTML += `
+            <div class="refill-item estimate">
+              <div class="refill-product">
+                <strong>${estimate.product_name}</strong>
+                <span class="estimate-badge ${isLow ? 'low' : 'normal'}">
+                  ${isLow ? 'Low Stock' : 'Estimated Refill'}
+                </span>
+              </div>
+              <div class="refill-details">
+                <span class="current-level">Current: ${estimate.current_avail}mL / ${estimate.total_volume}mL</span>
+                <div class="level-bar">
+                  <div class="level-fill ${isLow ? 'low' : ''}" style="width: ${fillPercent}%"></div>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        
+        detailsHTML += `
+            </div>
+          </div>
+        `;
+      }
+      
+      detailsHTML += `
+        </div>
+      `;
+    }
+    
+    // Enhanced dose information display
+    if (dayData.doses && dayData.doses.length > 0) {
+      detailsHTML += `
+        <div class="dose-information mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6><i class="fas fa-syringe"></i> Dose Information</h6>
+            <span class="badge bg-primary">${dayData.doses.length} Total Doses</span>
+          </div>
+          
+          <!-- Products Summary Cards -->
+          <div class="products-summary-cards mb-4">
+            <div class="row">
+      `;
+      
+      dayData.products_summary.forEach(product => {
+        const color = productColors[product.product_name] || '#ccc';
+        detailsHTML += `
+          <div class="col-md-6 col-lg-4 mb-3">
+            <div class="product-summary-card" style="border-left: 4px solid ${color}">
+              <div class="product-name">
+                <i class="fas fa-vial" style="color: ${color}"></i>
+                <strong>${product.product_name}</strong>
+              </div>
+              <div class="product-stats">
+                <div class="stat-row">
+                  <span class="stat-label">Doses:</span>
+                  <span class="stat-value">${product.dose_count}</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-label">Total Volume:</span>
+                  <span class="stat-value">${product.total_amount.toFixed(1)}mL</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-label">Average:</span>
+                  <span class="stat-value">${product.avg_amount.toFixed(1)}mL</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-label">Range:</span>
+                  <span class="stat-value">${product.min_amount.toFixed(1)} - ${product.max_amount.toFixed(1)}mL</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      
+      detailsHTML += `
+            </div>
+          </div>
+          
+          <!-- Detailed Dose Timeline -->
+          <div class="dose-timeline">
+            <h7><i class="fas fa-clock"></i> Chronological Dose Timeline</h7>
+            <div class="timeline-container">
+      `;
+    
+      dayData.doses.forEach((dose, index) => {
+        const color = productColors[dose.product_name] || '#ccc';
+        const adherenceClass = getAdherenceClass(dose.schedule_adherence);
+        const isFirst = index === 0;
+        const isLast = index === dayData.doses.length - 1;
+        
+        detailsHTML += `
+          <div class="timeline-item ${isFirst ? 'first' : ''} ${isLast ? 'last' : ''}">
+            <div class="timeline-marker" style="border-color: ${color}">
+              <div class="timeline-marker-inner" style="background-color: ${color}"></div>
+            </div>
+            <div class="timeline-content">
+              <div class="dose-card">
+                <div class="dose-header">
+                  <div class="dose-time">
+                    <i class="fas fa-clock"></i>
+                    <strong>${dose.trigger_time_display}</strong>
+                  </div>
+                  <div class="dose-status">
+                    <span class="schedule-adherence ${adherenceClass}">
+                      ${dose.schedule_adherence.replace('_', ' ').toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+                <div class="dose-body">
+                  <div class="dose-main-info">
+                    <span class="product-badge" style="background-color: ${color}">
+                      <i class="fas fa-vial"></i>
+                      ${dose.product_name}
+                    </span>
+                    <span class="dose-amount-badge">
+                      <i class="fas fa-eyedropper"></i>
+                      ${dose.amount}mL
+                    </span>
+                  </div>
+                  <div class="dose-technical-details">
+                    <div class="detail-grid">
+                      <div class="detail-item">
+                        <span class="detail-label">Schedule:</span>
+                        <span class="detail-value">#${dose.schedule_id}</span>
+                      </div>
+                      <div class="detail-item">
+                        <span class="detail-label">Doser:</span>
+                        <span class="detail-value">${dose.doser_name || 'Manual'}</span>
+                      </div>
+                      <div class="detail-item">
+                        <span class="detail-label">Efficiency:</span>
+                        <span class="detail-value">${dose.dose_efficiency_percent || 'N/A'}%</span>
+                      </div>
+                      <div class="detail-item">
+                        <span class="detail-label">Method:</span>
+                        <span class="detail-value">${dose.doser_name ? 'Automated' : 'Manual'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+    
+      detailsHTML += `
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      detailsHTML += `
+        <div class="no-dose-info mb-4">
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i>
+            No dose events recorded for this date
+          </div>
+        </div>
+      `;
+    }
+    
+    modalContent.innerHTML = detailsHTML;
+  }
+  
+  function getAdherenceClass(adherence) {
+    switch (adherence) {
+      case 'on_time': return 'badge bg-success';
+      case 'slightly_off': return 'badge bg-warning';
+      case 'late': return 'badge bg-danger';
+      case 'early': return 'badge bg-info';
+      default: return 'badge bg-secondary';
+    }
+  }
+  
+  function formatDateForDisplay(dateStr) {
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  }
+  
+  function showError(message) {
+    const calendarGrid = document.getElementById('calendar-grid');
+    calendarGrid.innerHTML = `
+      <div class="alert alert-danger">
+        <i class="fas fa-exclamation-triangle"></i>
+        ${message}
+      </div>
+    `;
+  }
+
+  function handleDayClick(event, dateStr) {
+    console.log('=== handleDayClick called ===');
+    console.log('Day clicked:', dateStr);
+    console.log('Event:', event);
+    console.log('Calendar data for this day:', calendarData[dateStr]);
+    console.log('Refill data for this day:', refillEvents[dateStr]);
+    
+    const dayData = calendarData[dateStr];
+    const refillData = refillEvents[dateStr];
+    
+    // Check if there's data for this day
+    const hasData = dayData || (refillData && (refillData.refills.length > 0 || refillData.estimates.length > 0));
+    console.log('Has data for this day:', hasData);
+    
+    if (!hasData) {
+      console.log('No data for this day - exiting');
+      return;
+    }
+    
+    console.log('Calling showDayNavigationTooltip with:', dateStr);
+    // Show tooltip with navigation options
+    showDayNavigationTooltip(event, dateStr);
+    console.log('=== handleDayClick completed ===');
+  }
+  
+  function showDayNavigationTooltip(event, dateStr) {
+    console.log('=== showDayNavigationTooltip called ===');
+    console.log('Event:', event);
+    console.log('Date string:', dateStr);
+    
+    // Remove any existing tooltips
+    const existingTooltips = document.querySelectorAll('.day-navigation-tooltip');
+    console.log('Removing existing tooltips:', existingTooltips.length);
+    existingTooltips.forEach(tooltip => tooltip.remove());
+    
+    // Create tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'day-navigation-tooltip';
+    console.log('Created tooltip element:', tooltip);
+    
+    const tooltipHTML = `
+      <div class="tooltip-content">
+        <div class="tooltip-header">${formatDateForDisplay(dateStr)}</div>
+        <div class="tooltip-actions">
+          <button class="btn btn-sm btn-outline-primary" onclick="openDayDetails('${dateStr}'); removeDayTooltips();">
+            <i class="fas fa-eye"></i> Quick View
+          </button>
+          <button class="btn btn-sm btn-primary" onclick="goToAdvancedDayView('${dateStr}');">
+            <i class="fas fa-external-link-alt"></i> Advanced View
+          </button>
+        </div>
+      </div>
+    `;
+    
+    console.log('Setting tooltip HTML:', tooltipHTML);
+    tooltip.innerHTML = tooltipHTML;
+    
+    // Position tooltip
+    const rect = event.target.getBoundingClientRect();
+    console.log('Target element rect:', rect);
+    
+    tooltip.style.position = 'absolute';
+    tooltip.style.left = `${rect.left + rect.width/2}px`;
+    tooltip.style.top = `${rect.bottom + 10}px`;
+    tooltip.style.zIndex = '10000001';
+    
+    console.log('Tooltip positioning:', {
+      position: 'absolute',
+      left: `${rect.left + rect.width/2}px`,
+      top: `${rect.bottom + 10}px`,
+      zIndex: '10000001'
+    });
+    
+    console.log('Appending tooltip to body');
+    document.body.appendChild(tooltip);
+    console.log('Tooltip appended, should be visible now');
+    
+    // Auto-remove tooltip after 5 seconds or on click outside
+    setTimeout(() => {
+      if (tooltip.parentNode) {
+        console.log('Auto-removing tooltip after 5 seconds');
+        tooltip.remove();
+      }
+    }, 5000);
+    
+    // Remove on click outside
+    setTimeout(() => {
+      document.addEventListener('click', function removeTooltipOnClickOutside(e) {
+        if (!tooltip.contains(e.target) && !e.target.closest('.calendar-day')) {
+          tooltip.remove();
+          document.removeEventListener('click', removeTooltipOnClickOutside);
+        }
+      });
+    }, 100);
+  }
+  
+  // Make removeDayTooltips globally accessible for onclick handlers
+  window.removeDayTooltips = function() {
+    const tooltips = document.querySelectorAll('.day-navigation-tooltip');
+    tooltips.forEach(tooltip => tooltip.remove());
+  }
+  
+  // Make goToAdvancedDayView globally accessible for onclick handlers
+  window.goToAdvancedDayView = function(dateStr) {
+    // Open the modal in advanced view mode instead of navigating to separate page
+    currentViewMode = 'advanced';
+    openDayDetails(dateStr);
+  }
+  
+  // Modal navigation functions
+  window.navigateDay = function(direction) {
+    if (!currentSelectedDate) return;
+    
+    const currentDate = new Date(currentSelectedDate);
+    currentDate.setDate(currentDate.getDate() + direction);
+    const newDateStr = currentDate.toISOString().split('T')[0];
+    
+    // Load the new day's data while keeping the modal open
+    currentSelectedDate = newDateStr;
+    loadDayDetails(newDateStr);
+  }
+  
+  window.refreshModalData = function() {
+    if (currentSelectedDate) {
+      loadDayDetails(currentSelectedDate);
+    }
+  }
+
+  // View mode switching functionality for day details modal
+  // Make this function globally accessible so it can be called from onclick handlers
+  window.switchViewMode = function(mode) {
+    console.log('=== switchViewMode CALLED ===');
+    console.log('Mode:', mode);
+    console.log('Function is accessible globally');
+    
+    try {
+      currentViewMode = mode;
+      console.log('Current view mode set to:', currentViewMode);
+      
+      // Update button states
+      const quickBtn = document.getElementById('quick-view-btn');
+      const advancedBtn = document.getElementById('advanced-view-btn');
+      
+      console.log('Quick button found:', !!quickBtn);
+      console.log('Advanced button found:', !!advancedBtn);
+      
+      if (!quickBtn || !advancedBtn) {
+        console.error('ERROR: Buttons not found!');
+        console.error('quickBtn:', quickBtn);
+        console.error('advancedBtn:', advancedBtn);
+        alert('ERROR: Modal buttons not found. This indicates the modal is not properly loaded.');
+        return;
+      }
+      
+      console.log('Updating button states...');
+      
+      // Add visual feedback that the button was clicked
+      const clickedButton = mode === 'quick' ? quickBtn : advancedBtn;
+      clickedButton.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        clickedButton.style.transform = '';
+      }, 150);
+      
+      if (mode === 'quick') {
+        quickBtn.classList.add('active');
+        quickBtn.classList.remove('btn-outline-primary');
+        quickBtn.classList.add('btn-primary');
+        
+        advancedBtn.classList.remove('active');
+        advancedBtn.classList.remove('btn-primary');
+        advancedBtn.classList.add('btn-outline-primary');
+        console.log('Quick view button activated');
+      } else {
+        advancedBtn.classList.add('active');
+        advancedBtn.classList.remove('btn-outline-primary');
+        advancedBtn.classList.add('btn-primary');
+        
+        quickBtn.classList.remove('active');
+        quickBtn.classList.remove('btn-primary');
+        quickBtn.classList.add('btn-outline-primary');
+        console.log('Advanced view button activated');
+      }
+      
+      // Re-render the content with the new view mode
+      console.log('Current day data exists:', !!currentDayData);
+      if (currentDayData) {
+        console.log('Re-rendering content for mode:', mode);
+        if (mode === 'quick') {
+          console.log('Calling renderQuickView...');
+          renderQuickView(currentDayData);
+          console.log('renderQuickView completed');
+        } else {
+          console.log('Calling renderAdvancedView...');
+          renderAdvancedView(currentDayData);
+          console.log('renderAdvancedView completed');
+        }
+      } else {
+        console.warn('WARNING: No current day data available yet - data may still be loading');
+        console.log('Setting view mode for when data loads...');
+        
+        // Show a message indicating the view mode will be applied when data loads
+        const modalContent = document.getElementById('day-details-content');
+        if (modalContent) {
+          modalContent.innerHTML = `
+            <div class="text-center">
+              <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading details...</span>
+              </div>
+              <p>Loading dose details for ${mode} view...</p>
+            </div>
+          `;
+          console.log('Updated loading message to reflect view mode:', mode);
+        }
+        
+        // The view mode is already set in currentViewMode, so when the data loads
+        // via loadDayDetails(), it will render in the correct mode
+      }
+      
+      console.log('=== switchViewMode COMPLETED SUCCESSFULLY ===');
+      
+    } catch (error) {
+      console.error('=== ERROR IN switchViewMode ===');
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      alert('ERROR in switchViewMode: ' + error.message);
+    }
+  };
+  
+  function renderQuickView(dayData) {
+    const modalContent = document.getElementById('day-details-content');
+    
+    if (!dayData.doses || dayData.doses.length === 0) {
+      modalContent.innerHTML = '<div class="alert alert-info">No doses recorded for this date</div>';
+      return;
+    }
+    
+    let quickHTML = `
+      <div class="quick-view-container">
+        <!-- Quick Summary Stats -->
+        <div class="quick-summary mb-4">
+          <div class="row text-center">
+            <div class="col-4">
+              <div class="quick-stat">
+                <div class="quick-stat-value">${dayData.day_summary.total_doses}</div>
+                <div class="quick-stat-label">Doses</div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="quick-stat">
+                <div class="quick-stat-value">${dayData.day_summary.total_volume}</div>
+                <div class="quick-stat-label">Volume (mL)</div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="quick-stat">
+                <div class="quick-stat-value">${dayData.day_summary.unique_products}</div>
+                <div class="quick-stat-label">Products</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Simple Dose List -->
+        <div class="quick-dose-list">
+          <h6><i class="fas fa-list"></i> Dose Summary</h6>
+          <div class="quick-doses">
+    `;
+    
+    dayData.doses.forEach(dose => {
+      const color = productColors[dose.product_name] || '#ccc';
+      const adherenceClass = getAdherenceClass(dose.schedule_adherence);
+      
+      quickHTML += `
+        <div class="quick-dose-item">
+          <div class="quick-dose-time">
+            <i class="fas fa-clock"></i>
+            ${dose.trigger_time_display}
+          </div>
+          <div class="quick-dose-product" style="color: ${color}">
+            <i class="fas fa-vial"></i>
+            ${dose.product_name}
+          </div>
+          <div class="quick-dose-amount">
+            ${dose.amount}mL
+          </div>
+          <div class="quick-dose-status">
+            <span class="${adherenceClass} badge-sm">
+              ${dose.schedule_adherence.replace('_', ' ').toUpperCase()}
+            </span>
+          </div>
+        </div>
+      `;
+    });
+    
+    quickHTML += `
+          </div>
+        </div>
+    `;
+    
+    // Add quick refill info if available
+    if (dayData.refill_info && (dayData.refill_info.refills.length > 0 || dayData.refill_info.estimates.length > 0)) {
+      quickHTML += `
+        <div class="quick-refill-info mt-4">
+          <h6><i class="fas fa-tint"></i> Refill Summary</h6>
+      `;
+      
+      if (dayData.refill_info.refills.length > 0) {
+        quickHTML += `
+          <div class="quick-refill-section">
+            <strong class="text-success">Refilled:</strong>
+            ${dayData.refill_info.refills.map(r => r.product_name).join(', ')}
+          </div>
+        `;
+      }
+      
+      if (dayData.refill_info.estimates.length > 0) {
+        quickHTML += `
+          <div class="quick-refill-section">
+            <strong class="text-warning">Estimated:</strong>
+            ${dayData.refill_info.estimates.map(e => e.product_name).join(', ')}
+          </div>
+        `;
+      }
+      
+      quickHTML += `
+        </div>
+      `;
+    }
+    
+    quickHTML += `
+      </div>
+    `;
+    
+    modalContent.innerHTML = quickHTML;
+  }
+  
+  // Enhanced Advanced View Renderer
+  function renderAdvancedView(dayData) {
+    const modalContent = document.getElementById('day-details-content');
+    
+    if (!dayData.doses || dayData.doses.length === 0) {
+      modalContent.innerHTML = `
+        <div class="advanced-view-content">
+          <div class="no-data-message">
+            <i class="fas fa-calendar-times"></i>
+            <h3>No Dosing Activity</h3>
+            <p>No doses or refill events were recorded for this date.</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+    
+    // Format date for display
+    const formattedDate = new Date(currentSelectedDate).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    let advancedHTML = `
+      <div class="advanced-view-content">
+        <!-- Day Summary Cards -->
+        <div class="day-summary-section">
+          <div class="summary-cards-grid">
+            <div class="summary-card">
+              <div class="card-title">Total Doses</div>
+              <div class="card-value">${dayData.day_summary.total_doses}</div>
+              <div class="card-label">Dose Events</div>
+            </div>
+            <div class="summary-card">
+              <div class="card-title">Total Volume</div>
+              <div class="card-value">${dayData.day_summary.total_volume}</div>
+              <div class="card-label">Milliliters Dosed</div>
+            </div>
+            <div class="summary-card">
+              <div class="card-title">Products</div>
+              <div class="card-value">${dayData.day_summary.unique_products}</div>
+              <div class="card-label">Different Products</div>
+            </div>
+            <div class="summary-card">
+              <div class="card-title">Schedules</div>
+              <div class="card-value">${dayData.day_summary.schedules_active || '-'}</div>
+              <div class="card-label">Active Schedules</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Detailed Timeline -->
+        <div class="detailed-timeline-section">
+          <div class="timeline-header">
+            <h3><i class="fas fa-clock"></i> Dosing Timeline</h3>
+            <div class="timeline-controls">
+              <button class="btn btn-sm btn-outline-secondary" onclick="refreshModalData()">
+                <i class="fas fa-sync-alt"></i> Refresh
+              </button>
+            </div>
+          </div>
+          <div class="timeline-content">
+    `;
+    
+    // Sort doses by time for timeline display
+    const sortedDoses = [...dayData.doses].sort((a, b) => {
+      const timeA = a.trigger_time_display || a.dose_time || '00:00';
+      const timeB = b.trigger_time_display || b.dose_time || '00:00';
+      return timeA.localeCompare(timeB);
+    });
+    
+    sortedDoses.forEach(dose => {
+      const color = productColors[dose.product_name] || '#94b0da';
+      const adherenceClass = getAdherenceClass(dose.schedule_adherence);
+      const timeDisplay = dose.trigger_time_display || dose.dose_time || 'Unknown Time';
+      
+      // Build technical details array
+      const technicalDetails = [];
+      if (dose.interval_hours) {
+        technicalDetails.push(`Every ${formatInterval(dose.interval_hours * 3600)}`);
+      }
+      if (dose.doser_name) {
+        technicalDetails.push(`Doser: ${dose.doser_name}`);
+      }
+      if (dose.schedule_id) {
+        technicalDetails.push(`Schedule ID: ${dose.schedule_id}`);
+      }
+      
+      advancedHTML += `
+        <div class="timeline-item">
+          <div class="timeline-time">
+            <i class="fas fa-clock"></i>
+            ${timeDisplay}
+          </div>
+          <div class="timeline-details">
+            <div class="timeline-product">
+              <span class="product-indicator" style="background-color: ${color}"></span>
+              ${dose.product_name}
+            </div>
+            <div class="timeline-amount">
+              <i class="fas fa-vial"></i>
+              ${dose.amount}mL
+            </div>
+            <div class="timeline-status">
+              <span class="${adherenceClass} badge">
+                ${dose.schedule_adherence.replace('_', ' ').toUpperCase()}
+              </span>
+            </div>
+            ${technicalDetails.length > 0 ? `
+              <div class="timeline-meta">
+                <strong>Details:</strong> ${technicalDetails.join(' • ')}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    });
+    
+    advancedHTML += `
+          </div>
+        </div>
+    `;
+    
+    // Add refill events section if available
+    if (dayData.refill_info && (dayData.refill_info.refills.length > 0 || dayData.refill_info.estimates.length > 0)) {
+      advancedHTML += `
+        <div class="refill-events-section">
+          <div class="refill-header">
+            <i class="fas fa-tint"></i>
+            <h3>Refill Events</h3>
+          </div>
+      `;
+      
+      // Actual refills
+      dayData.refill_info.refills.forEach(refill => {
+        advancedHTML += `
+          <div class="refill-item">
+            <div class="refill-product">${refill.product_name}</div>
+            <div class="refill-details">
+              <strong>Refilled:</strong> ${refill.amount || 'Unknown amount'} 
+              ${refill.refill_time ? `at ${refill.refill_time}` : ''}
+            </div>
+          </div>
+        `;
+      });
+      
+      // Refill estimates
+      dayData.refill_info.estimates.forEach(estimate => {
+        const estimateClass = estimate.urgency === 'low' ? 'estimate low' : 'estimate';
+        advancedHTML += `
+          <div class="refill-item ${estimateClass}">
+            <div class="refill-product">${estimate.product_name}</div>
+            <div class="refill-details">
+              <strong>Estimated Need:</strong> ${estimate.estimated_days} days remaining
+              ${estimate.urgency ? `(${estimate.urgency} priority)` : ''}
+            </div>
+          </div>
+        `;
+      });
+      
+      advancedHTML += `
+        </div>
+      `;
+    }
+    
+    advancedHTML += `
+      </div>
+    `;
+    
+    modalContent.innerHTML = advancedHTML;
+    
+    // Update modal timestamp
+    const timestampElement = document.getElementById('modal-data-timestamp');
+    if (timestampElement) {
+      timestampElement.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+    }
+  }
+  
+  // Helper function to format time intervals (reused from separate page)
+  function formatInterval(seconds) {
+    if (!seconds) return 'Unknown';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (hours >= 24) {
+      const days = Math.floor(hours / 24);
+      return `${days} day${days !== 1 ? 's' : ''}`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else {
+      return `${minutes}m`;
+    }
+  }
+});
+</script>
+{% endblock %}

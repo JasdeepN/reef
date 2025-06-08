@@ -88,5 +88,21 @@ cleanup_*.sh
 validate_*.sh
 bin/
 
+# Intermediate working files and debugging artifacts
+debug_*.html
+debug_*.py
+test_*.html
+test_*debug*.py
+test_*click*.html
+test_*connectivity*.html
+test_*flow*.html
+test_*modal*.html
+modal_fix_*.html
+live_modal*.html
+calendar_page.html
+console_test.html
+direct_modal*.html
+output.txt
+
 # User-specific files
 user/

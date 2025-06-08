@@ -11,6 +11,7 @@ from .home import bp as home_bp
 from .timeline import bp as timeline_bp
 from .tanks import tanks_api
 from .audit import bp as audit_bp
+from .audit_calendar import bp as audit_calendar_bp
 
 api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
 
@@ -26,4 +27,5 @@ api_bp.register_blueprint(home_bp)
 api_bp.register_blueprint(timeline_bp)
 api_bp.register_blueprint(tanks_api)
 api_bp.register_blueprint(audit_bp, url_prefix='/audit')
+api_bp.register_blueprint(audit_calendar_bp, url_prefix='/audit-calendar')
 

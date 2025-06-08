@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Calendar Modal Button Functions**: Fixed missing JavaScript functions `openDayDetails` and `goToAdvancedDayView` in dosing calendar audit page. Functions were defined within DOMContentLoaded scope but needed global accessibility for onclick handlers. Made functions globally accessible via window object assignment
+- **Bootstrap Modal Z-Index Issues**: Fixed z-index problems across ALL Bootstrap modals to prevent UI blocking and invisible modal issues. Applied standardized negative z-index pattern (-1 when hidden, 10000001+ when shown) to prevent modals from interfering with stats tooltips and other high z-index elements
+- **Dosing Audit Page Route Error**: Fixed `BuildError` on `/doser/audit` page caused by incorrect route reference in template. Changed `url_for('audit_calendar')` to `url_for('doser_audit_calendar')` in audit_log.html template to match actual route function name
+
 ### Added
+- **Comprehensive .gitignore/.dockerignore Patterns**: Added exclusion patterns for all intermediate working files and debugging artifacts (debug_*, test_*.html, modal_fix_*, live_modal*, calendar_page.html, console_test.html, direct_modal*, output.txt) while preserving legitimate project test files and templates
+- **SCSS/HTML Class Coordination Guide**: Added comprehensive 200+ line coding guide to Copilot instructions to prevent class name mismatches between SCSS and HTML templates. Guide includes mandatory pre-development analysis, class naming standards, Bootstrap override protection, compilation safety protocols, and emergency CSS recovery procedures
 - **Modern Doser Dashboard with Bottle Graphics**: Complete redesign of the `/doser` page template with modern aquarium dosing interface design
 - **SVG Bottle Visualizations**: Replaced percentage bars with realistic bottle graphics showing liquid levels
 - **Liquid Level Animations**: Animated bottle liquid with subtle wave effects and color-coded gradients (low=red/orange, medium=yellow/green, high=green/teal)
@@ -19,6 +26,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Modern Typography**: Poppins/Inter/Manrope font stack with improved text hierarchy and spacing
 - **Delete Schedule Button on Edit Page**: Added missing delete functionality to schedule edit page
 - **Status Badges**: Added visual status indicators (Active/Suspended) to schedule view page
+- **Calendar-Based Audit Log Interface**: New interactive monthly calendar view for dose tracking and analysis
+  - `/doser/audit/calendar` endpoint for visual calendar-based audit navigation
+  - Monthly summary cards showing total doses, volume, active days, and averages
+  - Interactive calendar grid with daily dose counts and volume summaries
+  - Product legend with color-coded indicators for multi-product tracking
+  - Day-specific drill-down modal with detailed dose information and timing
+  - Cross-navigation between traditional audit log and calendar view
+- **Enhanced Refill Tracking with Product-Specific Indicators**: Complete overhaul of refill visualization system with detailed product identification
+  - **Product-Specific Refill Badges**: Individual product name badges showing exactly which products were refilled or need refilling
+  - **Smart Badge Grouping**: Shows individual product badges for 1-3 products, summarizes as "X Products" for more
+  - **Color-Coded Status Indicators**: Green badges for completed refills, orange for normal estimates, red pulsing for low stock alerts
+  - **Enhanced Tooltips**: Detailed hover tooltips showing "Products Refilled: ProductName1, ProductName2" instead of generic text
+  - **Visual Hierarchy**: Refill count indicators on main icons, with detailed product badges below for clear information layering
+  - **Critical Alert Animation**: Low stock indicators pulse with red animation to draw immediate attention
+  - **Multi-Product Support**: Handles complex scenarios with multiple simultaneous refills and estimates
+- **Advanced Day Details Modal Interface**: Complete redesign of calendar day drill-down with comprehensive information display
+  - **Product Summary Cards**: Individual cards for each product showing doses, total volume, averages, and ranges with color-coded styling
+  - **Enhanced Timeline View**: Chronological dose timeline with visual markers, product badges, and detailed technical information
+  - **Comprehensive Refill Information**: Detailed refill sections showing current levels, timestamps, and inventory status with progress bars
+  - **Technical Dose Details**: Schedule IDs, doser information, efficiency metrics, and execution timing in organized grid layout
+  - **Visual Status Indicators**: Color-coded adherence badges (on-time, late, early) with gradient styling and clear status communication
+  - **Responsive Card Layout**: Mobile-friendly design with proper grid breakpoints and hover effects
+- **Historical Refill Tracking**: Displays actual refill events with timestamps and current inventory levels
+- **Future Refill Estimates**: Calculates estimated refill dates based on 30-day consumption patterns
+- **Smart Consumption Analysis**: Analyzes dosing history to predict when products will need refilling
+- **Low Stock Alerts**: Visual warnings when products approach refill thresholds
+- **API Integration**: Enhanced audit calendar APIs with comprehensive refill data
+  - `/api/v1/audit-calendar/calendar/monthly-summary` includes `refill_events` data
+  - `/api/v1/audit-calendar/calendar/day-details` includes detailed `refill_info` for specific dates
+- **Responsive Refill UI**: Modern styling with gradient level bars, status badges, and proper visual hierarchy
+
+### Changed
+- **Schedule Edit Form Submission**: Converted from AJAX submission to traditional form submission with server-side redirect
+- **Form Response Handling**: Backend now detects request type and returns appropriate response (JSON for AJAX, redirect for traditional forms)
+- **User Experience**: Schedule editing now redirects to main doser page after successful submission instead of staying on edit page
 - **Dynamic Button Text**: Suspend/Resume buttons now display correct action based on schedule state
 - **Database Schema Enhancement**: Added `raw_audit_data` JSON column to DosingAudit tables for complete audit payload debugging
 
@@ -94,6 +136,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Root Cause**: Schedule had conflicting configuration (schedule_type="interval" vs "daily") and dashboard JavaScript was using interval-based calculations for daily schedules
   - **Database Fix**: Updated Soda Ash schedule configuration from interval-based (trigger_interval=3600) to daily schedule (schedule_type="daily", trigger_interval=86400, trigger_time="18:00:00")
   - **API Enhancement**: Enhanced `/web/fn/schedule/get/stats` and `/web/fn/schedule/get/next-doses` endpoints to include `schedule_type` and `trigger_time` fields with proper JSON serialization for time objects
+
+### Technical Details
+- **Enhanced Calendar UI Architecture**: Complete refactor of calendar refill indicator system for improved user experience
+  - **Product Badge System**: Individual product name badges with smart grouping logic (1-3 products show individually, 4+ show count)
+  - **Multi-Layer Information Display**: Refill count indicators, product badges, and detailed tooltips providing progressive information disclosure
+  - **CSS Animation Framework**: Implemented pulsing animations for critical low stock alerts using keyframe animations
+  - **Responsive Badge Layout**: Product badges scale appropriately for calendar day size constraints with ellipsis overflow handling
+  - **Enhanced Tooltip System**: Context-aware tooltips showing "Products Refilled: X, Y, Z" vs "Refill Needed: A, B, C" messaging
+- **Advanced Day Details Modal Architecture**: Redesigned modal with card-based layout and comprehensive information hierarchy
+  - **Product Summary Cards**: Individual cards with color-coded borders, icon integration, and statistical breakdowns
+  - **Timeline Visualization**: Chronological dose timeline with visual markers, connecting lines, and detailed dose cards
+  - **Technical Information Grid**: Organized display of schedule IDs, doser information, efficiency metrics, and execution details
+  - **Progress Bar Components**: Inventory level visualization with gradient fills and low stock color coding
+  - **Status Badge Enhancement**: Gradient-styled adherence badges with improved readability and semantic color coding
+- **Calendar-Based Audit Log API Architecture**: Comprehensive API endpoints for calendar-driven dose tracking
+  - **API Endpoints**: Three specialized calendar endpoints under `/api/v1/audit-calendar/calendar/`
+    - `monthly-summary`: Returns daily dose counts, products, and monthly statistics
+    - `day-details`: Provides detailed dose information for specific dates
+    - `date-range-summary`: Aggregate statistics for custom date ranges
+  - **Frontend Integration**: Interactive JavaScript calendar with real-time data loading and modal drill-downs
+  - **Tank Context Integration**: Full compatibility with multi-tank context system using `get_current_tank_id()`
+  - **CSS Architecture**: Custom CSS with dark theme variables and responsive grid layout
+  - **Cross-Navigation**: Seamless switching between traditional audit log and calendar view interfaces
+  - **Files Enhanced**: 
+    - `app/templates/doser/audit_calendar.html` - Enhanced product-specific refill indicators and advanced day details modal (673 lines)
+    - `app/static/css/audit-calendar.css` - Added enhanced refill badge styles, timeline components, and modal layouts (830+ lines)
+  - **Files Added**: 
+    - `tests/e2e/test_enhanced_calendar_refill_functionality.py` - E2E tests for enhanced refill functionality
+  - **Files Modified**: 
+    - `app/routes/api/__init__.py` - API blueprint registration
+    - `app/routes/doser.py` - Calendar route handler and API URL configuration
+    - `app/templates/doser/main.html` - Added calendar navigation button
+    - `app/templates/doser/audit_log.html` - Added calendar view link
+- **Form Submission Architecture Change**: Converted schedule edit form from AJAX to traditional server-side submission
+  - **Frontend**: Modified `app/templates/doser/schedule_edit.html` JavaScript to remove `e.preventDefault()` and AJAX fetch logic
+  - **Backend**: Enhanced `handle_schedule_edit_submission()` in `app/routes/doser.py` to detect request type and respond appropriately
+  - **Response Logic**: Function now checks `request.is_json` to determine whether to return JSON response or server-side redirect
+  - **Error Handling**: Both JSON and traditional form error paths implemented with appropriate user feedback (flash messages vs JSON errors)
+  - **Success Flow**: Traditional submissions now flash success message and redirect to `/doser` main page
+  - **Backward Compatibility**: API still supports JSON requests for programmatic access while enabling traditional form workflow
+  - **Implementation**: Added conditional response handling based on Content-Type header and request format detection
   - **Frontend Improvements**: Updated dashboard JavaScript to properly handle daily vs interval schedule calculations and removed manual refresh button in favor of automatic 2-minute refresh intervals
   - **Result**: Dashboard now shows accurate "Next Dose In" calculations that match "Next 3 Scheduled Doses" cards, with automatic data refresh without user intervention
 - **JSON Serialization Error in Schedule API**: Fixed `Object of type time is not JSON serializable` error in `/web/fn/schedule/get/stats` endpoint

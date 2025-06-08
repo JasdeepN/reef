@@ -300,62 +300,23 @@ document.addEventListener('DOMContentLoaded', function() {
         return { valid: true };
     }
 
-    // Form submission
+    // Form submission with traditional server-side redirect
     form.addEventListener('submit', function(e) {
-        e.preventDefault();
-
-        // Validate form
+        // Validate form before allowing submission
         const validation = validateForm();
         if (!validation.valid) {
+            e.preventDefault();
             alert(validation.message);
             return;
         }
 
-        // Show loading
-        loadingDiv.style.display = 'block';
-        form.style.opacity = '0.6';
-
-        // Collect form data
-        const formData = new FormData(form);
-        const data = {};
-
-        // Collect all form fields, including empty ones
-        formData.forEach((value, key) => {
-            data[key] = value;
-        });
-
-        // Always include critical fields that may not be in FormData
-        data.suspended = document.getElementById('suspended').checked;
-        data.schedule_type = 'interval';
-
-        // Debug logging
-        console.log('Form data being submitted:', data);
-
-        // Submit via AJAX (similar to new schedule page)
-        fetch(window.location.pathname, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        })
-        .then(response => response.json())
-        .then(data => {
-            loadingDiv.style.display = 'none';
-            form.style.opacity = '1';
-
-            if (data.success) {
-                alert('Dosing schedule updated successfully!');
-                window.location.href = "{{ url_for('doser_main') }}";
-            } else {
-                alert('Error updating schedule: ' + data.error);
-            }
-        })
-        .catch(error => {
-            loadingDiv.style.display = 'none';
-            form.style.opacity = '1';
-            alert('Error updating schedule: ' + error.message);
-        });
+        // Show loading indicator for visual feedback
+        loadingDiv.style.display = 'flex';
+        form.style.opacity = '0.5';
+        
+        // Let the form submit normally to the server
+        // The backend will handle the response and redirect automatically
+    });
     });
 });
 

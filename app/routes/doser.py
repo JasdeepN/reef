@@ -343,11 +343,18 @@ def handle_schedule_edit_submission(data, schedule_id, tank_id):
         print(f"  data keys: {list(data.keys())}")
         print(f"  data types: {[(k, type(v)) for k, v in data.items()]}")
         
+        # Determine response format based on request type
+        is_json_request = request.is_json or request.headers.get('Content-Type') == 'application/json'
+        
         # Get the existing schedule
         schedule = DSchedule.query.filter_by(id=schedule_id, tank_id=tank_id).first()
         if not schedule:
             print(f"DEBUG: Schedule not found - id={schedule_id}, tank_id={tank_id}")
-            return jsonify({"success": False, "error": "Schedule not found"}), 404
+            if is_json_request:
+                return jsonify({"success": False, "error": "Schedule not found"}), 404
+            else:
+                flash("Schedule not found", "error")
+                return redirect(url_for('doser_main'))
         
         print(f"DEBUG: Found existing schedule: {schedule.id}")
         
@@ -355,7 +362,11 @@ def handle_schedule_edit_submission(data, schedule_id, tank_id):
         validation_result = _validate_schedule_data(data)
         if not validation_result['valid']:
             print(f"DEBUG: Basic validation failed: {validation_result}")
-            return jsonify({"success": False, "error": validation_result['error']}), 400
+            if is_json_request:
+                return jsonify({"success": False, "error": validation_result['error']}), 400
+            else:
+                flash(f"Validation error: {validation_result['error']}", "error")
+                return redirect(url_for('schedule_edit', schedule_id=schedule_id))
         
         print(f"DEBUG: Basic validation passed")
         
@@ -377,22 +388,29 @@ def handle_schedule_edit_submission(data, schedule_id, tank_id):
             interval_value = data.get('interval_value')
             interval_unit = data.get('interval_unit')
             
+            error_message = ""
             if not interval_value:
-                return jsonify({"success": False, "error": "Interval value is required"}), 400
+                error_message = "Interval value is required"
             elif not interval_unit:
-                return jsonify({"success": False, "error": "Interval unit (minutes/hours/days) is required"}), 400
+                error_message = "Interval unit (minutes/hours/days) is required"
             else:
                 # Try to convert interval_value to check what's wrong
                 try:
                     interval_val_int = int(interval_value)
                     if interval_val_int <= 0:
-                        return jsonify({"success": False, "error": f"Interval value must be greater than 0, got {interval_val_int}"}), 400
+                        error_message = f"Interval value must be greater than 0, got {interval_val_int}"
                     elif interval_unit not in ['minutes', 'hours', 'days']:
-                        return jsonify({"success": False, "error": f"Invalid interval unit '{interval_unit}'. Must be 'minutes', 'hours', or 'days'"}), 400
+                        error_message = f"Invalid interval unit '{interval_unit}'. Must be 'minutes', 'hours', or 'days'"
                     else:
-                        return jsonify({"success": False, "error": f"Invalid interval configuration: {interval_val_int} {interval_unit}"}), 400
+                        error_message = f"Invalid interval configuration: {interval_val_int} {interval_unit}"
                 except (ValueError, TypeError):
-                    return jsonify({"success": False, "error": f"Interval value must be a number, got '{interval_value}'"}), 400
+                    error_message = f"Interval value must be a number, got '{interval_value}'"
+            
+            if is_json_request:
+                return jsonify({"success": False, "error": error_message}), 400
+            else:
+                flash(f"Configuration error: {error_message}", "error")
+                return redirect(url_for('schedule_edit', schedule_id=schedule_id))
         
         # Add calculated trigger_interval to data for validation
         data['trigger_interval'] = trigger_interval
@@ -407,10 +425,12 @@ def handle_schedule_edit_submission(data, schedule_id, tank_id):
         fixed_config, remaining_errors = validate_and_fix_schedule(schedule_config)
         
         if remaining_errors:
-            return jsonify({
-                "success": False, 
-                "error": f"Schedule configuration errors: {'; '.join(remaining_errors)}"
-            }), 400
+            error_message = f"Schedule configuration errors: {'; '.join(remaining_errors)}"
+            if is_json_request:
+                return jsonify({"success": False, "error": error_message}), 400
+            else:
+                flash(error_message, "error")
+                return redirect(url_for('schedule_edit', schedule_id=schedule_id))
         
         # Use the fixed configuration
         data.update(fixed_config)
@@ -425,16 +445,27 @@ def handle_schedule_edit_submission(data, schedule_id, tank_id):
         
         db.session.commit()
         
-        return jsonify({
-            "success": True, 
-            "message": "Dosing schedule updated successfully",
-            "schedule_id": schedule.id,
-            "auto_fixed": len(fixed_config) > len(schedule_config)  # Indicate if auto-fixes were applied
-        })
+        # Success response
+        if is_json_request:
+            return jsonify({
+                "success": True, 
+                "message": "Dosing schedule updated successfully",
+                "schedule_id": schedule.id,
+                "auto_fixed": len(fixed_config) > len(schedule_config)  # Indicate if auto-fixes were applied
+            })
+        else:
+            # Traditional form submission - flash message and redirect
+            flash("Dosing schedule updated successfully!", "success")
+            return redirect(url_for('doser_main'))
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({"success": False, "error": str(e)}), 500
+        error_message = str(e)
+        if is_json_request:
+            return jsonify({"success": False, "error": error_message}), 500
+        else:
+            flash(f"Error updating schedule: {error_message}", "error")
+            return redirect(url_for('schedule_edit', schedule_id=schedule_id))
 
 def handle_schedule_submission(data, tank_id):
     """Handle the submission of a new dosing schedule with enhanced validation"""
@@ -846,11 +877,38 @@ def doser_audit():
         "dose_events": "/api/v1/audit/dose-events",
         "dose_events_recent": "/api/v1/audit/dose-events/recent",
         "schedule_changes": "/api/v1/audit/schedule-changes",
-        "stats": "/web/fn/schedule/get/stats"
+        "stats": "/web/fn/schedule/get/stats",
+        "calendar_monthly": "/api/v1/audit-calendar/calendar/monthly-summary",
+        "calendar_day_details": "/api/v1/audit-calendar/calendar/day-details"
     }
     
     return render_template("doser/audit_log.html", 
                          tank_id=tank_id, api_urls=api_urls)
+
+
+@app.route("/doser/audit/calendar")
+def doser_audit_calendar():
+    """Calendar-based audit log interface for visual dose tracking"""
+    tank_id = ensure_tank_context()
+    if not tank_id:
+        flash("No tank selected.", "warning")
+        return redirect(url_for('index'))
+    
+    # API URLs for the calendar audit dashboard
+    api_urls = {
+        "calendar_monthly": "/api/v1/audit-calendar/calendar/monthly-summary",
+        "calendar_day_details": "/api/v1/audit-calendar/calendar/day-details",
+        "calendar_date_range": "/api/v1/audit-calendar/calendar/date-range-summary",
+        "dose_events": "/api/v1/audit/dose-events",
+        "stats": "/web/fn/schedule/get/stats"
+    }
+    
+    return render_template("doser/audit_calendar.html", 
+                         tank_id=tank_id, api_urls=api_urls)
+
+
+# Removed separate calendar day route - functionality moved to modal in audit_calendar.html
+# Use the enhanced modal in /doser/audit/calendar instead
 
 
 @app.route("/doser/schedule/view")
