@@ -71,23 +71,6 @@
     </div>
   </div>
   
-  <!-- Upcoming Doses Section -->
-  <div class="upcoming-doses-modern">
-    <div class="section-card">
-      <div class="section-header">
-        <h5>📅 Next 3 Scheduled Doses</h5>
-      </div>
-      <div class="section-body" id="upcoming-doses-container">
-        <div class="text-center p-3">
-          <output class="spinner-border spinner-border-sm text-primary" aria-live="polite">
-            <span class="visually-hidden">Loading upcoming doses...</span>
-          </output>
-          <div class="mt-2 text-muted">Loading upcoming doses...</div>
-        </div>
-      </div>
-    </div>
-  </div>
-  
   <!-- Dosing Schedule Cards Container -->
   <div class="dosing-cards-modern">
     <div class="row" id="dosing-cards-container">
@@ -157,24 +140,20 @@ document.addEventListener('DOMContentLoaded', function() {
   console.log('Doser main script started');
   try {
     const apiUrls = {{ api_urls | tojson }};
-    const tankId = {{ tank_id | tojson }};
+    const systemId = {{ system_id | tojson }};
     console.log('Variables loaded successfully');
     console.log('API URLs:', apiUrls);
-    console.log('Tank ID:', tankId);
+    console.log('System ID:', systemId);
     
     let dosingData = [];
   
   // Load the dashboard on page load
   loadDosingDashboard();
   
-  // Load upcoming doses independently (don't wait for dashboard to load)
-  loadUpcomingDoses();
-  
   // Implement automatic refresh every 2 minutes (120,000 ms)
   setInterval(function() {
     console.log('Auto-refreshing dashboard...');
     loadDosingDashboard();
-    loadUpcomingDoses();
   }, 120000); // 2 minutes
 
   // Manual dosing controls removed for fully automated operation
@@ -589,9 +568,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     fill="url(#${liquidGradient})" 
                     clip-path="url(#bottleClip-${scheduleId})"
                     class="liquid-fill">
-                <animate attributeName="y" 
-                         values="${25 + (75 * (100 - liquidLevel) / 100) + 2};${25 + (75 * (100 - liquidLevel) / 100)};${25 + (75 * (100 - liquidLevel) / 100) + 2}" 
-                         dur="3s" repeatCount="indefinite"/>
               </rect>
               
               <!-- Bottle cap -->
@@ -663,9 +639,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 })()}
               </g>
             </svg>
-            
-            <!-- Level percentage overlay -->
-            <div class="level-percentage">${Math.round(percentRemaining)}%</div>
           </div>
           
           <!-- Schedule Info -->
@@ -675,6 +648,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <span class="current-volume">${currentAvail}ml</span>
                 <span class="volume-separator">/</span>
                 <span class="total-volume">${totalVolume}ml</span>
+                <span class="percentage-info">(${Math.round(percentRemaining)}%)</span>
               </div>
               <div class="doses-info">~${Math.round(dosesRemaining)} doses remaining</div>
             </div>
@@ -690,24 +664,33 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
           </div>
           
-          <!-- Card Actions -->
+          <!-- Enhanced Card Actions -->
           <div class="card-actions">
-            <div class="schedule-toggle">
-              <label class="modern-toggle">
-                <input type="checkbox" ${suspended ? '' : 'checked'} onchange="toggleSchedule(${scheduleId}, this)">
-                <span class="toggle-slider">
-                  <span class="toggle-button"></span>
-                </span>
-              </label>
-              <span class="toggle-label">${suspended ? 'Disabled' : 'Enabled'}</span>
+            <div class="action-row single-row-actions">
+              <div class="schedule-toggle">
+                <label class="modern-toggle">
+                  <input type="checkbox" ${suspended ? '' : 'checked'} onchange="toggleSchedule(${scheduleId}, this)">
+                  <span class="toggle-slider">
+                    <span class="toggle-button"></span>
+                  </span>
+                </label>
+                <span class="toggle-label">${suspended ? 'Disabled' : 'Enabled'}</span>
+              </div>
+              
+              <button class="btn-modern btn-outline-modern refill-btn-enhanced" onclick="refillProduct(${productId}, '${productName}')">
+                <svg class="refill-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C13.1 2 14 2.9 14 4V8L19 13V20C19 21.1 18.1 22 17 22H7C5.9 22 5 21.1 5 20V13L10 8V4C10 2.9 10.9 2 12 2M12 4V8.5L8 12.5V20H16V12.5L12 8.5V4Z"/>
+                </svg>
+                <span class="refill-text">Refill</span>
+              </button>
+              
+              <button class="btn-modern btn-outline-modern edit-schedule-btn" onclick="window.location.href='/doser/schedule/edit/${scheduleId}'">
+                <svg class="edit-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+                Edit
+              </button>
             </div>
-            
-            <button class="btn-modern btn-secondary-modern refill-btn" onclick="refillProduct(${productId}, '${productName}')">
-              <svg class="refill-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C13.1 2 14 2.9 14 4V8L19 13V20C19 21.1 18.1 22 17 22H7C5.9 22 5 21.1 5 20V13L10 8V4C10 2.9 10.9 2 12 2M12 4V8.5L8 12.5V20H16V12.5L12 8.5V4Z"/>
-              </svg>
-              Refill
-            </button>
           </div>
         </div>
       </div>
@@ -759,8 +742,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   };
   
-  // Manual dosing function removed for fully automated operation
-  
   window.refillProduct = function(productId, productName) {
     if (!confirm(`Refill ${productName} to maximum capacity?`)) {
       return;
@@ -790,119 +771,6 @@ document.addEventListener('DOMContentLoaded', function() {
       showNotification('❌ Network error during refill', 'error');
     });
   };
-  
-  function loadUpcomingDoses() {
-    const container = document.getElementById('upcoming-doses-container');
-    
-    if (!container) {
-      console.error('Upcoming doses container not found');
-      return;
-    }
-    
-    // Show loading state
-    container.innerHTML = `
-      <div class="text-center p-3">
-        <div class="spinner-border spinner-border-sm text-primary" role="status">
-          <span class="visually-hidden">Loading upcoming doses...</span>
-        </div>
-        <div class="mt-2 text-muted">Loading upcoming doses...</div>
-      </div>
-    `;
-
-    // Create fresh URL to bypass caching
-    const timestamp = new Date().getTime();
-    const nextDosesUrl = apiUrls.next_doses + '?_=' + timestamp + '&bust=' + Math.random();
-
-    fetch(nextDosesUrl, {
-      method: 'GET',
-      cache: 'no-store',
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Network response was not ok: ' + response.status);
-      }
-      return response.json();
-    })
-    .then(data => {
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to load upcoming doses');
-      }
-      
-      const upcomingDoses = data.data || [];
-      displayUpcomingDoses(upcomingDoses);
-      
-    })
-    .catch(error => {
-      console.error('Error loading upcoming doses:', error);
-      container.innerHTML = `
-        <div class="text-center text-danger p-3">
-          <i class="fas fa-exclamation-triangle mb-2"></i>
-          <div>Error loading upcoming doses</div>
-          <small>${error.message}</small>
-        </div>
-      `;
-    });
-  }
-  
-  function displayUpcomingDoses(doses) {
-    const container = document.getElementById('upcoming-doses-container');
-    
-    if (doses.length === 0) {
-      container.innerHTML = `
-        <div class="text-center text-muted p-3">
-          <i class="fas fa-info-circle mb-2"></i>
-          <div>No upcoming doses scheduled</div>
-        </div>
-      `;
-      return;
-    }
-    
-    // Simple text-based display of next 3 doses
-    let dosesHtml = '<div class="upcoming-doses-simple">';
-    dosesHtml += '<h6 class="text-center mb-3"><i class="fas fa-clock"></i> Next 3 Doses</h6>';
-    
-    const displayCount = Math.min(3, doses.length);
-    for (let i = 0; i < displayCount; i++) {
-      const dose = doses[i];
-      const nextDoseDate = new Date(dose.next_dose_time);
-      const now = new Date();
-      const timeDiff = nextDoseDate - now;
-      
-      // Format time until dose
-      let timeText = '';
-      if (timeDiff > 0) {
-        const diffMinutes = Math.floor(timeDiff / (1000 * 60));
-        const diffHours = Math.floor(diffMinutes / 60);
-        const diffDays = Math.floor(diffHours / 24);
-        
-        if (diffDays > 0) {
-          timeText = `in ${diffDays}d ${diffHours % 24}h`;
-        } else if (diffHours > 0) {
-          timeText = `in ${diffHours}h ${diffMinutes % 60}m`;
-        } else {
-          timeText = `in ${diffMinutes}m`;
-        }
-      } else {
-        timeText = 'Due now';
-      }
-      
-      const timeOnly = nextDoseDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-      
-      dosesHtml += `
-        <div class="dose-line ${i === 0 ? 'fw-bold' : ''}">
-          ${i + 1}. ${dose.product_name} - ${dose.amount}ml ${timeText} (${timeOnly})
-        </div>
-      `;
-    }
-    
-    dosesHtml += '</div>';
-    container.innerHTML = dosesHtml;
-  }
   
   function showNotification(message, type) {
     // Create notification element

@@ -1,135 +1,188 @@
-from datetime import timedelta, time
-import urllib.parse
+import logging
 import json
+import urllib.parse
+from datetime import timedelta, time
+from typing import Optional
 from flask import jsonify, render_template, request, redirect, url_for, session, flash
-from app import app
-from modules.models import *  # Import your models
-from modules.utils.helper import *
-from modules.tank_context import get_current_tank_id, ensure_tank_context
+from flask_wtf import FlaskForm
+from wtforms import StringField, IntegerField, SubmitField
+from wtforms.validators import DataRequired
+
+from app import app, db
+from modules.models import (
+    Products, Tank, Doser, Dosing, 
+    TestResults,
+    DSchedule, ScheduleTypeEnum, MissedDoseHandlingEnum
+)
+from modules.utils.helper import (
+    get_table_columns, generate_columns, validate_and_process_data
+)
+from modules.system_context import (
+    get_current_system_id, get_current_system_tank_ids, 
+    get_current_system_tanks, ensure_system_context
+)
 from modules.forms import CombinedDosingScheduleForm
 from modules.timezone_utils import (
     format_time_for_display, format_time_for_html_input, 
     normalize_time_input, datetime_to_iso_format,
     parse_trigger_time_from_db
 )
-# import db
-import enum
-from flask_wtf import FlaskForm
-from wtforms import StringField, IntegerField, SubmitField
-from wtforms.validators import DataRequired
+from datetime import datetime
+
+# Constants for error messages and API endpoints
+ERROR_NO_SYSTEM = "No system selected."
+ERROR_NO_TANKS = "No tanks in selected system."
+API_SCHEDULE_STATS = "/web/fn/schedule/get/stats"
+API_NEXT_DOSES = "/web/fn/schedule/get/next-doses"
+API_DOSE = "/api/v1/controller/dose"
+API_REFILL = "/api/v1/controller/refill"
+API_TOGGLE = "/api/v1/controller/toggle/schedule"
+API_DELETE_SCHEDULE = "/web/fn/ops/delete/d_schedule"
+
+logger = logging.getLogger(__name__)
 
 
 @app.route("/doser")
 def doser_main():
-    """Enhanced dosing dashboard with schedule cards and control buttons"""
-    tank_id = ensure_tank_context()
-    if not tank_id:
-        flash("No tank selected.", "warning")
+    """Enhanced dosing dashboard with schedule cards and control buttons."""
+    system_id = ensure_system_context()
+    if not system_id:
+        flash(ERROR_NO_SYSTEM, "warning")
+        return redirect(url_for('index'))
+    
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        flash(ERROR_NO_TANKS, "warning")
         return redirect(url_for('index'))
     
     # API URLs for the enhanced dashboard
     api_urls = {
-        "stats": "/web/fn/schedule/get/stats",
-        "next_doses": "/web/fn/schedule/get/next-doses",
-        "dose": "/api/v1/controller/dose",
-        "refill": "/api/v1/controller/refill", 
-        "toggle": "/api/v1/controller/toggle/schedule",
-        "delete": "/web/fn/ops/delete/d_schedule"
+        "stats": API_SCHEDULE_STATS,
+        "next_doses": API_NEXT_DOSES,
+        "dose": API_DOSE,
+        "refill": API_REFILL, 
+        "toggle": API_TOGGLE,
+        "delete": API_DELETE_SCHEDULE
     }
     
     return render_template("doser/main.html", 
-                         tank_id=tank_id, api_urls=api_urls)
+                         system_id=system_id, tank_ids=tank_ids, api_urls=api_urls)
 
 
 @app.route("/doser/db", methods=['GET'])
 def db_doser():
-    """Display dosing database with schedule and dosing history join"""
-    from sqlalchemy import text
+    """Display dosing database with schedule and dosing history join."""
+    system_id = ensure_system_context()
+    if not system_id:
+        flash(ERROR_NO_SYSTEM, "warning")
+        return redirect(url_for('index'))
     
-    tank_id = ensure_tank_context()
-    if not tank_id:
-        flash("No tank selected.", "warning")
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        flash(ERROR_NO_TANKS, "warning")
         return redirect(url_for('index'))
     
     try:
-        # Enhanced SQL query to include product information
-        sql = """
-            SELECT 
-                dosing.id,
-                dosing.trigger_time,
-                dosing.amount,
-                dosing.product_id,
-                dosing.schedule_id,
-                d_schedule.id AS schedule_id_check,
-                d_schedule.trigger_interval,
-                d_schedule.suspended,
-                d_schedule.amount AS scheduled_amount,
-                products.name AS product_name,
-                products.uses AS product_uses
-            FROM dosing
-            JOIN d_schedule ON dosing.schedule_id = d_schedule.id
-            LEFT JOIN products ON dosing.product_id = products.id
-            WHERE d_schedule.tank_id = :tank_id
-            ORDER BY dosing.trigger_time DESC;
-        """
+        rows = _fetch_dosing_history(tank_ids)
+        columns = _generate_dosing_columns(rows)
+        tables = _create_dosing_tables(rows, columns, system_id)
         
-        result = db.session.execute(text(sql), {'tank_id': tank_id}).mappings()
-        rows = []
-        
-        for row in result:
-            row_dict = dict(row)
-            # Convert datetime fields to string
-            for k, v in row_dict.items():
-                if isinstance(v, timedelta):
-                    row_dict[k] = str(v)
-                elif k == "trigger_time" and v:
-                    row_dict[k] = datetime_to_iso_format(v) if hasattr(v, 'strftime') else str(v)
-                # Convert boolean/int fields to "Yes"/"No" for booleans (including 0/1)
-                elif k == "suspended":
-                    row_dict[k] = "Yes" if bool(v) else "No"
-            rows.append(row_dict)
-
-        # Generate columns from the first row if available, otherwise use defaults
-        if rows:
-            columns = generate_columns(rows[0].keys())
-        else:
-            # Default columns if no data
-            default_cols = ['id', 'trigger_time', 'amount', 'product_name', 'suspended']
-            columns = generate_columns(default_cols)
-
-        tables = [
-            {
-                "id": "dosing_history_table",
-                "api_url": None,
-                "title": f"Dosing History for Tank {tank_id}",
-                "columns": columns,
-                "initial_data": rows,
-                "datatable_options": {
-                    "dom": "Bfrtip",
-                    "buttons": [
-                        {"text": "Edit", "action": "edit"},
-                        {"text": "Delete", "action": "delete"}
-                    ],
-                    "serverSide": False,
-                    "processing": False,
-                    "order": [[1, "desc"]],  # Sort by trigger_time descending
-                },
-            }
-        ]
-
-        return render_template('doser/dosing_db.html', tables=tables)
+        return render_template("doser/database.html", tables=tables)
         
     except Exception as e:
-        flash(f"Database error: {str(e)}", "error")
+        flash(f"Error loading dosing data: {str(e)}", "error")
         return redirect(url_for('doser_main'))
 
+# ==============================================================================
+# HELPER FUNCTIONS - Dosing Database Processing
+# ==============================================================================
+
+def _fetch_dosing_history(tank_ids):
+    """Fetch dosing history data for given tank IDs."""
+    from sqlalchemy import text
+    
+    sql = """
+        SELECT 
+            dosing.id,
+            dosing.trigger_time,
+            dosing.amount,
+            dosing.product_id,
+            dosing.schedule_id,
+            d_schedule.id AS schedule_id_check,
+            d_schedule.trigger_interval,
+            d_schedule.suspended,
+            d_schedule.amount AS scheduled_amount,
+            d_schedule.tank_id,
+            products.name AS product_name,
+            products.uses AS product_uses
+        FROM dosing
+        JOIN d_schedule ON dosing.schedule_id = d_schedule.id
+        LEFT JOIN products ON dosing.product_id = products.id
+        WHERE d_schedule.tank_id IN :tank_ids
+        ORDER BY dosing.trigger_time DESC;
+    """
+    
+    result = db.session.execute(text(sql), {'tank_ids': tuple(tank_ids)}).mappings()
+    rows = []
+    
+    for row in result:
+        row_dict = dict(row)
+        _format_dosing_row_data(row_dict)
+        rows.append(row_dict)
+    
+    return rows
+
+def _format_dosing_row_data(row_dict):
+    """Format individual row data for display."""
+    for k, v in row_dict.items():
+        if isinstance(v, timedelta):
+            row_dict[k] = str(v)
+        elif k == "trigger_time" and v:
+            row_dict[k] = datetime_to_iso_format(v) if hasattr(v, 'strftime') else str(v)
+        elif k == "suspended":
+            row_dict[k] = "Yes" if bool(v) else "No"
+
+def _generate_dosing_columns(rows):
+    """Generate columns for dosing history table."""
+    if rows:
+        return generate_columns(rows[0].keys())
+    else:
+        # Default columns if no data
+        default_cols = ['id', 'trigger_time', 'amount', 'product_name', 'suspended']
+        return generate_columns(default_cols)
+
+def _create_dosing_tables(rows, columns, system_id):
+    """Create table configuration for dosing history."""
+    return [
+        {
+            "id": "dosing_history_table",
+            "api_url": None,
+            "title": f"Dosing History for System {system_id}",
+            "columns": columns,
+            "initial_data": rows,
+            "datatable_options": {
+                "dom": "Bfrtip",
+                "buttons": [
+                    {"text": "Edit", "action": "edit"},
+                    {"text": "Delete", "action": "delete"}
+                ],
+                "serverSide": False,
+                "processing": False,
+                "order": [[1, "desc"]],  # Sort by trigger_time descending
+            },
+        }
+    ]
+
+# ==============================================================================
+# MAIN DOSING ROUTES
+# ==============================================================================
 
 @app.route("/doser/db/test/<int:tank_id>", methods=['GET'])
 def test_db_doser(tank_id):
     """Test endpoint to set tank_id and view dosing database for testing purposes"""
-    from modules.tank_context import set_tank_id_for_testing
+    from modules.system_context import set_tank_id_for_testing
     
-    # Set the tank_id for testing
+    # Set the tank_id for testing (backward compatibility function)
     set_tank_id_for_testing(tank_id)
     
     # Call the regular db_doser function
@@ -146,9 +199,14 @@ def run_schedule():
 @app.route("/doser/schedule/new", methods=["GET", "POST"])
 def schedule_new():
     """Enhanced dosing schedule page with granular time controls"""
-    tank_id = ensure_tank_context()
-    if not tank_id:
-        flash("No tank selected. Please select a tank before creating dosing schedules.", "warning")
+    system_id = ensure_system_context()
+    if not system_id:
+        flash("No system selected. Please select a system before creating dosing schedules.", "warning")
+        return redirect(url_for('index'))
+    
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        flash("No tanks in selected system.", "warning")
         return redirect(url_for('index'))
     
     if request.method == "POST":
@@ -165,15 +223,16 @@ def schedule_new():
         except Exception as e:
             return jsonify({"success": False, "error": f"Error parsing request data: {str(e)}"}), 400
         
-        return handle_schedule_submission(data, tank_id)
+        # Use the first tank in the system for backward compatibility
+        return handle_schedule_submission(data, tank_ids[0])
     
     # GET request - show the form
     # Fetch available products for the dropdown
     products = Products.query.all()
     products_list = [{"id": p.id, "name": p.name, "current_avail": p.current_avail} for p in products]
     
-    # Fetch available dosers for the current tank
-    dosers = Doser.query.filter_by(tank_id=tank_id, is_active=True).all()
+    # Fetch available dosers for the current system (all tanks)
+    dosers = Doser.query.filter(Doser.tank_id.in_(tank_ids), Doser.is_active == True).all()
     dosers_list = [{
         "id": d.id, 
         "doser_name": d.doser_name, 
@@ -181,8 +240,8 @@ def schedule_new():
         "max_daily_volume": d.max_daily_volume
     } for d in dosers]
     
-    # Fetch existing schedules for the current tank
-    existing_schedules = DSchedule.query.filter_by(tank_id=tank_id).all()
+    # Fetch existing schedules for the current system (all tanks)
+    existing_schedules = DSchedule.query.filter(DSchedule.tank_id.in_(tank_ids)).all()
     schedules_data = []
     for schedule in existing_schedules:
         schedules_data.append({
@@ -194,6 +253,14 @@ def schedule_new():
             "last_refill": datetime_to_iso_format(schedule.last_refill) if schedule.last_refill else None
         })
     
+    # Get system name for display
+    from modules.models import TankSystem
+    system = TankSystem.query.get(system_id)
+    system_name = system.name if system else f"System {system_id}"
+    
+    # Get tanks for display mapping
+    tanks_by_id = {tank.id: tank for tank in get_current_system_tanks()}
+    
     # Stats API URLs for the integrated cards
     stats_api_urls = {
         "GET": "/web/fn/schedule/get/stats",
@@ -203,7 +270,10 @@ def schedule_new():
     return render_template(
         "doser/schedule_new.html",
         title="Dosing Schedule Manager",
-        tank_id=tank_id,
+        system_id=system_id,
+        system_name=system_name,
+        tank_ids=tank_ids,
+        tanks_by_id=tanks_by_id,
         products=products_list,
         dosers=dosers_list,
         existing_schedules=schedules_data,
@@ -213,13 +283,21 @@ def schedule_new():
 @app.route("/doser/schedule/edit/<int:schedule_id>", methods=["GET", "POST"])
 def schedule_edit(schedule_id):
     """Edit existing dosing schedule with the same granular controls as new schedule page"""
-    tank_id = ensure_tank_context()
-    if not tank_id:
-        flash("No tank selected. Please select a tank before editing dosing schedules.", "warning")
+    system_id = ensure_system_context()
+    if not system_id:
+        flash("No system selected. Please select a system before editing dosing schedules.", "warning")
+        return redirect(url_for('index'))
+    
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        flash("No tanks in selected system.", "warning")
         return redirect(url_for('index'))
     
     # Get the schedule to edit
-    schedule = DSchedule.query.filter_by(id=schedule_id, tank_id=tank_id).first()
+    schedule = DSchedule.query.filter(
+        DSchedule.id == schedule_id,
+        DSchedule.tank_id.in_(tank_ids)
+    ).first()
     if not schedule:
         flash("Schedule not found or access denied.", "error")
         return redirect(url_for('schedule_new'))
@@ -245,18 +323,21 @@ def schedule_edit(schedule_id):
         except Exception as e:
             return jsonify({"success": False, "error": f"Error parsing request data: {str(e)}"}), 400
         
-        return handle_schedule_edit_submission(data, schedule_id, tank_id)
+        return handle_schedule_edit_submission(data, schedule_id, tank_ids[0])
     
     # GET request - show the form with pre-populated data
     # Fetch available products for the dropdown
     products = Products.query.all()
     products_list = [{"id": p.id, "name": p.name, "current_avail": p.current_avail} for p in products]
     
-    # Fetch active dosers for the current tank
-    dosers = Doser.query.filter_by(tank_id=tank_id, is_active=True).all()
+    # Fetch active dosers for the current system tanks
+    dosers = Doser.query.filter(Doser.tank_id.in_(tank_ids), Doser.is_active == True).all()
     
-    # Fetch existing schedules for the current tank (excluding current one)
-    existing_schedules = DSchedule.query.filter(DSchedule.tank_id == tank_id, DSchedule.id != schedule_id).all()
+    # Fetch existing schedules for the current system tanks (excluding current one)
+    existing_schedules = DSchedule.query.filter(
+        DSchedule.tank_id.in_(tank_ids), 
+        DSchedule.id != schedule_id
+    ).all()
     schedules_data = []
     for s in existing_schedules:
         schedules_data.append({
@@ -306,6 +387,7 @@ def schedule_edit(schedule_id):
         "last_refill": datetime_to_iso_format(schedule.last_refill) if schedule.last_refill else None,
         "start_time": format_time_for_html_input(schedule.trigger_time) if schedule.trigger_time else None,
         "offset_minutes": schedule.offset_minutes,
+        "hour_offset": schedule.offset_minutes if schedule.offset_minutes is not None else 0,  # Convenience field for form
         "doser_id": schedule.doser_id,
         "doser_name": schedule.doser_name,
         "repeat_every_n_days": schedule.repeat_every_n_days,
@@ -321,10 +403,15 @@ def schedule_edit(schedule_id):
         "DELETE": "/web/fn/ops/delete/d_schedule"
     }
     
+    # Get tanks for display mapping
+    tanks_by_id = {tank.id: tank for tank in get_current_system_tanks()}
+    
     return render_template(
         "doser/schedule_edit.html",
         title="Edit Dosing Schedule",
-        tank_id=tank_id,
+        system_id=system_id,
+        tank_ids=tank_ids,
+        tanks_by_id=tanks_by_id,
         products=products_list,
         dosers=dosers,
         existing_schedules=schedules_data,
@@ -336,12 +423,22 @@ def handle_schedule_edit_submission(data, schedule_id, tank_id):
     """Handle the submission of schedule edit with enhanced validation"""
     try:
         # Enhanced debugging for the "Invalid schedule configuration" error
-        print(f"DEBUG: handle_schedule_edit_submission called")
-        print(f"  schedule_id: {schedule_id}")
-        print(f"  tank_id: {tank_id}")
-        print(f"  data: {data}")
-        print(f"  data keys: {list(data.keys())}")
-        print(f"  data types: {[(k, type(v)) for k, v in data.items()]}")
+        print("DEBUG: handle_schedule_edit_submission called")
+        print("  schedule_id:", schedule_id)
+        print("  tank_id:", tank_id)
+        print("  data:", data)
+        print("  data keys:", list(data.keys()))
+        print("  data types:", [(k, type(v)) for k, v in data.items()])
+        
+        # CRITICAL DEBUG: Check all form fields that should be present
+        start_time_value = data.get('start_time')
+        interval_value = data.get('interval_value')
+        interval_unit = data.get('interval_unit')
+        print("  CRITICAL ANALYSIS:")
+        print("    start_time =", start_time_value, "(type:", type(start_time_value), ")")
+        print("    interval_value =", interval_value, "(type:", type(interval_value), ")")
+        print("    interval_unit =", interval_unit, "(type:", type(interval_unit), ")")
+        print("  BUG ANALYSIS: _calculate_interval_schedule needs interval_value and interval_unit, but we got:")
         
         # Determine response format based on request type
         is_json_request = request.is_json or request.headers.get('Content-Type') == 'application/json'
@@ -349,31 +446,65 @@ def handle_schedule_edit_submission(data, schedule_id, tank_id):
         # Get the existing schedule
         schedule = DSchedule.query.filter_by(id=schedule_id, tank_id=tank_id).first()
         if not schedule:
-            print(f"DEBUG: Schedule not found - id={schedule_id}, tank_id={tank_id}")
+            print("DEBUG: Schedule not found - id=", schedule_id, ", tank_id=", tank_id)
             if is_json_request:
                 return jsonify({"success": False, "error": "Schedule not found"}), 404
             else:
                 flash("Schedule not found", "error")
                 return redirect(url_for('doser_main'))
         
-        print(f"DEBUG: Found existing schedule: {schedule.id}")
+        print("DEBUG: Found existing schedule:", schedule.id)
         
         # Basic validation
         validation_result = _validate_schedule_data(data)
         if not validation_result['valid']:
-            print(f"DEBUG: Basic validation failed: {validation_result}")
+            print("DEBUG: Basic validation failed:", validation_result)
             if is_json_request:
                 return jsonify({"success": False, "error": validation_result['error']}), 400
             else:
                 flash(f"Validation error: {validation_result['error']}", "error")
                 return redirect(url_for('schedule_edit', schedule_id=schedule_id))
         
-        print(f"DEBUG: Basic validation passed")
+        print("DEBUG: Basic validation passed")
         
-        # CRITICAL: Calculate trigger_interval BEFORE validation
+        # CRITICAL FIX: If interval_value/interval_unit are missing for interval schedule,
+        # reconstruct them from the existing schedule's trigger_interval BEFORE calculating
         schedule_type = data.get('schedule_type')
-        print(f"DEBUG: About to calculate trigger_interval with schedule_type={schedule_type}")
+        print(f"DEBUG: CONDITION CHECK - schedule_type={schedule_type}, interval_value={data.get('interval_value')}")
+        print(f"DEBUG: CONDITION PARTS - (schedule_type == 'interval')={schedule_type == 'interval'}, (not data.get('interval_value'))={not data.get('interval_value')}")
         
+        if schedule_type == 'interval' and not data.get('interval_value'):
+            print(f"DEBUG: CONDITION MET - entering reconstruction logic")
+            existing_trigger_interval = schedule.trigger_interval
+            print(f"DEBUG: existing_trigger_interval from schedule = {existing_trigger_interval}")
+            
+            if existing_trigger_interval:
+                print(f"DEBUG: CRITICAL FIX APPLIED - reconstructing interval fields from existing trigger_interval={existing_trigger_interval}")
+                
+                # Convert seconds to appropriate unit and value (same logic as in GET route)
+                seconds = existing_trigger_interval
+                if seconds % 86400 == 0:
+                    data['interval_value'] = str(seconds // 86400)
+                    data['interval_unit'] = 'days'
+                elif seconds % 3600 == 0:
+                    data['interval_value'] = str(seconds // 3600)
+                    data['interval_unit'] = 'hours'
+                elif seconds % 60 == 0:
+                    data['interval_value'] = str(seconds // 60)
+                    data['interval_unit'] = 'minutes'
+                else:
+                    # Default to hours with decimal (round to nearest)
+                    data['interval_value'] = str(round(seconds / 3600))
+                    data['interval_unit'] = 'hours'
+                
+                print(f"DEBUG: RECONSTRUCTED interval_value={data['interval_value']}, interval_unit={data['interval_unit']}")
+            else:
+                print(f"DEBUG: RECONSTRUCTION FAILED - existing_trigger_interval is None or 0")
+        else:
+            print(f"DEBUG: CONDITION NOT MET - skipping reconstruction logic")
+        
+        # CRITICAL: Calculate trigger_interval AFTER fixing missing fields
+        print(f"DEBUG: About to calculate trigger_interval with schedule_type={schedule_type}")
         trigger_interval = calculate_trigger_interval(data, schedule_type)
         print(f"DEBUG: calculate_trigger_interval returned: {trigger_interval}")
         
@@ -438,12 +569,28 @@ def handle_schedule_edit_submission(data, schedule_id, tank_id):
         # Extract and process data
         schedule_data = _process_schedule_data(data, tank_id)
         
+        # CRITICAL DEBUG: Check what's in schedule_data
+        print(f"DEBUG: schedule_data keys: {list(schedule_data.keys())}")
+        print(f"DEBUG: schedule_data: {schedule_data}")
+        print(f"DEBUG: offset_minutes in schedule_data: {'offset_minutes' in schedule_data}")
+        if 'offset_minutes' in schedule_data:
+            print(f"DEBUG: offset_minutes value: {schedule_data['offset_minutes']}")
+        
         # Update existing schedule
         for key, value in schedule_data.items():
             if key != 'tank_id':  # Don't update tank_id
+                print(f"DEBUG: Setting {key} = {value}")
                 setattr(schedule, key, value)
         
         db.session.commit()
+        
+        # CRITICAL: Immediately refresh the enhanced scheduler queue to pick up changes
+        try:
+            from modules.enhanced_dosing_scheduler import refresh_scheduler_queue
+            refresh_success = refresh_scheduler_queue()
+            logger.info(f"Enhanced scheduler queue refresh after edit: {'successful' if refresh_success else 'failed'}")
+        except Exception as refresh_error:
+            logger.warning(f"Failed to refresh enhanced scheduler queue after edit: {refresh_error}")
         
         # Success response
         if is_json_request:
@@ -530,6 +677,14 @@ def handle_schedule_submission(data, tank_id):
         db.session.add(new_schedule)
         db.session.commit()
         
+        # CRITICAL: Immediately refresh the enhanced scheduler queue to pick up new schedule
+        try:
+            from modules.enhanced_dosing_scheduler import refresh_scheduler_queue
+            refresh_success = refresh_scheduler_queue()
+            logger.info(f"Enhanced scheduler queue refresh after creation: {'successful' if refresh_success else 'failed'}")
+        except Exception as refresh_error:
+            logger.warning(f"Failed to refresh enhanced scheduler queue after creation: {refresh_error}")
+        
         return jsonify({
             "success": True, 
             "message": "Dosing schedule created successfully",
@@ -558,8 +713,8 @@ def _validate_schedule_data(data):
 
 def _process_schedule_data(data, tank_id):
     """Process and normalize schedule data"""
-    # Basic fields
-    product_id = data.get('product_id')
+    # Basic fields with proper type conversion
+    product_id = int(data.get('product_id')) if data.get('product_id') else None
     amount = float(data.get('amount', 0))
     schedule_type = data.get('schedule_type')
     suspended = data.get('suspended', False)
@@ -570,7 +725,7 @@ def _process_schedule_data(data, tank_id):
         raise ValueError(f"Invalid interval configuration: {data.get('interval_value')} {data.get('interval_unit')}")
     
     # Process enhanced scheduling fields
-    doser_data = _process_doser_data(data)
+    doser_data = _process_doser_data(data, trigger_interval)
     
     # Force missed dose handling to alert_only (simplified system)
     missed_dose_data = {
@@ -597,14 +752,71 @@ def _process_schedule_data(data, tank_id):
         **missed_dose_data
     }
 
-def _process_doser_data(data):
-    """Process doser-related fields"""
+def _process_doser_data(data, trigger_interval=None):
+    """Process doser-related fields with enhanced hourly offset support"""
+    print(f"DEBUG _process_doser_data: ENTRY POINT - VERSION WITH HOUR_OFFSET SUPPORT")
+    print(f"DEBUG _process_doser_data: trigger_interval parameter = {trigger_interval}")
+    
+    # CRITICAL DEBUG: Log the start_time processing
+    start_time_input = (data.get('start_time') or '').strip()
+    print(f"DEBUG _process_doser_data: start_time input = '{start_time_input}'")
+    
     doser_id = _validate_doser_id(data.get('doser_id'))
     doser_name = (data.get('doser_name') or '').strip()
     days_of_week = (data.get('days_of_week') or '').strip()
     repeat_every_n_days = _validate_repeat_days(data.get('repeat_every_n_days'))
-    trigger_time = _validate_start_time((data.get('start_time') or '').strip())
+    
+    # Enhanced time handling - convert time to offset for hourly schedules
+    trigger_time = _validate_start_time(start_time_input)
     offset_minutes = _validate_offset_minutes(data.get('offset_minutes'))
+    
+    # NEW: Handle hour_offset input field (frontend convenience field)
+    try:
+        hour_offset = data.get('hour_offset')
+        print(f"DEBUG: hour_offset from form = {hour_offset} (type: {type(hour_offset)})")
+        print(f"DEBUG: existing offset_minutes = {offset_minutes}")
+        print(f"DEBUG: condition check: hour_offset is not None = {hour_offset is not None}, offset_minutes is None = {offset_minutes is None}")
+        
+        if hour_offset is not None and offset_minutes is None:
+            try:
+                offset_minutes = int(hour_offset)
+                print(f"DEBUG: Converted hour_offset {hour_offset} to int: {offset_minutes}")
+                if 0 <= offset_minutes <= 59:
+                    print(f"DEBUG: Using hour_offset {hour_offset} as offset_minutes")
+                else:
+                    print(f"DEBUG: hour_offset {offset_minutes} out of range (0-59), setting to None")
+                    offset_minutes = None
+            except (ValueError, TypeError) as e:
+                print(f"DEBUG: Error converting hour_offset {hour_offset}: {e}")
+                pass
+    except Exception as e:
+        print(f"CRITICAL ERROR in hour_offset processing: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # NEW: Convert trigger_time to offset_minutes for hourly schedules
+    schedule_type = data.get('schedule_type', 'interval')
+    
+    if schedule_type == 'interval' and trigger_interval and int(trigger_interval) == 3600:
+        # This is an hourly schedule - convert trigger_time to offset_minutes
+        if trigger_time and not offset_minutes:
+            try:
+                # Extract minute from trigger_time (e.g., "16:30:00" -> 30)
+                if isinstance(trigger_time, str):
+                    time_parts = trigger_time.split(':')
+                    if len(time_parts) >= 2:
+                        offset_minutes = int(time_parts[1])
+                        print(f"DEBUG: Converted trigger_time {trigger_time} to offset_minutes {offset_minutes}")
+                        # Clear trigger_time for hourly schedules
+                        trigger_time = None
+                elif hasattr(trigger_time, 'minute'):
+                    offset_minutes = trigger_time.minute
+                    print(f"DEBUG: Converted time object {trigger_time} to offset_minutes {offset_minutes}")
+                    trigger_time = None
+            except (ValueError, AttributeError) as e:
+                print(f"WARNING: Could not convert trigger_time to offset_minutes: {e}")
+    
+    print(f"DEBUG _process_doser_data: processed trigger_time = {trigger_time}, offset_minutes = {offset_minutes}")
     
     return {
         'doser_name': doser_name if doser_name else None,
@@ -673,9 +885,31 @@ def calculate_trigger_interval(data, schedule_type):
     return None
 
 def _calculate_interval_schedule(data):
-    """Calculate interval for direct interval input"""
+    """Calculate interval for direct interval input with enhanced fallback support"""
     interval_value = data.get('interval_value', 0)
     interval_unit = data.get('interval_unit', 'minutes')
+    
+    # NEW: Handle missing interval fields in edit forms
+    if not interval_value or interval_value == 0:
+        # Try to reconstruct from existing trigger_interval (edit mode)
+        existing_trigger_interval = data.get('trigger_interval')
+        if existing_trigger_interval:
+            try:
+                seconds = int(existing_trigger_interval)
+                # Convert back to interval_value and interval_unit
+                if seconds % 3600 == 0:  # Hours
+                    interval_value = seconds // 3600
+                    interval_unit = 'hours'
+                elif seconds % 60 == 0:  # Minutes  
+                    interval_value = seconds // 60
+                    interval_unit = 'minutes'
+                else:  # Days
+                    interval_value = seconds // 86400
+                    interval_unit = 'days'
+                print(f"DEBUG: Reconstructed interval_value={interval_value}, interval_unit={interval_unit}")
+            except (ValueError, TypeError) as e:
+                print(f"WARNING: Could not reconstruct interval from trigger_interval: {e}")
+                return None
     
     try:
         interval_value_int = int(interval_value)
@@ -760,9 +994,17 @@ def _clean_schedule_config_for_validation(data):
 
 @app.route("/doser/submit", methods=["POST"])
 def doser_submit():
-    tank_id = ensure_tank_context()
-    if not tank_id:
-        return jsonify({"success": False, "error": "No tank selected"}), 400
+    system_id = ensure_system_context()
+    if not system_id:
+        return jsonify({"success": False, "error": "No system selected"}), 400
+    
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        return jsonify({"success": False, "error": "No tanks in selected system"}), 400
+    
+    # Use the first tank for backward compatibility
+    tank_id = tank_ids[0]
+    
     data = request.get_json()
     form_type = data.get("form_type")
     if not form_type:
@@ -848,9 +1090,14 @@ def get_products():
 @app.route("/doser/history")
 def doser_history():
     """Display dosing history with latest dose events, amounts, times, and products"""
-    tank_id = ensure_tank_context()
-    if not tank_id:
-        flash("No tank selected.", "warning")
+    system_id = ensure_system_context()
+    if not system_id:
+        flash("No system selected.", "warning")
+        return redirect(url_for('index'))
+    
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        flash("No tanks in selected system.", "warning")
         return redirect(url_for('index'))
     
     # API URLs for the history dashboard
@@ -861,15 +1108,20 @@ def doser_history():
     }
     
     return render_template("doser/history.html", 
-                         tank_id=tank_id, api_urls=api_urls)
+                         system_id=system_id, tank_ids=tank_ids, api_urls=api_urls)
 
 
 @app.route("/doser/audit")
 def doser_audit():
     """Audit log dashboard for dose tracking and activity monitoring"""
-    tank_id = ensure_tank_context()
-    if not tank_id:
-        flash("No tank selected.", "warning")
+    system_id = ensure_system_context()
+    if not system_id:
+        flash("No system selected.", "warning")
+        return redirect(url_for('index'))
+    
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        flash("No tanks in selected system.", "warning")
         return redirect(url_for('index'))
     
     # API URLs for the audit dashboard
@@ -883,15 +1135,20 @@ def doser_audit():
     }
     
     return render_template("doser/audit_log.html", 
-                         tank_id=tank_id, api_urls=api_urls)
+                         system_id=system_id, tank_ids=tank_ids, api_urls=api_urls)
 
 
 @app.route("/doser/audit/calendar")
 def doser_audit_calendar():
     """Calendar-based audit log interface for visual dose tracking"""
-    tank_id = ensure_tank_context()
-    if not tank_id:
-        flash("No tank selected.", "warning")
+    system_id = ensure_system_context()
+    if not system_id:
+        flash("No system selected.", "warning")
+        return redirect(url_for('index'))
+    
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        flash("No tanks in selected system.", "warning")
         return redirect(url_for('index'))
     
     # API URLs for the calendar audit dashboard
@@ -904,25 +1161,158 @@ def doser_audit_calendar():
     }
     
     return render_template("doser/audit_calendar.html", 
-                         tank_id=tank_id, api_urls=api_urls)
+                         system_id=system_id, tank_ids=tank_ids, api_urls=api_urls)
 
 
 # Removed separate calendar day route - functionality moved to modal in audit_calendar.html
 # Use the enhanced modal in /doser/audit/calendar instead
 
 
+def _calculate_next_dose_time(schedule) -> Optional[datetime]:
+    """
+    Calculate next dose time using enhanced scheduler logic
+    
+    This matches the logic in the enhanced dosing scheduler for consistent timing
+    """
+    from modules.models import ScheduleTypeEnum
+    
+    # Use current time for calculations
+    current_time = datetime.now()
+    
+    # Handle different schedule types with precision
+    if schedule.schedule_type == ScheduleTypeEnum.interval:
+        # Convert interval-based to precise timing
+        if schedule.trigger_interval:
+            interval_hours = schedule.trigger_interval / 3600
+            
+            if interval_hours <= 24:  # Hourly/daily schedules
+                # Use offset_minutes for hourly schedules
+                if schedule.offset_minutes is not None:
+                    target_minute = schedule.offset_minutes
+                    
+                    if interval_hours <= 1:
+                        # Every hour at :offset_minutes (e.g., :30 for 16:30, 17:30, etc.)
+                        next_hour = current_time.replace(minute=target_minute, second=0, microsecond=0)
+                        if next_hour <= current_time:
+                            next_hour += timedelta(hours=1)
+                        return next_hour
+                    
+                    elif interval_hours <= 24:
+                        # Multiple hours - find the correct base time with offset
+                        hours_interval = int(interval_hours)
+                        
+                        # Find the most recent occurrence at :offset_minutes
+                        base_time = current_time.replace(minute=target_minute, second=0, microsecond=0)
+                        
+                        # If current base time hasn't occurred yet, use it
+                        if base_time > current_time:
+                            return base_time
+                        
+                        # Otherwise, add the interval to get the next occurrence
+                        next_time = base_time + timedelta(hours=hours_interval)
+                        return next_time
+                
+                # FALLBACK: Legacy behavior for schedules without offset_minutes
+                else:
+                    # For hourly schedules, default to :00 minutes (top of hour)
+                    if interval_hours <= 1:
+                        next_hour = current_time.replace(minute=0, second=0, microsecond=0)
+                        if next_hour <= current_time:
+                            next_hour += timedelta(hours=1)
+                        return next_hour
+                    
+                    elif interval_hours <= 24:
+                        # Multiple hours - calculate next occurrence at :00
+                        hours_to_add = int(interval_hours)
+                        
+                        next_time = current_time.replace(minute=0, second=0, microsecond=0)
+                        next_time += timedelta(hours=hours_to_add)
+                        
+                        if next_time <= current_time:
+                            next_time += timedelta(hours=hours_to_add)
+                        
+                        return next_time
+            
+            else:
+                # Multi-day schedules - use daily time if specified
+                if schedule.trigger_time:
+                    days_to_add = int(interval_hours / 24)
+                    next_time = current_time.replace(
+                        hour=schedule.trigger_time.hour,
+                        minute=schedule.trigger_time.minute,
+                        second=0,
+                        microsecond=0
+                    )
+                    next_time += timedelta(days=days_to_add)
+                    
+                    if next_time <= current_time:
+                        next_time += timedelta(days=days_to_add)
+                    
+                    return next_time
+    
+    elif schedule.schedule_type == ScheduleTypeEnum.daily:
+        # Daily schedule with exact time
+        if schedule.trigger_time:
+            next_time = current_time.replace(
+                hour=schedule.trigger_time.hour,
+                minute=schedule.trigger_time.minute,
+                second=0,
+                microsecond=0
+            )
+            
+            if next_time <= current_time:
+                next_time += timedelta(days=1)
+            
+            return next_time
+    
+    elif schedule.schedule_type == ScheduleTypeEnum.custom:
+        # Custom day-based scheduling
+        if schedule.repeat_every_n_days and schedule.trigger_time:
+            # Calculate next occurrence based on days interval
+            if schedule.last_scheduled_time:
+                last_dose = schedule.last_scheduled_time
+                next_time = last_dose + timedelta(days=schedule.repeat_every_n_days)
+            else:
+                # First time - schedule for today or tomorrow
+                next_time = current_time.replace(
+                    hour=schedule.trigger_time.hour,
+                    minute=schedule.trigger_time.minute,
+                    second=0,
+                    microsecond=0
+                )
+                
+                if next_time <= current_time:
+                    next_time += timedelta(days=schedule.repeat_every_n_days)
+            
+            return next_time
+    
+    # Fallback for legacy interval calculations
+    if schedule.trigger_interval:
+        return current_time + timedelta(seconds=schedule.trigger_interval)
+    
+    return None
+
+
 @app.route("/doser/schedule/view")
 def schedule_view():
     """Simple schedule overview page showing all schedules (active and suspended)"""
-    tank_id = ensure_tank_context()
-    if not tank_id:
-        flash("No tank selected.", "warning")
+    system_id = ensure_system_context()
+    if not system_id:
+        flash("No system selected.", "warning")
         return redirect(url_for('index'))
     
-    # Get all schedules for the current tank (both active and suspended)
-    schedules = db.session.query(DSchedule).filter_by(
-        tank_id=tank_id
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        flash("No tanks in selected system.", "warning")
+        return redirect(url_for('index'))
+    
+    # Get all schedules for tanks in the current system (both active and suspended)
+    schedules = db.session.query(DSchedule).filter(
+        DSchedule.tank_id.in_(tank_ids)
     ).join(Products).all()
+    
+    # Get tanks for display mapping
+    tanks_by_id = {tank.id: tank for tank in get_current_system_tanks()}
     
     schedules_data = []
     for schedule in schedules:
@@ -933,9 +1323,40 @@ def schedule_view():
                 interval_str = f"Every {schedule.trigger_interval}s"
         else:
             interval_str = "Unknown"
+        
+        # Calculate next dose time for non-suspended schedules
+        next_dose_time = None
+        next_dose_display = None
+        if not schedule.suspended:
+            try:
+                next_dose_time = _calculate_next_dose_time(schedule)
+                if next_dose_time:
+                    # Format as relative time (e.g., "in 2h 30m", "in 45m", "Due now")
+                    current_time = datetime.now()
+                    time_diff = next_dose_time - current_time
+                    
+                    if time_diff.total_seconds() <= 0:
+                        next_dose_display = "Due now"
+                    else:
+                        total_minutes = int(time_diff.total_seconds() / 60)
+                        hours = total_minutes // 60
+                        minutes = total_minutes % 60
+                        
+                        if hours > 0:
+                            if minutes > 0:
+                                next_dose_display = f"in {hours}h {minutes}m"
+                            else:
+                                next_dose_display = f"in {hours}h"
+                        else:
+                            next_dose_display = f"in {minutes}m"
+            except Exception as e:
+                logger.warning(f"Error calculating next dose time for schedule {schedule.id}: {e}")
+                next_dose_display = "Error"
             
         schedules_data.append({
             "id": schedule.id,
+            "tank_id": schedule.tank_id,
+            "tank_name": tanks_by_id.get(schedule.tank_id, {}).name if schedule.tank_id in tanks_by_id else "Unknown Tank",
             "product_name": schedule.product.name if schedule.product else "Unknown",
             "amount": schedule.amount,
             "schedule_type": schedule.schedule_type,
@@ -944,11 +1365,15 @@ def schedule_view():
             "trigger_time": format_time_for_display(schedule.trigger_time) if schedule.trigger_time else None,
             "doser_name": schedule.doser.doser_name if schedule.doser else "Default",
             "last_scheduled": datetime_to_iso_format(schedule.last_scheduled_time) if schedule.last_scheduled_time else None,
+            "next_dose_time": next_dose_time.isoformat() if next_dose_time else None,
+            "next_dose_display": next_dose_display,
             "suspended": schedule.suspended
         })
     
     return render_template("doser/schedule_view.html", 
                          schedules=schedules_data,
-                         tank_id=tank_id)
+                         system_id=system_id,
+                         tank_ids=tank_ids,
+                         tanks_by_id=tanks_by_id)
 
 

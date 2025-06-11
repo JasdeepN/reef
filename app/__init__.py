@@ -9,6 +9,8 @@ from flask_sqlalchemy import SQLAlchemy
 from config import Config
 from sqlalchemy import create_engine
 from flask_session import Session
+import redis
+from datetime import timedelta
 from prometheus_flask_exporter import PrometheusMetrics
 import pytz
 from datetime import datetime
@@ -26,8 +28,41 @@ ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
 app = Flask(__name__)
 app.config['SECRET_KEY'] = b"f0-aTOho|y[PCk'KS6O(GH/CKCH15;"
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config["SESSION_PERMANENT"] = False
-app.config["SESSION_TYPE"] = "filesystem"
+
+# Configure Redis sessions
+if os.getenv("TESTING") == "true":
+    # Use filesystem sessions for testing
+    app.config["SESSION_TYPE"] = "filesystem"
+    app.config["SESSION_PERMANENT"] = False
+else:
+    # Use filesystem sessions as primary (Redis has compatibility issues with Flask-Session 0.5.0)
+    print(f"[app/__init__.py] Using filesystem sessions (Redis compatibility issues detected)", file=sys.stderr, flush=True)
+    app.config["SESSION_TYPE"] = "filesystem"
+    app.config["SESSION_PERMANENT"] = True
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
+    app.config["SESSION_COOKIE_SECURE"] = False  # Set to True in production with HTTPS
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    
+    # Optional: Test Redis connectivity for future use
+    redis_host = os.getenv("REDIS_HOST", "reefdb-redis-dev")
+    redis_port = int(os.getenv("REDIS_PORT", "6379"))
+    redis_db = int(os.getenv("REDIS_DB", "0"))
+    
+    try:
+        redis_client = redis.Redis(
+            host=redis_host,
+            port=redis_port,
+            db=redis_db,
+            decode_responses=True,
+            socket_connect_timeout=5,
+            socket_timeout=5
+        )
+        redis_client.ping()
+        print(f"[app/__init__.py] Redis available at {redis_host}:{redis_port} (not used for sessions)", file=sys.stderr, flush=True)
+    except Exception as e:
+        print(f"[app/__init__.py] Redis not available: {e}", file=sys.stderr, flush=True)
+
 app.config['TEMPLATES_AUTO_RELOAD'] = True  # Force template reloading
 
 UPLOAD_FOLDER = 'static/temp'
@@ -136,7 +171,17 @@ if not app.config.get('TESTING'):
         app.config['SCHEDULER_TIMEZONE'] = os.getenv('SCHEDULER_TIMEZONE', 'America/Toronto')
         app.config['SCHEDULER_BASE_URL'] = os.getenv('SCHEDULER_BASE_URL', 'http://localhost:5000')
         
-        if app.config['SCHEDULER_ENABLED']:
+        # CRITICAL FIX: Prevent double initialization in Flask debug mode
+        # Flask debug mode creates a parent reloader process and a worker process
+        # Only initialize scheduler in the worker process to prevent double firing
+        should_initialize_scheduler = True
+        
+        # Check if we're in Flask's reloader parent process
+        if os.getenv('WERKZEUG_RUN_MAIN') != 'true' and app.config.get('DEBUG'):
+            should_initialize_scheduler = False
+            print(f"[app/__init__.py] Flask debug mode detected: Skipping scheduler init in reloader parent process", file=sys.stderr, flush=True)
+        
+        if app.config['SCHEDULER_ENABLED'] and should_initialize_scheduler:
             dosing_scheduler = EnhancedDosingScheduler(app, app.config['SCHEDULER_BASE_URL'])
             app.dosing_scheduler = dosing_scheduler  # Make it accessible through app
             
@@ -144,11 +189,13 @@ if not app.config.get('TESTING'):
             if app.config['SCHEDULER_AUTOSTART']:
                 try:
                     dosing_scheduler.start()
-                    print(f"[app/__init__.py] Enhanced Dosing Scheduler initialized and started", file=sys.stderr, flush=True)
+                    print(f"[app/__init__.py] Enhanced Dosing Scheduler initialized and started in worker process", file=sys.stderr, flush=True)
                 except Exception as start_error:
                     print(f"[app/__init__.py] Warning: Failed to auto-start enhanced dosing scheduler: {start_error}", file=sys.stderr, flush=True)
             else:
                 print(f"[app/__init__.py] Enhanced Dosing Scheduler initialized (auto-start disabled)", file=sys.stderr, flush=True)
+        elif not should_initialize_scheduler:
+            print(f"[app/__init__.py] Enhanced Dosing Scheduler initialization skipped (Flask debug mode reloader parent)", file=sys.stderr, flush=True)
         else:
             print(f"[app/__init__.py] Enhanced Dosing Scheduler disabled by configuration", file=sys.stderr, flush=True)
     except Exception as e:
@@ -159,34 +206,35 @@ from app.routes.api import api_bp
 from app.routes.web import web_fn
 app.register_blueprint(api_bp)
 app.register_blueprint(web_fn)
-from app.routes import corals, home, metrics, test, doser, models, tanks
+from app.routes import corals, home, metrics, test, doser, models, tanks, equipment
 import modules
 
 # Move context processor registration here to avoid circular import
-from modules.models import Tank
-from modules.tank_context import get_current_tank_id
+from modules.models import Tank, TankSystem
+from modules.system_context import get_current_system_id
 from flask import request
 
 @app.context_processor
-def inject_tank_context():
+def inject_system_context():
     # For unit tests without database, provide default values
     if app.config.get('TESTING') and not app.config.get('SQLALCHEMY_DATABASE_URI', '').startswith('mysql'):
-        return dict(tanks=[], tank_id=1, is_vscode_browser=False)
+        return dict(tanks=[], tank_systems=[], system_id=1, is_vscode_browser=False)
     
     try:
         tanks = Tank.query.all()
-        tank_id = get_current_tank_id()
+        tank_systems = TankSystem.query.all()
+        system_id = get_current_system_id()
         
         # Detect VS Code Simple Browser
         user_agent = request.headers.get('User-Agent', '')
         is_vscode_browser = 'vscode simple browser' in user_agent.lower() or 'vs code' in user_agent.lower()
         
-        return dict(tanks=tanks, tank_id=tank_id, is_vscode_browser=is_vscode_browser)
+        return dict(tanks=tanks, tank_systems=tank_systems, system_id=system_id, is_vscode_browser=is_vscode_browser)
     except Exception as e:
         # If database is not available during testing, provide defaults
         if app.config.get('TESTING'):
-            print(f"[inject_tank_context] Database not available during testing, using defaults: {e}")
-            return dict(tanks=[], tank_id=1, is_vscode_browser=False)
+            print(f"[inject_system_context] Database not available during testing, using defaults: {e}")
+            return dict(tanks=[], tank_systems=[], system_id=1, is_vscode_browser=False)
         raise
 
 # FINAL FAIL-FAST CHECK

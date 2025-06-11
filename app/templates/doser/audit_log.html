@@ -248,7 +248,9 @@
 {% block page_scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  const tankId = {{ tank_id }};
+  const systemId = {{ system_id }};
+  const tankIds = {{ tank_ids | tojson }};
+  const apiUrls = {{ api_urls | tojson }};
   
   // State management
   let currentFilter = 'all';
@@ -279,10 +281,10 @@ document.addEventListener('DOMContentLoaded', function() {
     startRealTimeUpdates();
   }
   
-  function loadAuditSummary() {
+  function loadAuditSummary(retryCount = 0) {
     const summaryContainer = document.getElementById('audit-summary');
     
-    fetch(`/api/v1/audit/dose-events?limit=0&days=${currentDays}`, {
+    fetch(`${apiUrls.dose_events}?limit=0&days=${currentDays}`, {
       method: 'GET',
       cache: 'no-store',
       headers: {
@@ -295,21 +297,34 @@ document.addEventListener('DOMContentLoaded', function() {
         summaryData = data.data.summary;
         updateSummaryCards();
         updatePerformanceRating();
+      } else if (data.error === "No system selected" && retryCount < 3) {
+        // Retry after a short delay to allow system context to be established
+        console.log(`Audit summary failed (${data.error}), retrying... (${retryCount + 1}/3)`);
+        setTimeout(() => loadAuditSummary(retryCount + 1), 1000 * (retryCount + 1));
+      } else {
+        console.error('Failed to load audit summary:', data.error || 'Unknown error');
+        showSummaryError(data.error || 'Failed to load summary data');
       }
     })
     .catch(error => {
-      console.error('Failed to load audit summary:', error);
+      if (retryCount < 3) {
+        console.log(`Audit summary network error, retrying... (${retryCount + 1}/3)`);
+        setTimeout(() => loadAuditSummary(retryCount + 1), 1000 * (retryCount + 1));
+      } else {
+        console.error('Failed to load audit summary:', error);
+        showSummaryError('Network error loading summary data');
+      }
     });
   }
   
-  function loadActivityFeed() {
+  function loadActivityFeed(retryCount = 0) {
     const container = document.getElementById('activity-feed-container');
     const loading = document.getElementById('activity-loading');
     
     // Show loading state
     loading.style.display = 'flex';
     
-    fetch(`/api/v1/audit/dose-events?limit=50&days=${currentDays}`, {
+    fetch(`${apiUrls.dose_events}?limit=50&days=${currentDays}`, {
       method: 'GET',
       cache: 'no-store',
       headers: {
@@ -325,14 +340,23 @@ document.addEventListener('DOMContentLoaded', function() {
         renderActivityFeed(activityData);
         updateActivityCount();
         populateProductFilter(activityData);
+      } else if (data.error === "No system selected" && retryCount < 3) {
+        // Retry after a short delay to allow system context to be established
+        console.log(`Activity feed failed (${data.error}), retrying... (${retryCount + 1}/3)`);
+        setTimeout(() => loadActivityFeed(retryCount + 1), 1000 * (retryCount + 1));
       } else {
         showActivityError(data.error || 'Failed to load activity');
       }
     })
     .catch(error => {
       loading.style.display = 'none';
-      showActivityError('Network error loading activity');
-      console.error('Failed to load activity feed:', error);
+      if (retryCount < 3) {
+        console.log(`Activity feed network error, retrying... (${retryCount + 1}/3)`);
+        setTimeout(() => loadActivityFeed(retryCount + 1), 1000 * (retryCount + 1));
+      } else {
+        showActivityError('Network error loading activity');
+        console.error('Failed to load activity feed:', error);
+      }
     });
   }
   
@@ -602,7 +626,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   function checkForRecentDoses() {
-    fetch('/api/v1/audit/dose-events/recent', {
+    fetch(apiUrls.dose_events_recent, {
       method: 'GET',
       cache: 'no-store'
     })
@@ -663,6 +687,20 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="empty-icon">⚠️</div>
         <div class="empty-message">Error Loading Activity</div>
         <div class="empty-description">${message}</div>
+      </div>
+    `;
+  }
+  
+  function showSummaryError(message) {
+    const summaryContainer = document.getElementById('audit-summary');
+    summaryContainer.innerHTML = `
+      <div class="summary-card error">
+        <div class="summary-icon">
+          <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="summary-value">Error</div>
+        <div class="summary-label">Failed to Load</div>
+        <div class="summary-change error">${message}</div>
       </div>
     `;
   }

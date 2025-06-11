@@ -254,7 +254,7 @@
   <!-- Dashboard Header -->
   <div class="dashboard-header">
     <h1 class="mb-2">📜 Dosing History</h1>
-    <p class="mb-0">Track and analyze your reef tank dosing events - Tank {{ tank_id }}</p>
+    <p class="mb-0">Track and analyze your reef tank dosing events - {{ system_name }}</p>
   </div>
   
   <!-- History Stats Overview -->
@@ -535,7 +535,7 @@ function exportHistory() {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `dosing-history-tank-{{ tank_id }}-${new Date().toISOString().split('T')[0]}.csv`;
+  link.download = `dosing-history-system-{{ system_id }}-${new Date().toISOString().split('T')[0]}.csv`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request, current_app
 from app import db
 from modules.models import DSchedule, Products, Dosing
-from modules.tank_context import get_current_tank_id, ensure_tank_context
+from modules.system_context import get_current_system_id, get_current_system_tank_ids, get_current_system_tanks, ensure_system_context
 from modules.utils.helper import datatables_response
 from modules.timezone_utils import (
     format_time_for_display as tz_format_time_for_display,
@@ -16,9 +16,10 @@ bp = Blueprint('schedule_api', __name__, url_prefix='/schedule')
 
 @bp.route('/get/all', methods=['GET'])
 def get_sched():
-    tank_id = get_current_tank_id()
-    if tank_id is None:
-        return jsonify({'error': 'No tank id provided'}), 400
+    system_id = ensure_system_context()
+    tank_ids = get_current_system_tank_ids()
+    if system_id is None or not tank_ids:
+        return jsonify({'error': 'No system id provided'}), 400
     
     params = {
         'search': request.args.get('search', ''),
@@ -41,7 +42,7 @@ def get_sched():
 
         )
         .join(Products, Products.id == DSchedule.product_id)
-        .filter(DSchedule.tank_id == tank_id)
+        .filter(DSchedule.tank_id.in_(tank_ids))
         .all()
     )
     print('rows', rows)
@@ -66,17 +67,19 @@ def get_sched():
 @bp.route('/get/history', methods=['GET'])
 def get_dosing_history():
     """Get dosing history with comprehensive details about recent dose events"""
-    tank_id = get_current_tank_id()
+    system_id = ensure_system_context()
+    tank_ids = get_current_system_tank_ids()
     
-    if tank_id is None:
-        return jsonify({'error': 'No tank id provided'}), 400
+    if system_id is None or not tank_ids:
+        return jsonify({'error': 'No system id provided'}), 400
     
     # Get pagination parameters
     limit = request.args.get('limit', 50, type=int)
     offset = request.args.get('offset', 0, type=int)
     
     # Query to get dosing history with product and schedule details
-    sql = """
+    tank_ids_placeholders = ','.join([':tank_id_{}'.format(i) for i in range(len(tank_ids))])
+    sql = f"""
         SELECT 
             dosing.id,
             dosing.trigger_time,
@@ -92,27 +95,28 @@ def get_dosing_history():
         FROM dosing
         LEFT JOIN products ON dosing.product_id = products.id
         LEFT JOIN d_schedule ON dosing.schedule_id = d_schedule.id
-        WHERE d_schedule.tank_id = :tank_id
+        WHERE d_schedule.tank_id IN ({tank_ids_placeholders})
         ORDER BY dosing.trigger_time DESC
         LIMIT :limit OFFSET :offset
     """
     
     # Get total count for pagination
-    count_sql = """
+    count_sql = f"""
         SELECT COUNT(*) as total
         FROM dosing
         LEFT JOIN d_schedule ON dosing.schedule_id = d_schedule.id
-        WHERE d_schedule.tank_id = :tank_id
+        WHERE d_schedule.tank_id IN ({tank_ids_placeholders})
     """
     
     try:
+        # Build parameters dictionary
+        params = {'limit': limit, 'offset': offset}
+        for i, tank_id in enumerate(tank_ids):
+            params[f'tank_id_{i}'] = tank_id
+        
         # Execute queries
-        result = db.session.execute(text(sql), {
-            'tank_id': tank_id, 
-            'limit': limit, 
-            'offset': offset
-        })
-        count_result = db.session.execute(text(count_sql), {'tank_id': tank_id})
+        result = db.session.execute(text(sql), params)
+        count_result = db.session.execute(text(count_sql), {k: v for k, v in params.items() if 'tank_id' in k})
         
         rows = result.fetchall()
         total_count = count_result.fetchone()[0]
@@ -201,6 +205,19 @@ def delete_schedule_entry(id):
 
     db.session.delete(schedule)
     db.session.commit()
+    
+    # CRITICAL: Immediately refresh the enhanced scheduler queue to remove deleted schedule
+    try:
+        from modules.enhanced_dosing_scheduler import refresh_scheduler_queue
+        import logging
+        logger = logging.getLogger(__name__)
+        refresh_success = refresh_scheduler_queue()
+        logger.info(f"Enhanced scheduler queue refresh after deletion: {'successful' if refresh_success else 'failed'}")
+    except Exception as refresh_error:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to refresh enhanced scheduler queue after deletion: {refresh_error}")
+    
     return jsonify({'success': True, 'deleted_id': id}), 200
 
 @bp.route('/get/<int:schedule_id>', methods=['GET'])
@@ -220,10 +237,11 @@ def get_doses_for_schedule(schedule_id):
 
 @bp.route('/get/stats', methods=['GET'])
 def get_schedule_stats():
-    tank_id = get_current_tank_id()
+    system_id = ensure_system_context()
+    tank_ids = get_current_system_tank_ids()
     
-    if tank_id is None:
-        return jsonify({'error': 'No tank id provided'}), 400
+    if system_id is None or not tank_ids:
+        return jsonify({'error': 'No system id provided'}), 400
     
     # Updated query to return ALL scheduled products, regardless of dosing history
     sql = """
@@ -254,10 +272,12 @@ def get_schedule_stats():
                 ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY trigger_time DESC) as rn
             FROM dosing
         ) latest_dosing ON products.id = latest_dosing.product_id AND latest_dosing.rn = 1
-        WHERE d_schedule.tank_id = :tank_id
-    """
+        WHERE d_schedule.tank_id IN ({})
+    """.format(','.join([':tank_id_{}'.format(i) for i in range(len(tank_ids))]))
+    
     params = {}
-    params['tank_id'] = tank_id
+    for i, tank_id in enumerate(tank_ids):
+        params[f'tank_id_{i}'] = tank_id
     result = db.session.execute(text(sql), params)
     rows = result.fetchall()
     columns = result.keys()
@@ -352,14 +372,15 @@ def get_schedule_stats():
 
 @bp.route('/get/next-doses', methods=['GET'])
 def get_next_doses():
-    """Get the next 3 scheduled doses for the current tank"""
-    tank_id = get_current_tank_id()
+    """Get the next 3 scheduled doses for the current system - uses enhanced scheduler logic"""
+    system_id = ensure_system_context()
+    tank_ids = get_current_system_tank_ids()
     
-    if tank_id is None:
-        return jsonify({'error': 'No tank id provided'}), 400
+    if system_id is None or not tank_ids:
+        return jsonify({'error': 'No system id provided'}), 400
     
     try:
-        # Get next scheduled doses using the same logic as the dosing scheduler
+        # Get scheduled doses with enhanced scheduler fields
         sql = """
             SELECT 
                 ds.id as schedule_id,
@@ -368,25 +389,30 @@ def get_next_doses():
                 ds.amount,
                 ds.trigger_interval,
                 ds.last_refill,
+                ds.schedule_type,
+                ds.trigger_time,
+                ds.offset_minutes,
                 p.name as product_name,
                 p.current_avail,
-                COALESCE(
-                    MAX(d.trigger_time), 
-                    ds.last_refill,
-                    DATE_SUB(NOW(), INTERVAL ds.trigger_interval SECOND)
-                ) as last_dose_time
+                MAX(d.trigger_time) as actual_last_dose_time
             FROM d_schedule ds
             LEFT JOIN products p ON ds.product_id = p.id
             LEFT JOIN dosing d ON ds.id = d.schedule_id
-            WHERE ds.tank_id = :tank_id
+            WHERE ds.tank_id IN ({})
             AND ds.suspended = 0
             AND p.current_avail >= ds.amount
             GROUP BY ds.id, ds.tank_id, ds.product_id, ds.amount, ds.trigger_interval, 
-                     ds.last_refill, p.name, p.current_avail
+                     ds.last_refill, ds.schedule_type, ds.trigger_time, ds.offset_minutes,
+                     p.name, p.current_avail
             ORDER BY ds.id
-        """
+        """.format(','.join([':tank_id_{}'.format(i) for i in range(len(tank_ids))]))
         
-        result = db.session.execute(text(sql), {'tank_id': tank_id})
+        # Build parameters for tank IDs
+        params = {}
+        for i, tank_id in enumerate(tank_ids):
+            params[f'tank_id_{i}'] = tank_id
+        
+        result = db.session.execute(text(sql), params)
         scheduled_doses = []
         
         for row in result:
@@ -394,19 +420,12 @@ def get_next_doses():
             eastern = ZoneInfo("America/New_York")
             current_time = datetime.now(eastern)
             
-            # Get the schedule to check the type
-            schedule_result = db.session.execute(
-                text("SELECT schedule_type, trigger_time FROM d_schedule WHERE id = :schedule_id"),
-                {'schedule_id': row.schedule_id}
-            ).fetchone()
+            schedule_type = row.schedule_type or 'interval'
             
-            schedule_type = schedule_result.schedule_type if schedule_result else 'interval'
-            trigger_time_str = schedule_result.trigger_time if schedule_result else None
-            
-            if schedule_type == 'daily' and trigger_time_str:
+            if schedule_type == 'daily' and row.trigger_time:
                 # For daily schedules, calculate next occurrence of trigger_time
                 # Parse trigger_time (format: "HH:MM:SS")
-                time_parts = str(trigger_time_str).split(':')
+                time_parts = str(row.trigger_time).split(':')
                 target_hour = int(time_parts[0])
                 target_minute = int(time_parts[1]) if len(time_parts) > 1 else 0
                 target_second = int(time_parts[2]) if len(time_parts) > 2 else 0
@@ -422,23 +441,44 @@ def get_next_doses():
                 # If the time has already passed today, schedule for tomorrow
                 if next_dose_time <= current_time:
                     next_dose_time += timedelta(days=1)
-                    
-                # Get actual last dose time from dosing table if available, otherwise use calculated time
-                last_dose_time = row.last_dose_time
+                
+                # Use actual last dose time from database
+                last_dose_time = row.actual_last_dose_time
                 if last_dose_time and last_dose_time.tzinfo is None:
                     last_dose_time = last_dose_time.replace(tzinfo=eastern)
             else:
-                # For interval schedules, use the original logic
-                last_dose_time = row.last_dose_time
+                # For interval schedules, use enhanced scheduler logic with offset_minutes
+                last_dose_time = row.actual_last_dose_time
                 
                 # If last_dose_time is timezone-naive, assume it's in Eastern Time
                 if last_dose_time and last_dose_time.tzinfo is None:
                     last_dose_time = last_dose_time.replace(tzinfo=eastern)
-                elif last_dose_time is None:
-                    last_dose_time = current_time
                 
-                # Calculate next dose time
-                next_dose_time = last_dose_time + timedelta(seconds=row.trigger_interval)
+                # Calculate next dose time using enhanced scheduler logic
+                if last_dose_time:
+                    # Use actual last dose time as base
+                    next_dose_time = last_dose_time + timedelta(seconds=row.trigger_interval)
+                else:
+                    # No previous dose - calculate from current time with interval alignment
+                    # This matches the enhanced scheduler's logic for first-time scheduling
+                    interval_seconds = row.trigger_interval
+                    
+                    # For hourly schedules (3600 seconds), apply offset_minutes
+                    if interval_seconds == 3600 and row.offset_minutes is not None:
+                        # Calculate next occurrence at offset minutes past the hour
+                        offset_minutes = row.offset_minutes
+                        
+                        # Start from the current hour with offset
+                        next_hour = current_time.replace(minute=offset_minutes, second=0, microsecond=0)
+                        
+                        # If this time has already passed, move to next hour
+                        if next_hour <= current_time:
+                            next_hour += timedelta(hours=1)
+                        
+                        next_dose_time = next_hour
+                    else:
+                        # For non-hourly intervals, start from current time + interval
+                        next_dose_time = current_time + timedelta(seconds=interval_seconds)
                 
                 # Keep calculating next dose times until we find a future one (skip missed doses)
                 while next_dose_time <= current_time:
@@ -453,7 +493,8 @@ def get_next_doses():
                 'product_name': row.product_name,
                 'current_avail': row.current_avail,
                 'last_dose_time': last_dose_time.isoformat() if last_dose_time else None,
-                'next_dose_time': next_dose_time.isoformat()
+                'next_dose_time': next_dose_time.isoformat(),
+                'offset_minutes': row.offset_minutes  # Include offset_minutes for debugging
             }
             scheduled_doses.append(dose_data)
         
@@ -473,9 +514,9 @@ def get_next_doses():
 @bp.route('/test/stats/<int:tank_id>', methods=['GET'])
 def test_schedule_stats(tank_id):
     """Test endpoint to set tank_id and get schedule stats for testing purposes"""
-    from modules.tank_context import set_tank_id_for_testing
+    from modules.system_context import set_tank_id_for_testing
     
-    # Set the tank_id for testing
+    # Set the tank_id for testing (backward compatibility function)
     set_tank_id_for_testing(tank_id)
     
     # Call the regular stats endpoint
@@ -484,9 +525,9 @@ def test_schedule_stats(tank_id):
 @bp.route('/test/history/<int:tank_id>', methods=['GET'])
 def test_dosing_history(tank_id):
     """Test endpoint to set tank_id and get dosing history for testing purposes"""
-    from modules.tank_context import set_tank_id_for_testing
+    from modules.system_context import set_tank_id_for_testing
     
-    # Set the tank_id for testing
+    # Set the tank_id for testing (backward compatibility function)
     set_tank_id_for_testing(tank_id)
     
     # Call the regular history endpoint
@@ -495,9 +536,9 @@ def test_dosing_history(tank_id):
 @bp.route('/test/next-doses/<int:tank_id>', methods=['GET'])
 def test_next_doses(tank_id):
     """Test endpoint to set tank_id and get next doses for testing purposes"""
-    from modules.tank_context import set_tank_id_for_testing
+    from modules.system_context import set_tank_id_for_testing
     
-    # Set the tank_id for testing
+    # Set the tank_id for testing (backward compatibility function)
     set_tank_id_for_testing(tank_id)
     
     # Call the regular next doses endpoint

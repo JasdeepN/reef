@@ -13,6 +13,7 @@
                 <div class="form__container">
                     {{ form.hidden_tag() }}
 
+                    {{ render_form_field(form.tank_id) }}
                     {{ render_form_field(form.test_date) }}
                     {{ render_form_field(form.test_time) }}
                     {{ render_form_field(form.alk) }}

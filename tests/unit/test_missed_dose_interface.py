@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timedelta
 from app import app, db
-from modules.models import Tank, Products, DSchedule, MissedDoseRequest, MissedDoseHandlingEnum
+from modules.models import Tank, TankSystem, Products, DSchedule, MissedDoseRequest, MissedDoseHandlingEnum
 
 class TestMissedDoseInterface:
     """Test suite for missed dose interface functionality"""
@@ -38,9 +38,15 @@ class TestMissedDoseInterface:
             self.test_schedule.product_id = self.test_product.id
             db.session.commit()
 
-            # Set tank context for testing
-            from modules.tank_context import set_tank_id_for_testing
-            set_tank_id_for_testing(self.test_tank.id)
+            # Set system context for testing
+            from modules.system_context import set_system_id_for_testing
+            # Determine system_id from tank's system or fallback to existing system
+            if self.test_tank.tank_system_id:
+                test_system_id = self.test_tank.tank_system_id
+            else:
+                existing_systems = TankSystem.query.limit(1).all()
+                test_system_id = existing_systems[0].id if existing_systems else 1
+            set_system_id_for_testing(test_system_id)
             
             yield
             

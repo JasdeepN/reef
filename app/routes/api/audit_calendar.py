@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, date
 from sqlalchemy import text, func
 import calendar
 from app import db
-from modules.tank_context import get_current_tank_id
+from modules.system_context import get_current_system_id, get_current_system_tank_ids, ensure_system_context
 from modules.timezone_utils import datetime_to_iso_format
 
 bp = Blueprint('audit_calendar_api', __name__)
@@ -59,7 +59,7 @@ def calculate_next_refill_estimate(product_id, tank_id, current_avail, total_vol
         print(f"Error calculating next refill estimate: {e}")
         return None
 
-def get_refill_events_for_month(tank_id, month_start, month_end):
+def get_refill_events_for_month(tank_ids, month_start, month_end):
     """Get refill events and estimates for the given month"""
     refill_events = {}
     
@@ -74,7 +74,7 @@ def get_refill_events_for_month(tank_id, month_start, month_end):
             p.total_volume
         FROM d_schedule ds
         JOIN products p ON ds.product_id = p.id
-        WHERE ds.tank_id = :tank_id
+        WHERE ds.tank_id IN :tank_ids
             AND ds.last_refill IS NOT NULL
             AND DATE(ds.last_refill) >= :month_start
             AND DATE(ds.last_refill) <= :month_end
@@ -83,7 +83,7 @@ def get_refill_events_for_month(tank_id, month_start, month_end):
     """
     
     result = db.session.execute(text(sql), {
-        'tank_id': tank_id,
+        'tank_ids': tuple(tank_ids),
         'month_start': month_start,
         'month_end': month_end
     })
@@ -105,7 +105,7 @@ def get_refill_events_for_month(tank_id, month_start, month_end):
             'total_volume': row.total_volume
         })
     
-    # Get next refill estimates for all products with schedules in this tank
+    # Get next refill estimates for all products with schedules in this system
     sql = """
         SELECT DISTINCT
             p.id as product_id,
@@ -114,16 +114,19 @@ def get_refill_events_for_month(tank_id, month_start, month_end):
             p.total_volume
         FROM d_schedule ds
         JOIN products p ON ds.product_id = p.id
-        WHERE ds.tank_id = :tank_id
+        WHERE ds.tank_id IN :tank_ids
             AND p.current_avail IS NOT NULL
             AND p.total_volume IS NOT NULL
     """
     
-    result = db.session.execute(text(sql), {'tank_id': tank_id})
+    result = db.session.execute(text(sql), {'tank_ids': tuple(tank_ids)})
     
     for row in result:
+        # For system context, use the first tank_id for calculation
+        # since refill estimates are typically system-wide
+        representative_tank_id = tank_ids[0]
         next_refill_date = calculate_next_refill_estimate(
-            row.product_id, tank_id, row.current_avail, row.total_volume
+            row.product_id, representative_tank_id, row.current_avail, row.total_volume
         )
         
         if (next_refill_date and 
@@ -152,11 +155,19 @@ def get_refill_events_for_month(tank_id, month_start, month_end):
 @bp.route('/calendar/monthly-summary', methods=['GET'])
 def get_monthly_summary():
     """Get monthly calendar summary showing daily dose counts per product"""
-    tank_id = get_current_tank_id()
-    if not tank_id:
+    system_id = ensure_system_context()
+    if not system_id:
         return jsonify({
             "success": False,
-            "error": "No tank selected",
+            "error": "No system selected",
+            "data": {}
+        }), 400
+    
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        return jsonify({
+            "success": False,
+            "error": "No tanks found for system",
             "data": {}
         }), 400
     
@@ -206,7 +217,7 @@ def get_monthly_summary():
             FROM dosing d
             LEFT JOIN products p ON d.product_id = p.id
             LEFT JOIN d_schedule ds ON d.schedule_id = ds.id
-            WHERE ds.tank_id = :tank_id
+            WHERE ds.tank_id IN :tank_ids
                 AND DATE(d.trigger_time) >= :month_start
                 AND DATE(d.trigger_time) <= :month_end
             GROUP BY DATE(d.trigger_time), p.id, p.name, p.uses
@@ -214,7 +225,7 @@ def get_monthly_summary():
         """
         
         result = db.session.execute(text(sql), {
-            'tank_id': tank_id,
+            'tank_ids': tuple(tank_ids),
             'month_start': month_start,
             'month_end': month_end
         })
@@ -265,7 +276,7 @@ def get_monthly_summary():
             product_totals[row.product_name]['days_active'] += 1
         
         # Get refill events for the month
-        refill_events = get_refill_events_for_month(tank_id, month_start, month_end)
+        refill_events = get_refill_events_for_month(tank_ids, month_start, month_end)
         
         # Calculate month summary statistics
         total_doses_month = sum(day['total_doses'] for day in calendar_data.values())
@@ -288,7 +299,7 @@ def get_monthly_summary():
                     "avg_doses_per_day": avg_doses_per_day,
                     "products": list(product_totals.values())
                 },
-                "tank_id": tank_id
+                "tank_ids": tank_ids
             }
         })
         
@@ -303,11 +314,19 @@ def get_monthly_summary():
 @bp.route('/calendar/day-details', methods=['GET'])
 def get_day_details():
     """Get detailed dose information for a specific date with timing and amounts"""
-    tank_id = get_current_tank_id()
-    if not tank_id:
+    system_id = ensure_system_context()
+    if not system_id:
         return jsonify({
             "success": False,
-            "error": "No tank selected",
+            "error": "No system selected",
+            "data": {}
+        }), 400
+    
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        return jsonify({
+            "success": False,
+            "error": "No tanks found for system",
             "data": {}
         }), 400
     
@@ -356,13 +375,13 @@ def get_day_details():
             LEFT JOIN products p ON d.product_id = p.id
             LEFT JOIN d_schedule ds ON d.schedule_id = ds.id
             LEFT JOIN dosers ON ds.doser_id = dosers.id
-            WHERE ds.tank_id = :tank_id
+            WHERE ds.tank_id IN :tank_ids
                 AND DATE(d.trigger_time) = :selected_date
             ORDER BY d.trigger_time, p.name
         """
         
         result = db.session.execute(text(sql), {
-            'tank_id': tank_id,
+            'tank_ids': tuple(tank_ids),
             'selected_date': selected_date
         })
         
@@ -475,14 +494,14 @@ def get_day_details():
                 p.total_volume
             FROM d_schedule ds
             JOIN products p ON ds.product_id = p.id
-            WHERE ds.tank_id = :tank_id
+            WHERE ds.tank_id IN :tank_ids
                 AND ds.last_refill IS NOT NULL
                 AND DATE(ds.last_refill) = :selected_date
             GROUP BY p.id
         """
         
         refill_result = db.session.execute(text(refill_sql), {
-            'tank_id': tank_id,
+            'tank_ids': tuple(tank_ids),
             'selected_date': selected_date
         })
         
@@ -505,16 +524,19 @@ def get_day_details():
                 p.total_volume
             FROM d_schedule ds
             JOIN products p ON ds.product_id = p.id
-            WHERE ds.tank_id = :tank_id
+            WHERE ds.tank_id IN :tank_ids
                 AND p.current_avail IS NOT NULL
                 AND p.total_volume IS NOT NULL
         """
         
-        estimate_result = db.session.execute(text(estimate_sql), {'tank_id': tank_id})
+        estimate_result = db.session.execute(text(estimate_sql), {'tank_ids': tuple(tank_ids)})
         
         for row in estimate_result:
+            # For system context, we need to pick a representative tank_id for the calculation
+            # We'll use the first tank_id since refill estimates are typically system-wide
+            representative_tank_id = tank_ids[0]
             next_refill_date = calculate_next_refill_estimate(
-                row.product_id, tank_id, row.current_avail, row.total_volume
+                row.product_id, representative_tank_id, row.current_avail, row.total_volume
             )
             
             if next_refill_date == selected_date:
@@ -543,7 +565,7 @@ def get_day_details():
                     "first_dose_time": doses[0]['trigger_time'] if doses else None,
                     "last_dose_time": doses[-1]['trigger_time'] if doses else None
                 },
-                "tank_id": tank_id
+                "tank_ids": tank_ids
             }
         })
         
@@ -558,11 +580,19 @@ def get_day_details():
 @bp.route('/calendar/date-range-summary', methods=['GET'])
 def get_date_range_summary():
     """Get dose summary for a custom date range (useful for weekly/bi-weekly views)"""
-    tank_id = get_current_tank_id()
-    if not tank_id:
+    system_id = ensure_system_context()
+    if not system_id:
         return jsonify({
             "success": False,
-            "error": "No tank selected",
+            "error": "No system selected",
+            "data": {}
+        }), 400
+    
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        return jsonify({
+            "success": False,
+            "error": "No tanks found for system",
             "data": {}
         }), 400
     
@@ -614,7 +644,7 @@ def get_date_range_summary():
             FROM dosing d
             LEFT JOIN products p ON d.product_id = p.id
             LEFT JOIN d_schedule ds ON d.schedule_id = ds.id
-            WHERE ds.tank_id = :tank_id
+            WHERE ds.tank_id IN :tank_ids
                 AND DATE(d.trigger_time) >= :start_date
                 AND DATE(d.trigger_time) <= :end_date
             GROUP BY DATE(d.trigger_time), p.id, p.name, p.uses
@@ -622,7 +652,7 @@ def get_date_range_summary():
         """
         
         result = db.session.execute(text(sql), {
-            'tank_id': tank_id,
+            'tank_ids': tuple(tank_ids),
             'start_date': start_date,
             'end_date': end_date
         })
@@ -661,7 +691,7 @@ def get_date_range_summary():
                 "end_date": end_date.isoformat(),
                 "days_in_range": (end_date - start_date).days + 1,
                 "range_data": range_data,
-                "tank_id": tank_id
+                "tank_ids": tank_ids
             }
         })
         

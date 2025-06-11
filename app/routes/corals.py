@@ -4,11 +4,17 @@ from werkzeug.utils import secure_filename
 from app import app, db
 from modules.utils import helper
 from modules.forms import CoralForm
-from modules.models import Coral, Tank, Taxonomy, ColorMorphs # Add Taxonomy, ColorMorph
-from modules.tank_context import get_current_tank_id
+from modules.models import Coral, Tank, Taxonomy, ColorMorphs
+from modules.system_context import get_current_system_id, get_current_system_tank_ids
 import os
 import datetime
 from modules.utils.helper import generate_columns, validate_and_process_data
+
+# Constants to avoid code duplication
+NEW_CORAL_TEMPLATE = "coral/new_coral.html"
+NEW_CORAL_TITLE = "NEW CORAL"
+ERROR_NO_SYSTEM = "No system selected."
+ERROR_NO_TANKS = "No tanks in selected system."
 
 
 @app.route("/timeline")
@@ -17,61 +23,117 @@ def timeline():
 
 
 def get_field(form, field):
+    """Extract field value from form object."""
     val = getattr(form, field, None)
     return val.data if val and val.data not in ("", None) else None
 
 
 def build_coral(form, taxonomy=None, color_morph=None):
-    # Build coral_name using taxonomy and color morph objects, and append unique_id if present
+    """Build coral object from form data with reduced complexity."""
+    # Extract basic fields
     unique_id = get_field(form, "unique_id")
+    coral_name = _build_coral_name(taxonomy, color_morph, unique_id, form)
+    
+    # Create coral with basic data
+    coral_data = _extract_coral_data(form)
+    coral_data['coral_name'] = coral_name
+    
+    return Coral(**coral_data)
+
+
+def _build_coral_name(taxonomy, color_morph, unique_id, form):
+    """Build coral name from taxonomy and color morph data."""
+    coral_name = None
+    
     if taxonomy and color_morph:
-        if taxonomy.common_name and color_morph.morph_name:
-            coral_name = f"{taxonomy.common_name} {color_morph.morph_name}"
-        elif taxonomy.common_name:
-            coral_name = taxonomy.common_name
-        elif color_morph.morph_name:
-            coral_name = color_morph.morph_name
-        else:
-            coral_name = f"{taxonomy.genus} {taxonomy.species}" if taxonomy else None
+        coral_name = _build_name_from_taxonomy_and_morph(taxonomy, color_morph)
     elif taxonomy:
-        coral_name = taxonomy.common_name or f"{taxonomy.genus} {taxonomy.species}"
+        coral_name = _build_name_from_taxonomy(taxonomy)
     elif color_morph:
         coral_name = color_morph.morph_name
     else:
-        coral_name = form.coral_name.data if hasattr(form, "coral_name") else None
+        coral_name = get_field(form, "coral_name")
+    
+    # Add unique ID if present
+    if unique_id and coral_name:
+        coral_name = f"{coral_name} ({unique_id})"
+    elif unique_id:
+        coral_name = f"({unique_id})"
+    
+    return coral_name
 
-    if unique_id:
-        coral_name = f"{coral_name} ({unique_id})" if coral_name else f"({unique_id})"
 
-    return Coral(
-        coral_name=coral_name,
-        date_acquired=get_field(form, "date_acquired"),
-        tank_id=get_current_tank_id(),
-        taxonomy_id=taxonomy.id if taxonomy else None,
-        color_morphs_id=color_morph.id if color_morph else None,
-        vendors_id=request.form.get("vendors_id") or form.vendors_id.data,
-        par=get_field(form, "par"),
-        flow=get_field(form, "flow"),
-        placement=get_field(form, "placement"),
-        current_size=get_field(form, "current_size"),
-        health_status=get_field(form, "health_status"),
-        frag_colony=get_field(form, "frag_colony"),
-        # growth_rate=get_field(form, "growth_rate"),
-        last_fragged=get_field(form, "last_fragged"),
-        unique_id=get_field(form, "unique_id"),
-        # origin=get_field(form, "origin"),
-        # compatibility=get_field(form, "compatibility"),
-        photo=form.photo.data.filename if form.photo.data else None,
-        notes=get_field(form, "notes"),
-        test_id=get_field(form, "test_id")
-    )
+def _build_name_from_taxonomy_and_morph(taxonomy, color_morph):
+    """Build name from both taxonomy and color morph."""
+    if taxonomy.common_name and color_morph.morph_name:
+        return f"{taxonomy.common_name} {color_morph.morph_name}"
+    elif taxonomy.common_name:
+        return taxonomy.common_name
+    elif color_morph.morph_name:
+        return color_morph.morph_name
+    else:
+        return f"{taxonomy.genus} {taxonomy.species}" if taxonomy else None
+
+
+def _build_name_from_taxonomy(taxonomy):
+    """Build name from taxonomy only."""
+    return taxonomy.common_name or f"{taxonomy.genus} {taxonomy.species}"
+
+
+def _extract_coral_data(form):
+    """Extract coral data from form with all fields."""
+    return {
+        'tank_id': get_field(form, "tank_id"),
+        'taxonomy_id': get_field(form, "taxonomy_id"),
+        'color_morph_id': get_field(form, "color_morph_id"),
+        'unique_id': get_field(form, "unique_id"),
+        'current_size': get_field(form, "current_size"),
+        'position_x': get_field(form, "position_x"),
+        'position_y': get_field(form, "position_y"),
+        'health_status': get_field(form, "health_status"),
+        'date_acquired': get_field(form, "date_acquired"),
+        'cost': get_field(form, "cost"),
+        'source': get_field(form, "source"),
+        'notes': get_field(form, "notes"),
+        'lighting_preference': get_field(form, "lighting_preference"),
+        'flow_preference': get_field(form, "flow_preference"),
+        'difficulty_level': get_field(form, "difficulty_level")
+    }
 
 
 @app.route("/coral/add", methods=["GET", "POST"])
 def new_coral():
+    # Ensure system context
+    system_id = get_current_system_id()
+    if not system_id:
+        flash("No system selected.", "warning")
+        return redirect(url_for('index'))
+    
+    # Get tanks in current system for choices
+    from modules.system_context import get_current_system_tanks
+    system_tanks = get_current_system_tanks()
+    if not system_tanks:
+        flash("No tanks found in current system.", "warning")
+        return redirect(url_for('index'))
+    
     form = CoralForm()
+    form.tank_id.choices = [(tank.id, tank.name) for tank in system_tanks]
+    
     if request.method == "POST":
         print(form.data)
+        
+        # Validate that selected tank belongs to current system
+        selected_tank_id = form.tank_id.data
+        if selected_tank_id not in [tank.id for tank in system_tanks]:
+            flash("Selected tank does not belong to current system.", "error")
+            return render_template(
+                NEW_CORAL_TEMPLATE,
+                title=NEW_CORAL_TITLE,
+                form=form,
+                now=datetime.datetime.now,
+                form_errors={"tank_id": ["Invalid tank selection"]}
+            )
+        
         morph_id = request.form.get("color_morphs_id") or form.color_morphs_id.data
         species_id = request.form.get("species_id") or getattr(form, "species_id", None)
         color_morph = ColorMorphs.query.get(morph_id) if morph_id else None
@@ -85,8 +147,8 @@ def new_coral():
         if not form.validate_on_submit():
             errors = form.errors
             return render_template(
-                "coral/new_coral.html",
-                title="NEW CORAL",
+                NEW_CORAL_TEMPLATE,
+                title=NEW_CORAL_TITLE,
                 form=form,
                 now=datetime.datetime.now,
                 form_errors=errors
@@ -97,8 +159,8 @@ def new_coral():
         print("Coral object created:", coral)
         return redirect(url_for("coral_db"))
     return render_template(
-        "coral/new_coral.html",
-        title="NEW CORAL",
+        NEW_CORAL_TEMPLATE,
+        title=NEW_CORAL_TITLE,
         form=form,
         now=datetime.datetime.now,
         form_errors={}
@@ -107,13 +169,13 @@ def new_coral():
 
 @app.route("/coral/timeline")
 def coral_view():
-    corals = Coral.query.filter_by(tank_id=get_current_tank_id()).all()
+    tank_ids = get_current_system_tank_ids()
+    corals = Coral.query.filter(Coral.tank_id.in_(tank_ids)).all() if tank_ids else []
     return render_template("coral/index.html", corals=corals)
 
 
 @app.route("/coral/view", methods=['GET'])
 def coral_db():
-    tank_id = get_current_tank_id()
     urls = {
         "GET": "/web/fn/get/corals",
         "DELETE": "/web/fn/delete/corals",
@@ -126,21 +188,22 @@ def coral_db():
 # DataTables-compatible endpoint for corals filtered by tank context
 from flask import Blueprint, jsonify, request
 from modules.models import Coral
-from modules.tank_context import get_current_tank_id
+from modules.system_context import get_current_system_id
 import enum
 from datetime import date, time
 
 @app.route("/web/fn/get/corals", methods=["GET"])
 def get_corals_for_tank():
     try:
-        tank_id = get_current_tank_id()
-        if not tank_id:
+        system_id = get_current_system_id()
+        tank_ids = get_current_system_tank_ids()
+        if not system_id or not tank_ids:
             return jsonify({
                 "draw": int(request.args.get('draw', 1)),
                 "recordsTotal": 0,
                 "recordsFiltered": 0,
                 "data": [],
-                "error": "No tank selected."
+                "error": "No system selected."
             })
         draw = int(request.args.get('draw', 1))
         params = {
@@ -150,7 +213,7 @@ def get_corals_for_tank():
             'page': request.args.get('page', 1),
             'rows': request.args.get('rows', 10)
         }
-        base_query = Coral.query.filter_by(tank_id=tank_id)
+        base_query = Coral.query.filter(Coral.tank_id.in_(tank_ids))
         all_results = base_query.all()
         data = []
         for row in all_results:

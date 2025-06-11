@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+      <!-- Header -->
+      <div class="text-center mb-4">
+        <h1 class="text-center">Edit Equipment</h1>
+        <h3 class="text-muted">{{ system_name }}</h3>
+        <p class="text-muted">Update equipment configuration for "{{ equipment.equipment_name }}"</p>
+      </div>
+
+      <!-- Equipment Edit Form -->
+      <div class="card">
+        <div class="card-body">
+          <form action="{{ url_for('equipment_edit', equipment_id=equipment.id) }}" method="post" novalidate>
+            <!-- Tank Selection -->
+            <div class="mb-3">
+              <label for="tank_id" class="form-label">Tank <span class="text-danger">*</span></label>
+              <select class="form-control" id="tank_id" name="tank_id" required>
+                <option value="">Select tank...</option>
+                {% for tank in tanks %}
+                <option value="{{ tank.id }}" {% if equipment.tank_id == tank.id %}selected{% endif %}>{{ tank.name }}</option>
+                {% endfor %}
+              </select>
+              <div class="form-text">Which tank this equipment belongs to</div>
+            </div>
+            <!-- Equipment Name -->
+            <div class="mb-3">
+              <label for="equipment_name" class="form-label">Equipment Name <span class="text-danger">*</span></label>
+              <input type="text" 
+                     class="form-control" 
+                     id="equipment_name" 
+                     name="equipment_name" 
+                     value="{{ equipment.equipment_name }}"
+                     placeholder="e.g., Main Tank LED, Return Pump, Protein Skimmer"
+                     required
+                     maxlength="100">
+              <div class="form-text">Descriptive name for this piece of equipment</div>
+            </div>
+
+            <!-- Equipment Type -->
+            <div class="mb-3">
+              <label for="equipment_type" class="form-label">Equipment Type <span class="text-danger">*</span></label>
+              <select class="form-control" id="equipment_type" name="equipment_type" required>
+                <option value="">Select equipment type...</option>
+                {% for equipment_type in equipment_types %}
+                <option value="{{ equipment_type.value }}" {% if equipment.equipment_type == equipment_type %}selected{% endif %}>
+                  {{ equipment_type.value.title() }}
+                </option>
+                {% endfor %}
+              </select>
+              <div class="form-text">Category of equipment for organization</div>
+            </div>
+
+            <!-- Power Consumption -->
+            <div class="mb-3">
+              <label for="power_watts" class="form-label">Power Consumption (Watts)</label>
+              <input type="number" 
+                     class="form-control" 
+                     id="power_watts" 
+                     name="power_watts" 
+                     value="{{ equipment.power_watts or '' }}"
+                     placeholder="e.g., 65, 150, 25"
+                     min="0" 
+                     max="5000"
+                     step="1">
+              <div class="form-text">Power consumption in watts (used for monthly kWh calculations)</div>
+            </div>
+
+            <!-- Brand and Model -->
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="brand" class="form-label">Brand</label>
+                <input type="text" 
+                       class="form-control" 
+                       id="brand" 
+                       name="brand" 
+                       value="{{ equipment.brand or '' }}"
+                       placeholder="e.g., AI, EcoTech, Reef Octopus"
+                       maxlength="50">
+              </div>
+              <div class="col-md-6">
+                <label for="model" class="form-label">Model</label>
+                <input type="text" 
+                       class="form-control" 
+                       id="model" 
+                       name="model" 
+                       value="{{ equipment.model or '' }}"
+                       placeholder="e.g., Prime 16HD, MP40, Classic 150"
+                       maxlength="50">
+              </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="mb-3">
+              <label for="notes" class="form-label">Notes</label>
+              <textarea class="form-control" 
+                        id="notes" 
+                        name="notes" 
+                        rows="3"
+                        placeholder="Additional notes about this equipment, settings, maintenance schedule, etc."
+                        maxlength="500">{{ equipment.notes or '' }}</textarea>
+              <div class="form-text">Optional notes about this equipment</div>
+            </div>
+
+            <!-- Active Status -->
+            <div class="mb-4">
+              <div class="form-check">
+                <input class="form-check-input" 
+                       type="checkbox" 
+                       id="is_active" 
+                       name="is_active" 
+                       {% if equipment.is_active %}checked{% endif %}>
+                <label class="form-check-label" for="is_active">
+                  Equipment is currently active
+                </label>
+              </div>
+              <div class="form-text">Only active equipment contributes to power consumption calculations</div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="d-flex justify-content-between">
+              <a href="{{ url_for('equipment_manage') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Equipment
+              </a>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Equipment Info -->
+      <div class="mt-4">
+        <div class="card">
+          <div class="card-body">
+            <h6 class="card-title">Equipment Information</h6>
+            <div class="row">
+              <div class="col-sm-6">
+                <small class="text-muted">Equipment ID:</small>
+                <div>{{ equipment.id }}</div>
+              </div>
+              {% if equipment.created_at %}
+              <div class="col-sm-6">
+                <small class="text-muted">Created:</small>
+                <div>{{ equipment.created_at.strftime('%B %d, %Y') }}</div>
+              </div>
+              {% endif %}
+            </div>
+            {% if equipment.power_watts and equipment.is_active %}
+            <div class="row mt-2">
+              <div class="col-12">
+                <small class="text-muted">Monthly Power Consumption:</small>
+                <div class="text-primary">{{ "%.1f"|format((equipment.power_watts * 24 * 30) / 1000) }} kWh/month</div>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+.form-label {
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.form-control {
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+.form-control:focus {
+  background-color: var(--background-color);
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  color: var(--text-color);
+}
+
+.form-control::placeholder {
+  color: var(--text-muted);
+}
+
+.form-text {
+  color: var(--text-muted);
+}
+
+.form-check-label {
+  color: var(--text-color);
+}
+
+.text-danger {
+  color: #dc3545 !important;
+}
+
+h1, h3 {
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+}
+
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+.card-title {
+  color: var(--text-color);
+  margin-bottom: 1rem;
+}
+
+.card-body small {
+  color: var(--text-muted);
+}
+
+.card-body div {
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Form validation
+  const form = document.querySelector('form');
+  const nameInput = document.getElementById('equipment_name');
+  const typeSelect = document.getElementById('equipment_type');
+  
+  form.addEventListener('submit', function(e) {
+    let isValid = true;
+    
+    // Validate equipment name
+    if (!nameInput.value.trim()) {
+      showFieldError(nameInput, 'Equipment name is required');
+      isValid = false;
+    } else {
+      clearFieldError(nameInput);
+    }
+    
+    // Validate equipment type
+    if (!typeSelect.value) {
+      showFieldError(typeSelect, 'Equipment type is required');
+      isValid = false;
+    } else {
+      clearFieldError(typeSelect);
+    }
+    
+    if (!isValid) {
+      e.preventDefault();
+    }
+  });
+  
+  // Real-time validation
+  nameInput.addEventListener('blur', function() {
+    if (!this.value.trim()) {
+      showFieldError(this, 'Equipment name is required');
+    } else {
+      clearFieldError(this);
+    }
+  });
+  
+  typeSelect.addEventListener('change', function() {
+    if (!this.value) {
+      showFieldError(this, 'Equipment type is required');
+    } else {
+      clearFieldError(this);
+    }
+  });
+  
+  function showFieldError(field, message) {
+    field.classList.add('is-invalid');
+    
+    // Remove existing error message
+    const existingError = field.parentNode.querySelector('.invalid-feedback');
+    if (existingError) {
+      existingError.remove();
+    }
+    
+    // Add new error message
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'invalid-feedback';
+    errorDiv.textContent = message;
+    field.parentNode.appendChild(errorDiv);
+  }
+  
+  function clearFieldError(field) {
+    field.classList.remove('is-invalid');
+    const errorDiv = field.parentNode.querySelector('.invalid-feedback');
+    if (errorDiv) {
+      errorDiv.remove();
+    }
+  }
+});
+</script>
+{% endblock %}

@@ -38,6 +38,24 @@ services:
       --sync-binlog=0
       --sql-mode=STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO
 
+  # Development Redis Service for Session Storage
+  reefdb-redis-dev:
+    image: redis:7-alpine
+    container_name: reefdb-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - ../database/dev/redis:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - rdb-dev-network
+
   # Development Web Application Service
   reefdb-web-dev:
     build:
@@ -53,9 +71,11 @@ services:
       - "5000:5000"
     environment:
       - FLASK_ENV=development
-      - FLASK_DEBUG=1
+      - FLASK_DEBUG=0
     depends_on:
       reefdb-database-dev:
+        condition: service_healthy
+      reefdb-redis-dev:
         condition: service_healthy
     networks:
       - rdb-dev-network

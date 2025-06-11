@@ -10,7 +10,7 @@
     <div class="col-lg-8">
       <div class="card">
         <div class="card-header bg-primary text-white">
-          <h5 class="mb-0">📅 Create Simple Dosing Schedule - Tank {{ tank_id }}</h5>
+          <h5 class="mb-0">📅 Create Simple Dosing Schedule - System {{ system_name }}</h5>
           <small class="text-light">Create interval-based dosing schedules with precise timing</small>
         </div>
         <div class="card-body">
@@ -84,13 +84,28 @@
                     <div class="form-text">When to start the first dose (leave empty to start immediately)</div>
                   </div>
                   <div class="col-md-6">
-                    <div class="form-check mt-4">
+                    <label for="hour_offset" class="form-label">🕐 Hour Offset (for hourly schedules)</label>
+                    <div class="input-group">
+                      <span class="input-group-text">:</span>
+                      <input type="number" min="0" max="59" class="form-control" id="hour_offset" name="hour_offset"
+                             value="0" placeholder="Minutes past hour">
+                      <span class="input-group-text">minutes</span>
+                    </div>
+                    <div class="form-text">
+                      <strong>Hourly schedules only:</strong> Dose at :XX minutes past each hour<br>
+                      <small>Examples: 0 = :00 (top of hour), 30 = :30 (half past), 45 = :45</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="row mt-3">
+                  <div class="col-md-12">
+                    <div class="form-check form-switch">
                       <input class="form-check-input" type="checkbox" id="suspended" name="suspended">
                       <label class="form-check-label" for="suspended">
                         ⏸️ Start Suspended
                       </label>
+                      <div class="form-text">Schedule will be created but not active until manually enabled</div>
                     </div>
-                    <div class="form-text">Schedule will be created but not active until manually enabled</div>
                   </div>
                 </div>
                 <div class="mt-3">
@@ -194,6 +209,18 @@ document.addEventListener('DOMContentLoaded', function() {
   const form = document.getElementById('scheduleForm');
   const loadingDiv = document.getElementById('loading');
 
+  // Show/hide hour offset field based on interval unit
+  function toggleHourOffsetField() {
+    const intervalUnit = document.getElementById('interval_unit').value;
+    const hourOffsetGroup = document.getElementById('hour_offset_group');
+    
+    if (intervalUnit === 'hours') {
+      hourOffsetGroup.style.display = 'block';
+    } else {
+      hourOffsetGroup.style.display = 'none';
+    }
+  }
+
   // Update display values when inputs change
   function updateDisplays() {
     const amount = parseFloat(document.getElementById('amount').value) || 0;
@@ -241,11 +268,15 @@ document.addEventListener('DOMContentLoaded', function() {
   // Add event listeners for real-time updates
   document.getElementById('amount').addEventListener('input', updateDisplays);
   document.getElementById('interval_value').addEventListener('input', updateDisplays);
-  document.getElementById('interval_unit').addEventListener('change', updateDisplays);
+  document.getElementById('interval_unit').addEventListener('change', function() {
+    updateDisplays();
+    toggleHourOffsetField();
+  });
   document.getElementById('start_time').addEventListener('change', updateDisplays);
 
-  // Initialize displays
+  // Initialize displays and field visibility
   updateDisplays();
+  toggleHourOffsetField();
 
   // Form validation
   function validateForm() {
@@ -253,6 +284,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const amount = parseFloat(document.getElementById('amount').value);
     const intervalValue = parseInt(document.getElementById('interval_value').value);
     const intervalUnit = document.getElementById('interval_unit').value;
+    const hourOffset = parseInt(document.getElementById('hour_offset').value);
 
     if (!productId) {
       return { valid: false, message: 'Please select a product.' };
@@ -264,6 +296,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (!intervalValue || intervalValue <= 0) {
       return { valid: false, message: 'Please enter a valid interval.' };
+    }
+
+    // Validate hour offset for hourly schedules
+    if (intervalUnit === 'hours' && (isNaN(hourOffset) || hourOffset < 0 || hourOffset > 59)) {
+      return { 
+        valid: false, 
+        message: 'Hour offset must be between 0 and 59 minutes for hourly schedules.' 
+      };
     }
 
     // Validate interval ranges

@@ -4,7 +4,7 @@ from app import app
 from modules.models import Tank, TestResults
 from modules.forms import test_result_form
 from modules.db_functions import insert_test_row
-from modules.tank_context import get_current_tank_id, ensure_tank_context
+from modules.system_context import get_current_system_id, ensure_system_context, get_current_tank_id, get_current_system_tank_ids
 
 # Parameter status evaluation functions
 def get_alk_status(value):
@@ -76,15 +76,23 @@ def get_sg_status(value):
 
 @app.route("/test")
 def test_results():
-    tank_id = ensure_tank_context()
-    if not tank_id:
-        flash("No tank selected.", "warning")
+    system_id = get_current_system_id()
+    tank_ids = get_current_system_tank_ids()
+    if not system_id or not tank_ids:
+        flash("No system selected.", "warning")
         return redirect(url_for('index'))
-    tests = TestResults.query.filter_by(tank_id=tank_id).order_by(TestResults.test_date.desc(), TestResults.test_time.desc()).all()
+    
+    tests = TestResults.query.filter(TestResults.tank_id.in_(tank_ids)).order_by(TestResults.test_date.desc(), TestResults.test_time.desc()).all()
+    
+    # Get system name for display
+    from modules.models import TankSystem
+    system = TankSystem.query.get(system_id)
+    system_name = system.name if system else f"System {system_id}"
     
     return render_template("test/results.html", 
                          tests=tests, 
-                         tank_id=tank_id,
+                         system_id=system_id,
+                         system_name=system_name,
                          get_alk_status=get_alk_status,
                          get_cal_status=get_cal_status,
                          get_mg_status=get_mg_status,
@@ -94,9 +102,30 @@ def test_results():
 
 @app.route("/test/add", methods=['GET', 'POST'])
 async def add_test():
+    # Ensure system context
+    system_id = ensure_system_context()
+    if not system_id:
+        flash("No system selected.", "warning")
+        return redirect(url_for('index'))
+    
+    # Get tanks in current system for choices
+    from modules.system_context import get_current_system_tanks
+    system_tanks = get_current_system_tanks()
+    if not system_tanks:
+        flash("No tanks found in current system.", "warning")
+        return redirect(url_for('index'))
+    
     form = test_result_form()
+    form.tank_id.choices = [(tank.id, tank.name) for tank in system_tanks]
+    
     if form.validate_on_submit():
-        result = await insert_test_row(TestResults, form, get_current_tank_id())
+        # Validate that selected tank belongs to current system
+        selected_tank_id = form.tank_id.data
+        if selected_tank_id not in [tank.id for tank in system_tanks]:
+            flash("Selected tank does not belong to current system.", "error")
+            return render_template("test/add_test.html", form=form)
+        
+        result = await insert_test_row(TestResults, form, selected_tank_id)
         assert result != False, "error inserting"
         return redirect('/test/db')
     elif request.method == 'GET':
@@ -107,9 +136,9 @@ async def add_test():
 
 @app.route("/test/db", methods=['GET'])
 def test_modify():
-    tank_id = ensure_tank_context()
-    if not tank_id:
-        flash("No tank selected.", "warning")
+    system_id = ensure_system_context()
+    if not system_id:
+        flash("No system selected.", "warning")
         return redirect(url_for('index'))
     from modules.utils.helper import get_table_columns, generate_columns
 

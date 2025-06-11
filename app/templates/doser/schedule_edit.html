@@ -98,6 +98,22 @@
                                         <div class="form-text">When to start the first dose (leave empty to use current schedule)</div>
                                     </div>
                                     <div class="col-md-6">
+                                        <label for="hour_offset" class="form-label">🕐 Hour Offset (for hourly schedules)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">:</span>
+                                            <input type="number" min="0" max="59" class="form-control" id="hour_offset" name="hour_offset"
+                                                   value="{% if schedule and schedule.offset_minutes is not none %}{{ schedule.offset_minutes }}{% else %}0{% endif %}"
+                                                   placeholder="Minutes past hour">
+                                            <span class="input-group-text">minutes</span>
+                                        </div>
+                                        <div class="form-text">
+                                            <strong>Hourly schedules only:</strong> Dose at :XX minutes past each hour<br>
+                                            <small>Examples: 0 = :00 (top of hour), 30 = :30 (half past), 45 = :45</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-md-12">
                                         <div class="form-check form-switch mt-4">
                                             <input class="form-check-input" type="checkbox" id="suspended" name="suspended" 
                                                    {% if schedule and schedule.suspended %}checked{% endif %}>
@@ -206,6 +222,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // Form fields are already correctly populated by the template from backend conversion
     // No need for JavaScript initialization since backend handles trigger_interval conversion
 
+    // Show/hide hour offset field based on interval unit
+    function toggleHourOffsetField() {
+        const intervalUnit = document.getElementById('interval_unit').value;
+        const hourOffsetGroup = document.getElementById('hour_offset_group');
+        
+        if (intervalUnit === 'hours') {
+            hourOffsetGroup.style.display = 'block';
+        } else {
+            hourOffsetGroup.style.display = 'none';
+        }
+    }
+
     // Update display values when inputs change
     function updateDisplays() {
         const amount = parseFloat(document.getElementById('amount').value) || 0;
@@ -254,11 +282,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add event listeners for real-time updates
     document.getElementById('amount').addEventListener('input', updateDisplays);
     document.getElementById('interval_value').addEventListener('input', updateDisplays);
-    document.getElementById('interval_unit').addEventListener('change', updateDisplays);
+    document.getElementById('interval_unit').addEventListener('change', function() {
+        updateDisplays();
+        toggleHourOffsetField();
+    });
     document.getElementById('start_time').addEventListener('change', updateDisplays);
 
-    // Initialize displays
+    // Initialize displays and field visibility
     updateDisplays();
+    toggleHourOffsetField();
 
     // Form validation
     function validateForm() {
@@ -266,6 +298,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const amount = parseFloat(document.getElementById('amount').value);
         const intervalValue = parseInt(document.getElementById('interval_value').value);
         const intervalUnit = document.getElementById('interval_unit').value;
+        const hourOffset = parseInt(document.getElementById('hour_offset').value);
 
         if (!productId) {
             return { valid: false, message: 'Please select a product.' };
@@ -281,6 +314,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (!intervalUnit || !['minutes', 'hours', 'days'].includes(intervalUnit)) {
             return { valid: false, message: 'Please select a valid time unit (minutes, hours, or days).' };
+        }
+
+        // Validate hour offset for hourly schedules
+        if (intervalUnit === 'hours' && (isNaN(hourOffset) || hourOffset < 0 || hourOffset > 59)) {
+            return { 
+                valid: false, 
+                message: 'Hour offset must be between 0 and 59 minutes for hourly schedules.' 
+            };
         }
 
         // Validate interval ranges

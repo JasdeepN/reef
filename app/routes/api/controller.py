@@ -3,6 +3,12 @@ from app import db
 from sqlalchemy import text
 from datetime import datetime
 import pytz
+import logging
+
+# Import scheduler refresh utility
+from modules.enhanced_dosing_scheduler import refresh_scheduler_queue
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('controller_api', __name__, url_prefix='/controller')
 
@@ -237,6 +243,17 @@ def toggle_schedule():
     try:
         db.session.execute(text(update_sql), {'suspend': new_value, 'sched_id': sched_id})
         db.session.commit()
+        
+        # Refresh enhanced dosing scheduler queue to pick up suspend/resume changes
+        try:
+            refresh_success = refresh_scheduler_queue()
+            if refresh_success:
+                logger.info(f"Enhanced scheduler queue refreshed after toggling schedule {sched_id}")
+            else:
+                logger.warning(f"Enhanced scheduler queue refresh failed after toggling schedule {sched_id}")
+        except Exception as refresh_error:
+            logger.error(f"Error refreshing enhanced scheduler queue after toggling schedule {sched_id}: {refresh_error}")
+        
         return jsonify({'success': True, 'suspended': new_value}), 200
     except Exception as e:
         db.session.rollback()
@@ -254,9 +271,9 @@ def toggle_dosing_pump():
 @bp.route('/dosers', methods=['GET'])
 def get_dosers():
     """Get active dosers for current tank"""
-    from modules.tank_context import get_current_tank_id
+    from modules.system_context import get_current_system_id
     
-    tank_id = get_current_tank_id()
+    tank_id = get_current_system_id()
     if not tank_id:
         return jsonify({'success': False, 'error': 'No tank selected'}), 400
     
@@ -286,9 +303,9 @@ def get_dosers():
 @bp.route('/products', methods=['GET'])
 def get_products():
     """Get products available for manual dosing"""
-    from modules.tank_context import get_current_tank_id
+    from modules.system_context import get_current_system_id
     
-    tank_id = get_current_tank_id()
+    tank_id = get_current_system_id()
     if not tank_id:
         return jsonify({'success': False, 'error': 'No tank selected'}), 400
     

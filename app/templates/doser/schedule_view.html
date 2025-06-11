@@ -105,6 +105,28 @@
     padding: 0.25rem 0.75rem;
     font-size: 0.875rem;
 }
+
+/* Next dose styling */
+.next-dose-time {
+    font-weight: 500;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    background-color: rgba(40, 167, 69, 0.1);
+    color: var(--text-color);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.next-dose-time.text-warning {
+    background-color: rgba(255, 193, 7, 0.2);
+    border-color: rgba(255, 193, 7, 0.5);
+    color: #ffc107;
+    animation: pulse-warning 2s infinite;
+}
+
+@keyframes pulse-warning {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
 </style>
 {% endblock %}
 
@@ -112,7 +134,7 @@
 <div class="container-fluid">
     <div class="dashboard-header">
         <h1><i class="fas fa-calendar-alt"></i> Dosing Schedules</h1>
-        <p>Overview of all dosing schedules (active and suspended) for the current tank</p>
+        <p>Overview of all dosing schedules (active and suspended) for tanks in the current system</p>
     </div>
 
     {% if schedules %}
@@ -133,6 +155,11 @@
                     </div>
                     
                     <div class="schedule-details">
+                        <div class="detail-item">
+                            <div class="detail-label">Tank</div>
+                            <div class="detail-value">{{ schedule.tank_name }}</div>
+                        </div>
+                        
                         <div class="detail-item">
                             <div class="detail-label">Amount</div>
                             <div class="detail-value">{{ schedule.amount }}ml</div>
@@ -161,6 +188,17 @@
                             <div class="detail-value">{{ schedule.last_scheduled[:16] }}</div>
                         </div>
                         {% endif %}
+                        
+                        {% if not schedule.suspended and schedule.next_dose_display %}
+                        <div class="detail-item">
+                            <div class="detail-label">Next Dose</div>
+                            <div class="detail-value">
+                                <span class="next-dose-time {% if schedule.next_dose_display == 'Due now' %}text-warning fw-bold{% endif %}">
+                                    {{ schedule.next_dose_display }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                     
                     <div class="action-buttons">
@@ -187,7 +225,7 @@
             <div class="col-12">
                 <div class="alert alert-info text-center">
                     <h4><i class="fas fa-info-circle"></i> No Schedules Found</h4>
-                    <p>There are no dosing schedules for this tank.</p>
+                    <p>There are no dosing schedules for tanks in this system.</p>
                     <a href="{{ url_for('schedule_new') }}" class="btn btn-primary">
                         <i class="fas fa-plus"></i> Create First Schedule
                     </a>

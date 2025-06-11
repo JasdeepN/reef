@@ -2,8 +2,8 @@ import pytest
 import json
 from datetime import datetime, date, time
 from app import app, db
-from modules.models import Tank, DSchedule, Products, Doser
-from modules.tank_context import set_tank_id_for_testing
+from modules.models import Tank, DSchedule, Products, Doser, TankSystem
+from modules.system_context import set_system_id_for_testing
 from app.routes.doser import _calculate_custom_schedule
 import math
 
@@ -20,12 +20,29 @@ class TestEnhancedDosingScheduler:
             if existing_tanks:
                 self.test_tank = existing_tanks[0]
                 print(f"[test] Using existing tank: {self.test_tank.name} (id={self.test_tank.id})")
+                
+                # Get the tank's system or use a fallback system
+                if self.test_tank.tank_system_id:
+                    self.test_system_id = self.test_tank.tank_system_id
+                    print(f"[test] Using tank's system id: {self.test_system_id}")
+                else:
+                    # If tank has no system, find any existing system or use fallback
+                    existing_systems = TankSystem.query.limit(1).all()
+                    if existing_systems:
+                        self.test_system_id = existing_systems[0].id
+                        print(f"[test] Using existing system: {self.test_system_id}")
+                    else:
+                        self.test_system_id = 1
+                        print("[test] Using fallback system id: 1")
             else:
                 self.test_tank = Tank(id=1, name="fallback-tank")
-                print("[test] Using fallback tank (id=1)")
-            # Set tank context for testing (requires request context)
+                self.test_system_id = 1
+                print("[test] Using fallback tank (id=1) and system (id=1)")
+                
+            # Set system context for testing (requires request context)
             with app.test_request_context():
-                set_tank_id_for_testing(self.test_tank.id)
+                set_system_id_for_testing(self.test_system_id)
+                
             # Use existing products instead of creating new ones
             existing_products = Products.query.limit(1).all()
             if existing_products:

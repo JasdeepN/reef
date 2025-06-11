@@ -1,304 +1,160 @@
 {% extends "base.html" %}
 
+{% block page_title %}Tank Management - ReefDB{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tank-management.css') }}">
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-  <!-- Tank Management Header -->
-  <div class="row mb-4">
-    <div class="col-12">
-      <div class="dashboard-header">
-        <h1 class="text-center">Tank Management</h1>
-        <p class="text-center text-muted">Manage your reef tanks and configurations</p>
-      </div>
+<div class="container-fluid tank-management-page">
+    <div class="dashboard-header text-center mb-4">
+        <h1><i class="fas fa-fish me-2"></i>Tank Management</h1>
+        <p class="text-muted">Manage all your reef tanks and view comprehensive statistics</p>
     </div>
-  </div>
 
-  <!-- Add New Tank Button -->
-  <div class="row mb-4">
-    <div class="col-12 text-center">
-      <a href="{{ url_for('tank_new') }}" class="btn btn-primary btn-lg">
-        <i class="fas fa-plus"></i> Add New Tank
-      </a>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3>Your Tanks</h3>
+                <a href="{{ url_for('tank_new') }}" class="btn btn-success">
+                    <i class="fas fa-plus me-2"></i>Add New Tank
+                </a>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <!-- Tanks Display -->
-  <div class="row">
-{% if tank_stats %}
-  {% for stat in tank_stats %}
-  {% set tank = stat.tank %}
-  <div class="col-lg-4 col-md-6 col-sm-12 mb-4">
-    <div class="card tank-card {% if tank.id == current_tank_id %}current-tank{% endif %}">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start mb-3">
-          <h5 class="card-title mb-0">{{ tank.name }}</h5>
-          {% if tank.id == current_tank_id %}
-            <span class="badge bg-success">Current Tank</span>
-          {% endif %}
+    {% if tank_stats %}
+        <div class="row">
+            {% for stats in tank_stats %}
+            <div class="col-lg-4 col-md-6 col-sm-12 mb-4">
+                <div class="card h-100 tank-card-enhanced">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            {{ stats.tank.name }}
+                            {% if current_system_id == stats.tank.tank_system_id %}
+                                <span class="badge bg-primary ms-2">Current System</span>
+                            {% endif %}
+                        </h5>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{{ url_for('tank_edit', tank_id=stats.tank.id) }}">
+                                    <i class="fas fa-edit me-2"></i>Edit
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <form method="post" action="{{ url_for('tank_delete', tank_id=stats.tank.id) }}" 
+                                          onsubmit="return confirm('Are you sure you want to delete this tank?')">
+                                        <button type="submit" class="dropdown-item text-danger">
+                                            <i class="fas fa-trash me-2"></i>Delete
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        {% if stats.tank.description %}
+                            <p class="text-muted">{{ stats.tank.description }}</p>
+                        {% endif %}
+                        
+                        <div class="row text-center tank-stats-grid">
+                            <div class="col-6">
+                                <div class="stat-item">
+                                    <h6 class="text-muted">Water Volume</h6>
+                                    <p class="mb-0"><strong>{{ stats.gross_water_vol }}</strong> gal</p>
+                                    <small class="text-muted">{{ stats.net_water_vol }} net</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="stat-item">
+                                    <h6 class="text-muted">Overall Health</h6>
+                                    <p class="mb-0">
+                                        <span class="badge {% if stats.overall_health == 'Excellent' %}bg-success{% elif stats.overall_health == 'Good' %}bg-primary{% elif stats.overall_health == 'Fair' %}bg-warning{% elif stats.overall_health == 'Poor' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                            {{ stats.overall_health }}
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="dosing-stats">
+                            <div class="dosing-stat">
+                                <h6 class="text-muted">Total Doses</h6>
+                                <p class="mb-0"><strong>{{ stats.dosing_total }}</strong></p>
+                            </div>
+                            <div class="dosing-stat">
+                                <h6 class="text-muted">Active</h6>
+                                <p class="mb-0 text-success"><strong>{{ stats.dosing_active }}</strong></p>
+                            </div>
+                            <div class="dosing-stat">
+                                <h6 class="text-muted">Suspended</h6>
+                                <p class="mb-0 text-warning"><strong>{{ stats.dosing_suspended }}</strong></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-grid gap-2">
+                            <form method="post" action="/set_system" class="d-inline">
+                                {% if stats.tank.tank_system_id %}
+                                    <input type="hidden" name="system_id" value="{{ stats.tank.tank_system_id }}">
+                                    <button type="submit" class="btn btn-primary btn-sm w-100 switch-system-btn">
+                                        <i class="fas fa-eye me-2"></i>Switch to This System
+                                    </button>
+                                {% else %}
+                                    <span class="text-muted">No system assigned</span>
+                                {% endif %}
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
         </div>
-        {% if tank.description %}
-        <p class="card-text text-muted">{{ tank.description }}</p>
-        {% endif %}
-
-        <!-- Water Volumes -->
-        <p class="card-text mb-1">
-          <small class="text-muted">
-            <i class="fas fa-water"></i>
-            Gross: {{ stat.gross_water_vol or '—' }} gal
-            &nbsp;|&nbsp;
-            Net: {{ stat.net_water_vol or '—' }} gal
-          </small>
-        </p>
-
-        <!-- Overall Health -->
-        <p class="card-text mb-1">
-          <small class="text-muted">
-            <i class="fas fa-heartbeat"></i>
-            Health: <strong>{{ stat.overall_health }}</strong>
-            {% if stat.coral_health_counts and stat.coral_health_counts|length > 1 %}
-              <span class="ms-2" title="Coral health breakdown">
-                ({{ stat.coral_health_counts | map(attribute='0') | join(', ') }})
-              </span>
-            {% endif %}
-          </small>
-        </p>
-
-        <!-- Dosing Status -->
-        <p class="card-text mb-1">
-          <small class="text-muted">
-            <i class="fas fa-vial"></i>
-            Dosing: <span title="Active / Suspended / Overdue">
-              <strong>{{ stat.dosing_active }}</strong> active,
-              <strong>{{ stat.dosing_suspended }}</strong> suspended,
-              <strong>{{ stat.dosing_missed }}</strong> missed
-            </span>
-          </small>
-        </p>
-
-        <div class="card-actions mt-3">
-          <a href="{{ url_for('tank_edit', tank_id=tank.id) }}" class="btn btn-outline-primary btn-sm">
-            <i class="fas fa-edit"></i> Edit
-          </a>
-          {% if tank.id != current_tank_id %}
-          <button type="button" class="btn btn-outline-danger btn-sm" 
-                  data-bs-toggle="modal" 
-                  data-bs-target="#deleteTankModal"
-                  data-tank-id="{{ tank.id }}"
-                  data-tank-name="{{ tank.name }}">
-            <i class="fas fa-trash"></i> Delete
-          </button>
-          {% else %}
-          <button type="button" class="btn btn-outline-secondary btn-sm" disabled>
-            <i class="fas fa-trash"></i> Cannot Delete Current Tank
-          </button>
-          {% endif %}
-          {% if tank.id != current_tank_id %}
-          <form action="{{ url_for('set_tank') }}" method="post" class="d-inline">
-            <input type="hidden" name="tank_id" value="{{ tank.id }}">
-            <button type="submit" class="btn btn-outline-success btn-sm">
-              <i class="fas fa-check"></i> Select Tank
-            </button>
-          </form>
-          {% endif %}
+    {% else %}
+        <div class="empty-state">
+            <i class="fas fa-fish text-muted mb-3" style="font-size: 4rem;"></i>
+            <h3 class="text-muted">No Tanks Found</h3>
+            <p class="mb-4">Get started by creating your first reef tank!</p>
+            <a href="{{ url_for('tank_new') }}" class="btn btn-success btn-lg">
+                <i class="fas fa-plus me-2"></i>Create Your First Tank
+            </a>
         </div>
-      </div>
-    </div>
-  </div>
-  {% endfor %}
-{% else %}
-      <!-- Empty State -->
-      <div class="col-12">
-        <div class="empty-state text-center py-5">
-          <div class="empty-state-icon mb-4">
-            <i class="fas fa-fish fa-4x text-muted"></i>
-          </div>
-          <h3 class="text-muted mb-3">No Tanks Found</h3>
-          <p class="text-muted mb-4">You haven't created any tanks yet. Get started by adding your first reef tank!</p>
-          <a href="{{ url_for('tank_new') }}" class="btn btn-primary btn-lg">
-            <i class="fas fa-plus"></i> Create Your First Tank
-          </a>
-        </div>
-      </div>
     {% endif %}
-  </div>
-</div>
 
-<!-- Delete Tank Confirmation Modal -->
-<div class="modal fade" id="deleteTankModal" tabindex="-1" aria-labelledby="deleteTankModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="deleteTankModalLabel">Delete Tank</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p>Are you sure you want to delete the tank <strong id="tank-name-display"></strong>?</p>
-        <p class="text-danger"><small><i class="fas fa-exclamation-triangle"></i> This action cannot be undone.</small></p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <form id="delete-tank-form" action="" method="post" class="d-inline">
-          <button type="submit" class="btn btn-danger">Delete Tank</button>
-        </form>
-      </div>
+    {% if tank_stats and tank_stats|length > 1 %}
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="quick-actions-section">
+                <h3>Quick Actions</h3>
+                <div class="row">
+                    <div class="col-md-4">
+                        <a href="{{ url_for('tank_system_list') }}" class="quick-action-btn">
+                            <i class="fas fa-project-diagram"></i>
+                            Tank Systems
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="/doser" class="quick-action-btn">
+                            <i class="fas fa-tint"></i>
+                            Dosing Dashboard
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="/test" class="quick-action-btn">
+                            <i class="fas fa-flask"></i>
+                            Water Tests
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
+    {% endif %}
 </div>
-
-<style>
-.tank-card {
-  background-color: var(--card-bg);
-  border: 1px solid var(--border-color);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.tank-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-.tank-card.current-tank {
-  border-color: #28a745;
-  box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
-}
-
-.card-title {
-  color: var(--text-color);
-}
-
-.card-text {
-  color: var(--text-muted);
-}
-
-.empty-state {
-  padding: 4rem 2rem;
-}
-
-.empty-state-icon {
-  opacity: 0.6;
-}
-
-.dashboard-header {
-  padding: 2rem 1.5rem;
-  margin-bottom: 2rem;
-  text-align: center;
-}
-
-.dashboard-header h1 {
-  color: var(--text-color);
-  margin-bottom: 0.5rem;
-}
-
-.dashboard-header p {
-  color: var(--text-muted);
-  margin-bottom: 0;
-}
-
-.card-actions .btn {
-  margin-right: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.badge {
-  font-size: 0.75em;
-}
-
-/* Fix modal z-index to appear above tooltip overlays */
-#deleteTankModal {
-  z-index: 1060 !important; /* Bootstrap modal default is 1055, tooltips are ~1070 */
-  pointer-events: none; /* Don't block mouse events when hidden */
-}
-
-/* Only apply high z-index when modal is actually shown */
-#deleteTankModal.show {
-  z-index: 10000001 !important;
-  pointer-events: auto; /* Re-enable mouse events when shown */
-}
-
-/* Bootstrap creates backdrop separately from modal */
-.modal-backdrop {
-  z-index: 1055 !important; /* Default Bootstrap backdrop z-index */
-}
-
-/* Only override backdrop z-index when shown */
-.modal-backdrop.show {
-  z-index: 10000000 !important;
-}
-
-/* Ensure modal doesn't block events when not visible */
-#deleteTankModal:not(.show) {
-  pointer-events: none !important;
-  visibility: hidden !important;
-}
-
-/* Ensure modal content uses proper colors */
-#deleteTankModal .modal-content {
-  background-color: var(--card-bg);
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-}
-
-#deleteTankModal .modal-header {
-  border-bottom: 1px solid var(--border-color);
-}
-
-#deleteTankModal .modal-footer {
-  border-top: 1px solid var(--border-color);
-}
-
-#deleteTankModal .btn-close {
-  background: transparent;
-  opacity: 0.8;
-}
-
-#deleteTankModal .btn-close:hover {
-  opacity: 1;
-}
-</style>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Handle delete tank modal
-  const deleteTankModal = document.getElementById('deleteTankModal');
-  
-  if (deleteTankModal) {
-    // Ensure modal starts in proper hidden state
-    deleteTankModal.style.display = 'none';
-    deleteTankModal.style.visibility = 'hidden';
-    deleteTankModal.style.pointerEvents = 'none';
-    
-    deleteTankModal.addEventListener('show.bs.modal', function (event) {
-      const button = event.relatedTarget;
-      const tankId = button.getAttribute('data-tank-id');
-      const tankName = button.getAttribute('data-tank-name');
-      
-      const tankNameDisplay = deleteTankModal.querySelector('#tank-name-display');
-      const deleteForm = deleteTankModal.querySelector('#delete-tank-form');
-      
-      tankNameDisplay.textContent = tankName;
-      deleteForm.action = `/tanks/delete/${tankId}`;
-      
-      // Ensure modal can receive events when shown
-      deleteTankModal.style.pointerEvents = 'auto';
-      deleteTankModal.style.visibility = 'visible';
-    });
-    
-    deleteTankModal.addEventListener('shown.bs.modal', function (event) {
-      // Modal is fully visible, ensure it can receive events
-      deleteTankModal.style.pointerEvents = 'auto';
-    });
-    
-    deleteTankModal.addEventListener('hide.bs.modal', function (event) {
-      // Modal is being hidden, start blocking events
-      deleteTankModal.style.pointerEvents = 'none';
-    });
-    
-    deleteTankModal.addEventListener('hidden.bs.modal', function (event) {
-      // Modal is fully hidden, ensure it doesn't block events
-      deleteTankModal.style.display = 'none';
-      deleteTankModal.style.visibility = 'hidden';
-      deleteTankModal.style.pointerEvents = 'none';
-    });
-  }
-});
-</script>
 {% endblock %}

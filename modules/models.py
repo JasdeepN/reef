@@ -89,10 +89,11 @@ class Products(db.Model):
         data = {
             'id': self.id,
             'name': self.name,
+            'uses': self.uses,
             'total_volume': self.total_volume,
             'current_avail': self.current_avail,
-            'used_amt': self.used_amt,
             'dry_refill': self.dry_refill,
+            'last_update': self.last_update.isoformat() if self.last_update else None,
         }
         if include_private:
             data['_sa_instance_state'] = getattr(self, '_sa_instance_state', None)
@@ -346,6 +347,55 @@ class Coral(db.Model):
     vendor = db.relationship('Vendors', backref='corals', lazy=True)
     color_morph = db.relationship('ColorMorphs', backref='corals', lazy=True)
 
+class TankSystem(db.Model):
+    """Tank system for grouping tanks that share sumps (like aquarium shops or multi-tank setups)"""
+    __tablename__ = 'tank_systems'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    total_system_volume_gallons = db.Column(db.Numeric(10, 2), nullable=True)  # Calculated total
+    shared_sump_volume_gallons = db.Column(db.Numeric(8, 2), nullable=True)  # Shared sump volume
+    system_type = db.Column(db.String(50), nullable=True)  # 'shop', 'home_multi', 'single', etc.
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    
+    def __repr__(self):
+        return f"<TankSystem {self.name}>"
+    
+    def calculate_total_system_volume(self):
+        """Calculate total water volume across all tanks in the system"""
+        if not hasattr(self, 'tanks'):
+            return 0.0
+        
+        total_tank_volume = sum(
+            float(tank.get_calculated_volume_gallons() or tank.net_water_vol or tank.gross_water_vol or 0) 
+            for tank in self.tanks
+        )
+        shared_sump = float(self.shared_sump_volume_gallons or 0)
+        return round(total_tank_volume + shared_sump, 2)
+    
+    def get_tank_count(self):
+        """Get number of tanks in this system"""
+        if not hasattr(self, 'tanks'):
+            return 0
+        return len(self.tanks)
+    
+    def to_dict(self):
+        """Convert tank system to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "total_system_volume_gallons": float(self.total_system_volume_gallons) if self.total_system_volume_gallons else None,
+            "shared_sump_volume_gallons": float(self.shared_sump_volume_gallons) if self.shared_sump_volume_gallons else None,
+            "system_type": self.system_type,
+            "tank_count": self.get_tank_count(),
+            "calculated_total_volume": self.calculate_total_system_volume(),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+
 class Tank(db.Model):
     __tablename__ = 'tanks'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -353,9 +403,133 @@ class Tank(db.Model):
     gross_water_vol = db.Column(db.Integer)
     net_water_vol = db.Column(db.Integer)
     live_rock_lbs = db.Column(db.Float)
+    
+    # Enhanced tank configuration fields
+    tank_length_inches = db.Column(db.Numeric(6, 2), nullable=True)
+    tank_width_inches = db.Column(db.Numeric(6, 2), nullable=True)
+    tank_height_inches = db.Column(db.Numeric(6, 2), nullable=True)
+    sump_volume_gallons = db.Column(db.Numeric(8, 2), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    
+    # Tank system relationship
+    tank_system_id = db.Column(db.Integer, db.ForeignKey('tank_systems.id'), nullable=True, index=True)
+    
+    # Relationships
+    tank_system = db.relationship('TankSystem', backref=db.backref('tanks', lazy=True, cascade='all, delete-orphan'))
 
     def __repr__(self):
         return f"<Tank {self.name}>"
+    
+    @staticmethod
+    def cubic_inches_to_gallons(cubic_inches):
+        """Convert cubic inches to US gallons (231 cubic inches = 1 gallon)"""
+        if not cubic_inches or cubic_inches <= 0:
+            return 0.0
+        return round(cubic_inches / 231.0, 2)
+    
+    def get_calculated_volume_gallons(self):
+        """Calculate tank volume from dimensions if available"""
+        if all([self.tank_length_inches, self.tank_width_inches, self.tank_height_inches]):
+            cubic_inches = float(self.tank_length_inches) * float(self.tank_width_inches) * float(self.tank_height_inches)
+            return self.cubic_inches_to_gallons(cubic_inches)
+        return None
+    
+    def get_effective_volume(self):
+        """Get the most appropriate volume measurement for this tank"""
+        # Priority: calculated from dimensions > net volume > gross volume
+        calculated = self.get_calculated_volume_gallons()
+        if calculated:
+            return calculated
+        elif self.net_water_vol:
+            return float(self.net_water_vol)
+        elif self.gross_water_vol:
+            return float(self.gross_water_vol)
+        return 0.0
+    
+    def get_total_system_volume(self):
+        """Get total water volume including this tank's contribution to its system"""
+        if self.tank_system:
+            return self.tank_system.calculate_total_system_volume()
+        else:
+            # For standalone tanks, include individual sump volume
+            tank_volume = self.get_effective_volume()
+            sump_volume = float(self.sump_volume_gallons or 0)
+            return round(tank_volume + sump_volume, 2)
+    
+    def is_part_of_system(self):
+        """Check if this tank is part of a multi-tank system"""
+        return self.tank_system_id is not None
+    
+    def get_system_name(self):
+        """Get the name of the tank system this tank belongs to"""
+        if self.tank_system:
+            return self.tank_system.name
+        return "Standalone Tank"
+    
+    def calculate_monthly_kwh(self):
+        """Calculate estimated monthly kWh usage from active equipment"""
+        if not hasattr(self, 'equipment'):
+            return 0.0
+        
+        total_watts = sum(float(eq.power_watts or 0) for eq in self.equipment if eq.is_active and eq.power_watts)
+        # Convert watts to kWh: watts * hours_per_day * days_per_month / 1000
+        monthly_kwh = (total_watts * 24 * 30.44) / 1000  # 30.44 average days per month
+        return round(monthly_kwh, 2)
+    
+    def get_tank_dimensions_display(self):
+        """Get formatted tank dimensions string"""
+        if all([self.tank_length_inches, self.tank_width_inches, self.tank_height_inches]):
+            return f"{self.tank_length_inches}\" × {self.tank_width_inches}\" × {self.tank_height_inches}\""
+        return "—"
+    
+    def get_volume_summary_display(self):
+        """Get comprehensive volume display including calculated and manual values"""
+        calculated = self.get_calculated_volume_gallons()
+        effective = self.get_effective_volume()
+        system_total = self.get_total_system_volume()
+        
+        summary = []
+        if calculated:
+            summary.append(f"Calculated: {calculated} gal")
+        if self.net_water_vol and calculated != self.net_water_vol:
+            summary.append(f"Net: {self.net_water_vol} gal")
+        if self.gross_water_vol and calculated != self.gross_water_vol and self.net_water_vol != self.gross_water_vol:
+            summary.append(f"Gross: {self.gross_water_vol} gal")
+        
+        if self.is_part_of_system() and system_total != effective:
+            summary.append(f"System Total: {system_total} gal")
+        elif self.sump_volume_gallons and not self.is_part_of_system():
+            summary.append(f"+ Sump: {self.sump_volume_gallons} gal")
+        
+        return " | ".join(summary) if summary else "No volume data"
+    
+    def to_dict(self):
+        """Convert tank to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "gross_water_vol": self.gross_water_vol,
+            "net_water_vol": self.net_water_vol,
+            "live_rock_lbs": float(self.live_rock_lbs) if self.live_rock_lbs else None,
+            "tank_length_inches": float(self.tank_length_inches) if self.tank_length_inches else None,
+            "tank_width_inches": float(self.tank_width_inches) if self.tank_width_inches else None,
+            "tank_height_inches": float(self.tank_height_inches) if self.tank_height_inches else None,
+            "sump_volume_gallons": float(self.sump_volume_gallons) if self.sump_volume_gallons else None,
+            "description": self.description,
+            "tank_system_id": self.tank_system_id,
+            "tank_system_name": self.get_system_name(),
+            "calculated_volume_gallons": self.get_calculated_volume_gallons(),
+            "effective_volume_gallons": self.get_effective_volume(),
+            "total_system_volume_gallons": self.get_total_system_volume(),
+            "is_part_of_system": self.is_part_of_system(),
+            "monthly_kwh_estimate": self.calculate_monthly_kwh(),
+            "dimensions_display": self.get_tank_dimensions_display(),
+            "volume_summary_display": self.get_volume_summary_display(),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
 
 class Doser(db.Model):
     __tablename__ = 'dosers'
@@ -553,5 +727,52 @@ def predict_alkalinity_dose(tank_id, product_id, target_alk):
         raise ValueError("No valid model found or slope is zero.")
     dose = (target_alk - model.intercept) / model.slope
     return dose
+
+class EquipmentTypeEnum(enum.Enum):
+    lighting = 'lighting'
+    pump = 'pump'
+    heater = 'heater'
+    skimmer = 'skimmer'
+    reactor = 'reactor'
+    controller = 'controller'
+    doser = 'doser'
+    other = 'other'
+
+class Equipment(db.Model):
+    __tablename__ = 'equipment'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    tank_id = db.Column(db.Integer, db.ForeignKey('tanks.id'), nullable=False, index=True)
+    equipment_name = db.Column(db.String(128), nullable=False)
+    equipment_type = db.Column(db.Enum(EquipmentTypeEnum), default=EquipmentTypeEnum.other, nullable=False)
+    power_watts = db.Column(db.Numeric(8, 2), nullable=True)
+    brand = db.Column(db.String(64), nullable=True)
+    model = db.Column(db.String(128), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    
+    # Relationships
+    tank = db.relationship('Tank', backref=db.backref('equipment', lazy=True, cascade='all, delete-orphan'))
+    
+    def __repr__(self):
+        return f"<Equipment {self.equipment_name} ({self.equipment_type.value})>"
+    
+    def to_dict(self):
+        """Convert equipment to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "tank_id": self.tank_id,
+            "equipment_name": self.equipment_name,
+            "equipment_type": self.equipment_type.value,
+            "power_watts": float(self.power_watts) if self.power_watts else None,
+            "brand": self.brand,
+            "model": self.model,
+            "notes": self.notes,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
 
 

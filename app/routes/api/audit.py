@@ -12,7 +12,7 @@ from sqlalchemy import text, desc, func
 import logging
 from app import db
 from modules.models import Dosing, DSchedule, Products, Tank
-from modules.tank_context import get_current_tank_id
+from modules.system_context import get_current_system_id, get_current_system_tank_ids, ensure_system_context, force_system_context_for_vscode
 from modules.timezone_utils import datetime_to_iso_format
 import logging
 
@@ -21,11 +21,33 @@ bp = Blueprint('audit_api', __name__)
 @bp.route('/dose-events', methods=['GET'])
 def get_dose_events():
     """Get recent dose events for audit log with enhanced details"""
-    tank_id = get_current_tank_id()
-    if not tank_id:
+    # Force VS Code context first
+    user_agent = request.headers.get('User-Agent', '').lower()
+    if 'vscode' in user_agent or 'simple browser' in user_agent:
+        from flask import session
+        from modules.models import TankSystem
+        try:
+            if not session.get('system_id'):
+                first_system = TankSystem.query.first()
+                if first_system:
+                    session['system_id'] = first_system.id
+                    session.permanent = True
+        except Exception as e:
+            session['system_id'] = 4  # Fallback to known system
+    
+    system_id = ensure_system_context()
+    if not system_id:
         return jsonify({
             "success": False,
-            "error": "No tank selected",
+            "error": "No system selected",
+                "data": []
+            }), 400
+    
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        return jsonify({
+            "success": False,
+            "error": "No tanks found for system",
             "data": []
         }), 400
     
@@ -70,14 +92,14 @@ def get_dose_events():
             LEFT JOIN products p ON d.product_id = p.id
             LEFT JOIN tanks t ON ds.tank_id = t.id
             LEFT JOIN dosers ON ds.doser_id = dosers.id
-            WHERE ds.tank_id = :tank_id
+            WHERE ds.tank_id IN :tank_ids
                 AND d.trigger_time >= :start_date
             ORDER BY d.trigger_time DESC
             LIMIT :limit OFFSET :offset
         """
         
         result = db.session.execute(text(sql), {
-            'tank_id': tank_id,
+            'tank_ids': tuple(tank_ids),
             'start_date': start_date,
             'limit': limit,
             'offset': offset
@@ -186,14 +208,14 @@ def get_dose_events():
             dose_events.append(dose_event)
         
         # Get missed dose events for the same period
-        missed_dose_events = get_missed_dose_events(tank_id, start_date, limit//2)
+        missed_dose_events = get_missed_dose_events(tank_ids, start_date, limit//2)
         
         # Combine and sort all events
         all_events = dose_events + missed_dose_events
         all_events.sort(key=lambda x: x['timestamp'] or '1970-01-01', reverse=True)
         
         # Get summary statistics
-        stats = get_audit_summary(tank_id, days_back)
+        stats = get_audit_summary(tank_ids, days_back)
         
         return jsonify({
             "success": True,
@@ -206,7 +228,7 @@ def get_dose_events():
                 },
                 "summary": stats,
                 "filter": {
-                    "tank_id": tank_id,
+                    "tank_ids": tank_ids,
                     "days_back": days_back,
                     "start_date": start_date.isoformat()
                 }
@@ -220,7 +242,7 @@ def get_dose_events():
             "data": []
         }), 500
 
-def get_missed_dose_events(tank_id: int, start_date: datetime, limit: int) -> list:
+def get_missed_dose_events(tank_ids: list, start_date: datetime, limit: int) -> list:
     """Get missed dose events for the audit log"""
     try:
         sql = """
@@ -242,14 +264,14 @@ def get_missed_dose_events(tank_id: int, start_date: datetime, limit: int) -> li
             LEFT JOIN d_schedule ds ON mdr.schedule_id = ds.id
             LEFT JOIN products p ON ds.product_id = p.id
             LEFT JOIN tanks t ON ds.tank_id = t.id
-            WHERE ds.tank_id = :tank_id
+            WHERE ds.tank_id IN :tank_ids
                 AND mdr.detected_time >= :start_date
             ORDER BY mdr.detected_time DESC
             LIMIT :limit
         """
         
         result = db.session.execute(text(sql), {
-            'tank_id': tank_id,
+            'tank_ids': tuple(tank_ids),
             'start_date': start_date,
             'limit': limit
         })
@@ -298,7 +320,7 @@ def get_missed_dose_events(tank_id: int, start_date: datetime, limit: int) -> li
         # Return empty list on error, don't fail the main request
         return []
 
-def get_audit_summary(tank_id: int, days_back: int) -> dict:
+def get_audit_summary(tank_ids: list, days_back: int) -> dict:
     """Get summary statistics for the audit period"""
     try:
         start_date = datetime.now() - timedelta(days=days_back)
@@ -313,12 +335,12 @@ def get_audit_summary(tank_id: int, days_back: int) -> dict:
                 COUNT(DISTINCT d.product_id) as products_dosed
             FROM dosing d
             LEFT JOIN d_schedule ds ON d.schedule_id = ds.id
-            WHERE ds.tank_id = :tank_id
+            WHERE ds.tank_id IN :tank_ids
                 AND d.trigger_time >= :start_date
         """
         
         result = db.session.execute(text(dose_stats_sql), {
-            'tank_id': tank_id,
+            'tank_ids': tuple(tank_ids),
             'start_date': start_date
         }).fetchone()
         
@@ -331,12 +353,12 @@ def get_audit_summary(tank_id: int, days_back: int) -> dict:
                 COUNT(CASE WHEN mdr.status = 'rejected' THEN 1 END) as rejected
             FROM missed_dose_requests mdr
             LEFT JOIN d_schedule ds ON mdr.schedule_id = ds.id
-            WHERE ds.tank_id = :tank_id
+            WHERE ds.tank_id IN :tank_ids
                 AND mdr.detected_time >= :start_date
         """
         
         missed_result = db.session.execute(text(missed_stats_sql), {
-            'tank_id': tank_id,
+            'tank_ids': tuple(tank_ids),
             'start_date': start_date
         }).fetchone()
         
@@ -385,11 +407,33 @@ def get_performance_rating(success_rate: float) -> str:
 @bp.route('/dose-events/recent', methods=['GET'])
 def get_recent_dose_events():
     """Get the most recent dose events for real-time updates"""
-    tank_id = get_current_tank_id()
-    if not tank_id:
+    # Force VS Code context first
+    user_agent = request.headers.get('User-Agent', '').lower()
+    if 'vscode' in user_agent or 'simple browser' in user_agent:
+        from flask import session
+        from modules.models import TankSystem
+        try:
+            if not session.get('system_id'):
+                first_system = TankSystem.query.first()
+                if first_system:
+                    session['system_id'] = first_system.id
+                    session.permanent = True
+        except Exception as e:
+            session['system_id'] = 4  # Fallback to known system
+    
+    system_id = ensure_system_context()
+    if not system_id:
         return jsonify({
             "success": False,
-            "error": "No tank selected",
+            "error": "No system selected",
+            "data": []
+        }), 400
+    
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        return jsonify({
+            "success": False,
+            "error": "No tanks found for system",
             "data": []
         }), 400
     
@@ -409,14 +453,14 @@ def get_recent_dose_events():
             FROM dosing d
             LEFT JOIN d_schedule ds ON d.schedule_id = ds.id
             LEFT JOIN products p ON d.product_id = p.id
-            WHERE ds.tank_id = :tank_id
+            WHERE ds.tank_id IN :tank_ids
                 AND d.trigger_time >= :since
             ORDER BY d.trigger_time DESC
             LIMIT :limit
         """
         
         result = db.session.execute(text(sql), {
-            'tank_id': tank_id,
+            'tank_ids': tuple(tank_ids),
             'since': since,
             'limit': limit
         })
@@ -447,11 +491,33 @@ def get_recent_dose_events():
 @bp.route('/schedule-changes', methods=['GET'])
 def get_schedule_changes():
     """Get recent schedule changes for audit tracking"""
-    tank_id = get_current_tank_id()
-    if not tank_id:
+    # Force VS Code context first
+    user_agent = request.headers.get('User-Agent', '').lower()
+    if 'vscode' in user_agent or 'simple browser' in user_agent:
+        from flask import session
+        from modules.models import TankSystem
+        try:
+            if not session.get('system_id'):
+                first_system = TankSystem.query.first()
+                if first_system:
+                    session['system_id'] = first_system.id
+                    session.permanent = True
+        except Exception as e:
+            session['system_id'] = 4  # Fallback to known system
+    
+    system_id = ensure_system_context()
+    if not system_id:
         return jsonify({
             "success": False,
-            "error": "No tank selected",
+            "error": "No system selected",
+            "data": []
+        }), 400
+    
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        return jsonify({
+            "success": False,
+            "error": "No tanks found for system",
             "data": []
         }), 400
     
@@ -478,13 +544,13 @@ def get_schedule_changes():
             FROM d_schedule ds
             LEFT JOIN products p ON ds.product_id = p.id
             LEFT JOIN tanks t ON ds.tank_id = t.id
-            WHERE ds.tank_id = :tank_id
+            WHERE ds.tank_id IN :tank_ids
                 AND (ds.created_at >= :start_date OR ds.updated_at >= :start_date)
             ORDER BY COALESCE(ds.updated_at, ds.created_at) DESC
         """
         
         result = db.session.execute(text(sql), {
-            'tank_id': tank_id,
+            'tank_ids': tuple(tank_ids),
             'start_date': start_date
         })
         

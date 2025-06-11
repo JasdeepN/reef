@@ -5,7 +5,7 @@ from modules.models import db as models_db
 from modules.utils.helper import datatables_response, validate_and_process_data
 from modules.db_functions import create_row
 from modules.utils.table_map import TABLE_MAP
-from modules.tank_context import get_current_tank_id
+from modules.system_context import get_current_system_id, get_current_system_tank_ids, get_current_system_tanks, ensure_system_context
 import enum
 from datetime import date, time
 
@@ -27,9 +27,12 @@ def get_table_data(table_name):
             'rows': request.args.get('rows', 10)
         }
 
-        tank_id = get_current_tank_id()
+        tank_ids = get_current_system_tank_ids()
         if hasattr(table_model, 'tank_id') or 'tank_id' in table_model.__table__.columns:
-            base_query = table_model.query.filter_by(tank_id=tank_id)
+            if tank_ids:
+                base_query = table_model.query.filter(table_model.tank_id.in_(tank_ids))
+            else:
+                base_query = table_model.query.filter(table_model.tank_id.is_(None))  # No tanks in system
         else:
             base_query = table_model.query
 
@@ -180,17 +183,18 @@ def delete_record(table_name):
         if not row_id:
             return jsonify({"error": "Missing 'id' or 'product_id' in request data."}), 400
 
-        # Get current tank context for multi-tank validation
-        tank_id = get_current_tank_id()
-        if not tank_id:
-            return jsonify({"error": "No tank selected. Please select a tank first."}), 400
+        # Get current system context for multi-tank validation
+        system_id = ensure_system_context()
+        tank_ids = get_current_system_tank_ids()
+        if not system_id or not tank_ids:
+            return jsonify({"error": "No system selected. Please select a system first."}), 400
 
-        # Check if the table has tank_id field and filter by tank if applicable
+        # Check if the table has tank_id field and filter by system tanks if applicable
         if hasattr(table_model, 'tank_id') or 'tank_id' in table_model.__table__.columns:
-            # Find the record by ID and tank_id for security
-            row = table_model.query.filter_by(id=row_id, tank_id=tank_id).first()
+            # Find the record by ID and tank_id for security (filter by system tanks)
+            row = table_model.query.filter(table_model.id == row_id, table_model.tank_id.in_(tank_ids)).first()
             if not row:
-                return jsonify({"error": f"Record with ID {row_id} not found in '{table_name}' for current tank."}), 404
+                return jsonify({"error": f"Record with ID {row_id} not found in '{table_name}' for current system."}), 404
         else:
             # For tables without tank_id, use the original logic
             row = table_model.query.get(row_id)
@@ -224,9 +228,12 @@ def datatable_fallback(table_name):
     # If the table exists, use the normal logic
     if table_name in TABLE_MAP:
         table_model = TABLE_MAP[table_name]
-        tank_id = get_current_tank_id()
+        tank_ids = get_current_system_tank_ids()
         if hasattr(table_model, 'tank_id') or 'tank_id' in table_model.__table__.columns:
-            base_query = table_model.query.filter_by(tank_id=tank_id)
+            if tank_ids:
+                base_query = table_model.query.filter(table_model.tank_id.in_(tank_ids))
+            else:
+                base_query = table_model.query.filter(False)  # No tanks, no results
         else:
             base_query = table_model.query
         all_results = base_query.all()
@@ -285,9 +292,12 @@ def get_table_data_datatable(table_name):
             'page': request.args.get('page', 1),
             'rows': request.args.get('rows', 10)
         }
-        tank_id = get_current_tank_id()
+        tank_ids = get_current_system_tank_ids()
         if hasattr(table_model, 'tank_id') or 'tank_id' in table_model.__table__.columns:
-            base_query = table_model.query.filter_by(tank_id=tank_id)
+            if tank_ids:
+                base_query = table_model.query.filter(table_model.tank_id.in_(tank_ids))
+            else:
+                base_query = table_model.query.filter(False)  # No tanks, no results
         else:
             base_query = table_model.query
         all_results = base_query.all()

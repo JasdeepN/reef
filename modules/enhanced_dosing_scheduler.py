@@ -249,13 +249,45 @@ class EnhancedDosingScheduler:
             except Exception as e:
                 logger.error(f"Error stopping enhanced scheduler: {e}")
     
+    def restart(self):
+        """Restart the enhanced dosing scheduler"""
+        try:
+            logger.info("Restarting enhanced dosing scheduler...")
+            
+            # Stop current scheduler if running
+            if self.is_running:
+                self.stop()
+            
+            # Wait for cleanup
+            import time
+            time.sleep(1)
+            
+            # Reinitialize scheduler
+            self.scheduler = BackgroundScheduler(
+                executors={'default': ThreadPoolExecutor(20)},
+                timezone=self.timezone,
+                job_defaults={'coalesce': True, 'max_instances': 1}
+            )
+            
+            # Restart
+            started = self.start()
+            if started:
+                logger.info("Enhanced dosing scheduler restarted successfully")
+            else:
+                logger.error("Failed to restart enhanced dosing scheduler")
+                
+        except Exception as e:
+            logger.error(f"Error restarting enhanced scheduler: {e}")
+            raise
+    
     def _calculate_precise_next_dose_time(self, schedule) -> Optional[datetime]:
         """
         Calculate precise next dose time based on enhanced schedule configuration
         
-        For hourly schedules: XX:15 format (e.g., 09:15, 10:15, 11:15)
-        For daily schedules: Exact time specified
-        For custom schedules: Day-based with exact time
+        NEW APPROACH: 
+        - Hourly schedules use offset_minutes (0-59) from top of hour
+        - Multi-hour schedules use offset_minutes from scheduling interval
+        - Daily+ schedules use trigger_time for exact time
         """
         from modules.models import ScheduleTypeEnum
         
@@ -263,32 +295,63 @@ class EnhancedDosingScheduler:
         
         # Handle different schedule types with precision
         if schedule.schedule_type == ScheduleTypeEnum.interval:
-            # Convert interval-based to precise hourly timing
+            # Convert interval-based to precise timing
             if schedule.trigger_interval:
                 interval_hours = schedule.trigger_interval / 3600
                 
                 if interval_hours <= 24:  # Hourly/daily schedules
-                    # For hourly schedules, use XX:15 format
-                    if interval_hours <= 1:
-                        # Every hour at :15 minutes
-                        next_hour = current_time.replace(minute=15, second=0, microsecond=0)
-                        if next_hour <= current_time:
-                            next_hour += timedelta(hours=1)
-                        return next_hour
+                    # NEW: Use offset_minutes for hourly schedules
+                    if schedule.offset_minutes is not None:
+                        target_minute = schedule.offset_minutes
+                        logger.debug(f"Schedule {schedule.id}: Using offset_minutes={target_minute} for {interval_hours}h interval")
+                        
+                        if interval_hours <= 1:
+                            # Every hour at :offset_minutes (e.g., :30 for 16:30, 17:30, etc.)
+                            next_hour = current_time.replace(minute=target_minute, second=0, microsecond=0)
+                            if next_hour <= current_time:
+                                next_hour += timedelta(hours=1)
+                            logger.debug(f"Schedule {schedule.id}: Hourly dose at {next_hour}")
+                            return next_hour
+                        
+                        elif interval_hours <= 24:
+                            # FIXED: Multiple hours - find the correct base time with offset
+                            hours_interval = int(interval_hours)
+                            
+                            # Find the most recent occurrence at :offset_minutes
+                            base_time = current_time.replace(minute=target_minute, second=0, microsecond=0)
+                            
+                            # If current base time hasn't occurred yet, use it
+                            if base_time > current_time:
+                                logger.debug(f"Schedule {schedule.id}: Next dose at current hour offset {base_time}")
+                                return base_time
+                            
+                            # Otherwise, add the interval to get the next occurrence
+                            next_time = base_time + timedelta(hours=hours_interval)
+                            logger.debug(f"Schedule {schedule.id}: Next dose at interval offset {next_time}")
+                            return next_time
                     
-                    elif interval_hours <= 24:
-                        # Multiple hours - calculate next occurrence
-                        target_minute = 15
-                        hours_to_add = int(interval_hours)
+                    # FALLBACK: Legacy behavior for schedules without offset_minutes
+                    else:
+                        logger.debug(f"Schedule {schedule.id}: Using fallback logic (offset_minutes is None)")
+                        # For hourly schedules, default to :00 minutes (top of hour)
+                        if interval_hours <= 1:
+                            next_hour = current_time.replace(minute=0, second=0, microsecond=0)
+                            if next_hour <= current_time:
+                                next_hour += timedelta(hours=1)
+                            logger.debug(f"Schedule {schedule.id}: Fallback hourly dose at {next_hour}")
+                            return next_hour
                         
-                        # Start from current hour + interval, at :15
-                        next_time = current_time.replace(minute=target_minute, second=0, microsecond=0)
-                        next_time += timedelta(hours=hours_to_add)
-                        
-                        if next_time <= current_time:
+                        elif interval_hours <= 24:
+                            # Multiple hours - calculate next occurrence at :00
+                            hours_to_add = int(interval_hours)
+                            
+                            next_time = current_time.replace(minute=0, second=0, microsecond=0)
                             next_time += timedelta(hours=hours_to_add)
-                        
-                        return next_time
+                            
+                            if next_time <= current_time:
+                                next_time += timedelta(hours=hours_to_add)
+                            
+                            return next_time
                 
                 else:
                     # Multi-day schedules - use daily time if specified
@@ -479,6 +542,19 @@ class EnhancedDosingScheduler:
         schedule_id = dose_data['schedule_id']
         # Use timezone-aware datetime to match dose_data['next_dose_time']
         dose_start_time = datetime.now(self.timezone)
+        
+        # CRITICAL SAFETY CHECK: Only execute doses within 2-minute safety window
+        planned_time = dose_data['next_dose_time']
+        time_difference = abs((dose_start_time - planned_time).total_seconds())
+        SAFETY_WINDOW_SECONDS = 120  # 2 minutes maximum
+        
+        if time_difference > SAFETY_WINDOW_SECONDS:
+            logger.error(f"SAFETY ABORT: Dose for schedule {schedule_id} is {time_difference:.1f}s "
+                        f"from planned time {planned_time}. Exceeds 2-minute safety limit. "
+                        f"NOT DOSING to prevent animal harm.")
+            return
+        
+        logger.info(f"SAFETY OK: Dose timing within {time_difference:.1f}s of planned time")
         
         # Create comprehensive audit entry
         audit_data = {
@@ -766,6 +842,24 @@ class EnhancedDosingScheduler:
                 'queue_data': queue_data[:5]  # Return next 5 doses
             }
 
+    def refresh_queue_immediately(self):
+        """
+        Manually trigger an immediate queue refresh to pick up schedule changes.
+        This should be called after schedule modifications (create, edit, delete).
+        """
+        if not self.is_running:
+            logger.warning("Cannot refresh queue - scheduler not running")
+            return False
+        
+        try:
+            logger.info("Manual queue refresh triggered due to schedule changes")
+            self._refresh_dose_queue()
+            logger.info("Manual queue refresh completed successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Error during manual queue refresh: {e}")
+            return False
+
     def get_status(self) -> Dict:
         """Get enhanced scheduler status information including queue details (API compatibility)"""
         if not self.scheduler:
@@ -811,6 +905,83 @@ class EnhancedDosingScheduler:
             }
         }
 
+    def _check_for_safe_missed_doses(self, schedule) -> Optional[datetime]:
+        """
+        CRITICAL SAFETY: Check for missed doses ONLY within 2-minute safety window
+        
+        This prevents dangerous late dosing that could harm or kill animals.
+        
+        Returns:
+            datetime: The missed dose time if within 2-minute safety window
+            None: If no safe missed dose found
+        """
+        from modules.models import ScheduleTypeEnum
+        
+        current_time = datetime.now(self.timezone)
+        
+        # Calculate when the last dose SHOULD have occurred
+        last_scheduled_time = self._calculate_last_scheduled_dose_time(schedule, current_time)
+        
+        if not last_scheduled_time:
+            return None
+        
+        # CRITICAL SAFETY CHECK: Only allow missed doses within 2 minutes
+        time_since_scheduled = current_time - last_scheduled_time
+        SAFETY_WINDOW_SECONDS = 120  # 2 minutes maximum
+        
+        if time_since_scheduled.total_seconds() <= SAFETY_WINDOW_SECONDS:
+            logger.info(f"SAFE missed dose detected for schedule {schedule.id}: "
+                       f"scheduled at {last_scheduled_time}, "
+                       f"only {time_since_scheduled.total_seconds():.1f}s late")
+            return last_scheduled_time
+        else:
+            logger.warning(f"UNSAFE missed dose skipped for schedule {schedule.id}: "
+                          f"scheduled at {last_scheduled_time}, "
+                          f"{time_since_scheduled.total_seconds():.1f}s late (>2min limit)")
+            return None
+    
+    def _calculate_last_scheduled_dose_time(self, schedule, current_time) -> Optional[datetime]:
+        """
+        Calculate when the last dose should have occurred based on schedule configuration
+        """
+        from modules.models import ScheduleTypeEnum
+        
+        if schedule.schedule_type == ScheduleTypeEnum.interval:
+            if schedule.trigger_interval:
+                interval_hours = schedule.trigger_interval / 3600
+                
+                if interval_hours <= 24:  # Hourly/daily schedules
+                    if schedule.offset_minutes is not None:
+                        target_minute = schedule.offset_minutes
+                        
+                        if interval_hours <= 1:
+                            # Hourly: Find the most recent hour:minute that should have occurred
+                            last_hour = current_time.replace(minute=target_minute, second=0, microsecond=0)
+                            if last_hour > current_time:
+                                last_hour -= timedelta(hours=1)
+                            return last_hour
+                        
+                        elif interval_hours <= 24:
+                            # Multi-hour: Calculate the most recent interval occurrence
+                            hours_interval = int(interval_hours)
+                            
+                            # Find the base time (midnight + offset)
+                            base_time = current_time.replace(hour=0, minute=target_minute, second=0, microsecond=0)
+                            
+                            # Find the most recent occurrence
+                            hours_since_base = (current_time - base_time).total_seconds() / 3600
+                            intervals_passed = int(hours_since_base / hours_interval)
+                            
+                            last_scheduled = base_time + timedelta(hours=intervals_passed * hours_interval)
+                            
+                            # If this is in the future, go back one interval
+                            if last_scheduled > current_time:
+                                last_scheduled -= timedelta(hours=hours_interval)
+                            
+                            return last_scheduled
+        
+        return None
+
 # Global enhanced scheduler instance
 enhanced_scheduler = None
 
@@ -836,3 +1007,22 @@ def get_enhanced_scheduler():
     """Get the global enhanced scheduler instance"""
     global enhanced_scheduler
     return enhanced_scheduler
+
+def refresh_scheduler_queue():
+    """
+    Utility function to refresh the enhanced scheduler queue immediately.
+    Safe to call from anywhere - handles cases where scheduler is not available.
+    
+    Returns:
+        bool: True if refresh was successful, False otherwise
+    """
+    try:
+        scheduler = get_enhanced_scheduler()
+        if scheduler and scheduler.is_running:
+            return scheduler.refresh_queue_immediately()
+        else:
+            logger.warning("Enhanced scheduler not available or not running for queue refresh")
+            return False
+    except Exception as e:
+        logger.error(f"Error refreshing enhanced scheduler queue: {e}")
+        return False

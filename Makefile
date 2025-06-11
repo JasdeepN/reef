@@ -1,6 +1,6 @@
 # Makefile for ReefDB Flask application with Docker container support
 
-.PHONY: build-dev build-prod build-test test clean sass-dev sass-prod sass-test build act-test act-clean docker-dev-start docker-dev-stop docker-prod-start docker-prod-stop docker-status test-db-start test-db-stop validate start-prod start-dev start-test stop-all kill-flask test-full test-simple stop-flask-dev stop-flask-prod stop-flask-test stop-flask start-db-dev stop-db-dev start-db-prod stop-db-prod restart restart-full dev-logs prod-logs test-logs
+.PHONY: build-dev build-prod build-test test clean clean-all sass-dev sass-prod sass-test build act-test act-clean docker-dev-start docker-dev-stop docker-prod-start docker-prod-stop docker-status test-db-start test-db-stop validate start-prod start-dev start-test stop-all kill-flask test-full test-simple stop-flask-dev stop-flask-prod stop-flask-test stop-flask start-db-dev stop-db-dev start-db-prod stop-db-prod restart restart-full dev-logs prod-logs test-logs
 
 # === BASIC COMMANDS ===
 run: 
@@ -15,11 +15,48 @@ build-dev:
 	@echo "[Makefile] Building development web image..."
 	docker-compose -f docker-compose.dev.yml build reefdb-web-dev
 
+# === CLEANUP COMMANDS ===
+# clean:      Remove intermediate working files and debugging artifacts
+# clean-all:  Remove all temporary files, caches, and perform deep cleanup
+
 clean:
-	@echo "[Makefile] Cleaning up .env and CSS..."
-	@rm -f .env || echo "No .env to remove"
-	@rm -f app/static/css/*.css || echo "No CSS files to remove"
-	@-pkill -f "flask run" 2>/dev/null || echo "No Flask processes to kill"
+	@echo "[Makefile] Cleaning up intermediate working files and debugging artifacts..."
+	@echo "  Removing environment files..."
+	@rm -f .env || echo "    No .env to remove"
+	@echo "  Removing compiled CSS files..."
+	@rm -f app/static/css/*.css || echo "    No CSS files to remove"
+	@echo "  Removing intermediate working files..."
+	@rm -f debug_*.html debug_*.py || echo "    No debug files to remove"
+	@rm -f test_*.html test_*debug*.py || echo "    No test HTML/debug files to remove"
+	@rm -f test_*click*.html test_*connectivity*.html || echo "    No test interaction files to remove"
+	@rm -f test_*flow*.html test_*modal*.html || echo "    No test flow/modal files to remove"
+	@rm -f modal_fix_*.html live_modal*.html || echo "    No modal fix files to remove"
+	@rm -f direct_modal*.html || echo "    No direct modal files to remove"
+	@rm -f calendar_page.html console_test.html || echo "    No calendar/console test files to remove"
+	@rm -f output.txt || echo "    No output.txt to remove"
+	@echo "  Stopping Flask processes..."
+	@-pkill -f "flask run" 2>/dev/null || echo "    No Flask processes to kill"
+	@echo "[Makefile] Cleanup complete!"
+
+clean-all: clean
+	@echo "[Makefile] Performing deep cleanup of caches and temporary directories..."
+	@echo "  Removing Python cache directories..."
+	@find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || echo "    No __pycache__ directories to remove"
+	@find . -name "*.pyc" -delete 2>/dev/null || echo "    No .pyc files to remove"
+	@find . -name "*.pyo" -delete 2>/dev/null || echo "    No .pyo files to remove"
+	@echo "  Removing test cache directories..."
+	@rm -rf .pytest_cache/ || echo "    No .pytest_cache to remove"
+	@rm -rf .tox/ || echo "    No .tox directory to remove"
+	@rm -rf .coverage htmlcov/ || echo "    No coverage files to remove"
+	@echo "  Removing SASS cache..."
+	@rm -rf .sass-cache/ || echo "    No .sass-cache to remove"
+	@echo "  Removing Flask session files..."
+	@rm -rf flask_session/* || echo "    No flask_session files to remove"
+	@echo "  Removing temporary and backup files..."
+	@find . -name "*.tmp" -delete 2>/dev/null || echo "    No .tmp files to remove"
+	@find . -name "*.bak" -delete 2>/dev/null || echo "    No .bak files to remove"
+	@find . -name "*backup*" -delete 2>/dev/null || echo "    No backup files to remove"
+	@echo "[Makefile] Deep cleanup complete!"
 
 # === ENVIRONMENT SETUP ===
 dev:
@@ -377,5 +414,6 @@ help:
 	@echo "CI/Development:"
 	@echo "  act-test     - Run GitHub Actions locally with act"
 	@echo "  build        - Install dependencies"
-	@echo "  clean        - Clean up files and stop processes"
+	@echo "  clean        - Clean up intermediate files and stop processes"
+	@echo "  clean-all    - Deep cleanup: caches, temp files, and all artifacts"
 	@echo "  validate     - Validate container setup"

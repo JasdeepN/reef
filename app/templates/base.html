@@ -101,7 +101,7 @@
             </ul>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/tanks/manage">
+            <a class="nav-link" href="{{ url_for('tank_system_list') }}">
               <i class="fas fa-fish"></i> Tank Management
             </a>
           </li>
@@ -122,13 +122,13 @@
           </li> -->
         </ul>
         <div class="d-flex align-items-center ms-auto">
-          <form id="tank-select-form" class="d-flex" method="post" action="/set_tank" style="margin-bottom:0;">
-            <select class="form-select" id="tank-select" name="tank_id" style="min-width: 180px;" onchange="this.form.submit()">
-              {% if not session.get('tank_id') and not tank_id %}
-                <option value="" selected disabled>Select a tank...</option>
+          <form id="system-select-form" class="d-flex" method="post" action="/set_system" style="margin-bottom:0;">
+            <select class="form-select" id="system-select" name="system_id" style="min-width: 180px;" onchange="this.form.submit()">
+              {% if not session.get('system_id') and not system_id %}
+                <option value="" selected disabled>Select a system...</option>
               {% endif %}
-              {% for tank in tanks %}
-                <option value="{{ tank.id }}" {% if tank.id == session.get('tank_id') or tank.id == tank_id %}selected{% endif %}>{{ tank.name }}</option>
+              {% for tank_system in tank_systems %}
+                <option value="{{ tank_system.id }}" {% if tank_system.id == session.get('system_id') or tank_system.id == system_id %}selected{% endif %}>{{ tank_system.name }}</option>
               {% endfor %}
             </select>
           </form>
@@ -148,21 +148,21 @@
           </h5>
         </div>
         <div class="modal-body">
-          {% if tanks %}
-            <p class="mb-3">Please select a tank to continue using ReefDB. Your selection will be remembered for future visits.</p>
-            <form id="tank-context-form" method="post" action="/set_tank">
+          {% if tank_systems %}
+            <p class="mb-3">Please select a tank system to continue using ReefDB. Your selection will be remembered for future visits.</p>
+            <form id="system-context-form" method="post" action="/set_system">
               <div class="mb-3">
-                <label for="modal-tank-select" class="form-label">Available Tanks:</label>
-                <select class="form-select" id="modal-tank-select" name="tank_id" required>
-                  <option value="">Choose a tank...</option>
-                  {% for tank in tanks %}
-                    <option value="{{ tank.id }}">{{ tank.name }}</option>
+                <label for="modal-system-select" class="form-label">Available Systems:</label>
+                <select class="form-select" id="modal-system-select" name="system_id" required>
+                  <option value="">Choose a system...</option>
+                  {% for tank_system in tank_systems %}
+                    <option value="{{ tank_system.id }}">{{ tank_system.name }}</option>
                   {% endfor %}
                 </select>
               </div>
               <div class="d-grid gap-2">
                 <button type="submit" class="btn btn-primary">
-                  <i class="fas fa-check me-2"></i>Select Tank
+                  <i class="fas fa-check me-2"></i>Select System
                 </button>
                 <a href="/tanks/new" class="btn btn-outline-success">
                   <i class="fas fa-plus me-2"></i>Add New Tank
@@ -202,19 +202,19 @@
   <!-- Tank Context JavaScript - Only load for non-VS Code browsers -->
   {% if not is_vscode_browser %}
   <script>
-    // Tank Context Management - Regular Browsers Only
+    // System Context Management - Regular Browsers Only
     document.addEventListener('DOMContentLoaded', function() {
-      console.log('[Tank Context] Page loaded for regular browser');
+      console.log('[System Context] Page loaded for regular browser');
       
-      // Basic tank selector functionality
-      const tankSelect = document.getElementById('tank-select');
-      if (tankSelect) {
-        tankSelect.addEventListener('change', function() {
-          const selectedTankId = this.value;
-          if (selectedTankId) {
+      // Basic system selector functionality
+      const systemSelect = document.getElementById('system-select');
+      if (systemSelect) {
+        systemSelect.addEventListener('change', function() {
+          const selectedSystemId = this.value;
+          if (selectedSystemId) {
             // Store selection in localStorage if available
             try {
-              localStorage.setItem('reefdb_tank_id', selectedTankId);
+              localStorage.setItem('reefdb_system_id', selectedSystemId);
             } catch (e) {
               // localStorage not available, continue without it
             }
@@ -222,32 +222,32 @@
         });
       }
 
-      // Improved tank context detection and automatic modal display
-      const currentTankId = tankSelect ? tankSelect.value : null;
-      const hasOptions = tankSelect && tankSelect.options.length > 1;
+      // Improved system context detection and automatic modal display
+      const currentSystemId = systemSelect ? systemSelect.value : null;
+      const hasOptions = systemSelect && systemSelect.options.length > 1;
       const modalElement = document.getElementById('tankContextModal');
       
-      // Check if user has no tank selected (empty value or "Select a tank..." option)
-      const noTankSelected = !currentTankId || currentTankId === '' || currentTankId === 'null';
+      // Check if user has no system selected (empty value or "Select a system..." option)
+      const noSystemSelected = !currentSystemId || currentSystemId === '' || currentSystemId === 'null';
       
-      console.log('[Tank Context] Current tank ID:', currentTankId);
-      console.log('[Tank Context] Has tank options:', hasOptions);
-      console.log('[Tank Context] No tank selected:', noTankSelected);
-      console.log('[Tank Context] Modal element exists:', !!modalElement);
+      console.log('[System Context] Current system ID:', currentSystemId);
+      console.log('[System Context] Has system options:', hasOptions);
+      console.log('[System Context] No system selected:', noSystemSelected);
+      console.log('[System Context] Modal element exists:', !!modalElement);
       
-      // If no tank is selected and tanks are available, show the modal immediately
-      if (noTankSelected && hasOptions && modalElement) {
-        console.log('[Tank Context] Showing tank selection modal');
+      // If no system is selected and systems are available, show the modal immediately
+      if (noSystemSelected && hasOptions && modalElement) {
+        console.log('[System Context] Showing system selection modal');
         const modal = new bootstrap.Modal(modalElement);
         modal.show();
       }
       
-      // Handle tank context form submission
-      const tankContextForm = document.getElementById('tank-context-form');
-      if (tankContextForm) {
-        tankContextForm.addEventListener('submit', function(e) {
-          const selectedTankId = document.getElementById('modal-tank-select').value;
-          if (!selectedTankId) {
+      // Handle system context form submission
+      const systemContextForm = document.getElementById('system-context-form');
+      if (systemContextForm) {
+        systemContextForm.addEventListener('submit', function(e) {
+          const selectedSystemId = document.getElementById('modal-system-select').value;
+          if (!selectedSystemId) {
             e.preventDefault();
             alert('Please select a tank to continue');
             return;
@@ -255,8 +255,8 @@
           
           // Store the selection
           try {
-            localStorage.setItem('reefdb_tank_id', selectedTankId);
-            console.log('[Tank Context] Stored tank selection:', selectedTankId);
+            localStorage.setItem('reefdb_system_id', selectedSystemId);
+            console.log('[System Context] Stored system selection:', selectedSystemId);
           } catch (e) {
             console.warn('[Tank Context] Could not store in localStorage:', e);
           }

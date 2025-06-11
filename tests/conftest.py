@@ -44,7 +44,7 @@ if not os.path.isfile(MYSQL_SCRIPT):
 TEST_BASE_URL = os.getenv('TEST_BASE_URL')
 TEST_DB_PORT = os.getenv('DB_PORT', '3310')
 
-_test_tank_id = None
+_test_system_id = None
 
 def check_flask_server(base_url, max_retries=3, retry_delay=2):
     """Check if Flask server is running and accessible."""
@@ -76,9 +76,9 @@ def global_setup_and_teardown():
         # Wait for DB readiness
         _wait_for_database_ready()
     
-    # Setup test tank ID
-    global _test_tank_id
-    _test_tank_id = _setup_test_tank()
+    # Setup test system ID
+    global _test_system_id
+    _test_system_id = _setup_test_system()
     
     # Handle E2E-specific setup
     if _is_e2e_session():
@@ -119,25 +119,32 @@ def _wait_for_database_ready():
         time.sleep(1)
     raise RuntimeError("Ephemeral MySQL test DB did not become ready in time.")
 
-def _setup_test_tank():
-    """Setup test tank with fallback to existing data"""
+def _setup_test_system():
+    """Setup test system with fallback to existing data"""
     from app import app, db
-    from modules.models import Tank
+    from modules.models import Tank, TankSystem
     
-    print("[pytest] Setting up test tank...")
+    print("[pytest] Setting up test system...")
     with app.app_context():
         try:
-            # First, try to use existing tanks from dev data
-            existing_tanks = Tank.query.limit(1).all()
+            # First, try to use existing tanks and their systems from dev data
+            existing_tanks = Tank.query.filter(Tank.tank_system_id.isnot(None)).limit(1).all()
             if existing_tanks:
-                tank_id = existing_tanks[0].id
-                print(f"[pytest] Using existing tank with id={tank_id}")
-                return tank_id
+                system_id = existing_tanks[0].tank_system_id
+                print(f"[pytest] Using existing system with id={system_id} from tank {existing_tanks[0].id}")
+                return system_id
+            
+            # If no tanks with systems exist, check for standalone systems
+            existing_systems = TankSystem.query.limit(1).all()
+            if existing_systems:
+                system_id = existing_systems[0].id
+                print(f"[pytest] Using existing system with id={system_id}")
+                return system_id
         except Exception as e:
-            print(f"[pytest] Could not query existing tanks: {e}")
+            print(f"[pytest] Could not query existing systems/tanks: {e}")
         
-        # Fallback to default tank ID
-        print("[pytest] Using fallback tank_id=1")
+        # Fallback to default system ID
+        print("[pytest] Using fallback system_id=1")
         return 1
 
 def _is_e2e_session():
@@ -171,19 +178,19 @@ def _setup_e2e_environment():
         else:
             print(f"[pytest] ✅ {message}")
         
-        # Call the set_tank endpoint to set the context using POST with JSON payload
-        set_tank_url = f"{TEST_BASE_URL}/set_tank"
+        # Call the set_system endpoint to set the context using POST with JSON payload
+        set_system_url = f"{TEST_BASE_URL}/set_system"
         try:
             resp = requests.post(
-                set_tank_url,
-                json={"tank_id": _test_tank_id},
+                set_system_url,
+                json={"system_id": _test_system_id},
                 headers={"Referer": TEST_BASE_URL + "/"}
             )
-            print(f"[pytest] POSTed to set_tank endpoint: {set_tank_url}, payload={{'tank_id': {_test_tank_id}}}, status={resp.status_code}")
+            print(f"[pytest] POSTed to set_system endpoint: {set_system_url}, payload={{'system_id': {_test_system_id}}}, status={resp.status_code}")
         except Exception as e:
-            print(f"[pytest] Failed to POST to set_tank endpoint: {e}")
+            print(f"[pytest] Failed to POST to set_system endpoint: {e}")
     else:
-        print(f"[pytest] Skipping HTTP requests for unit tests. Test tank id: {_test_tank_id}")
+        print(f"[pytest] Skipping HTTP requests for unit tests. Test system id: {_test_system_id}")
 
     yield
     print("[pytest] Global teardown for ReefDB E2E tests")
@@ -208,29 +215,48 @@ def context(browser):
     context.close()
 
 @pytest.fixture(scope="function")
-def page(context, test_tank_id):
+def page(context, test_system_id):
     page = context.new_page()
     assert TEST_BASE_URL and TEST_BASE_URL.startswith("http"), f"Invalid TEST_BASE_URL: {TEST_BASE_URL}"
-    # Set tank context in the browser session using POST
+    # Set system context in the browser session using POST
     page.goto(f"{TEST_BASE_URL}/")
     page.evaluate(
-        '''(tank_id) => {
-            fetch("/set_tank", {
+        '''(system_id) => {
+            fetch("/set_system", {
                 method: "POST",
                 headers: {"Content-Type": "application/x-www-form-urlencoded"},
-                body: "tank_id=" + encodeURIComponent(tank_id)
+                body: "system_id=" + encodeURIComponent(system_id)
             });
         }''',
-        test_tank_id
+        test_system_id
     )
     page.wait_for_timeout(500)  # Give the server a moment to set the session
     yield page
     page.close()
 
 @pytest.fixture(scope="session")
+def test_system_id():
+    global _test_system_id
+    return _test_system_id
+
+@pytest.fixture(scope="session")
 def test_tank_id():
-    global _test_tank_id
-    return _test_tank_id
+    """Backward compatibility fixture that returns first tank from system"""
+    global _test_system_id
+    from app import app, db
+    from modules.models import Tank
+    
+    with app.app_context():
+        try:
+            # Find first tank in the test system
+            tank = Tank.query.filter_by(tank_system_id=_test_system_id).first()
+            if tank:
+                return tank.id
+        except Exception as e:
+            print(f"[pytest] Could not get tank from system {_test_system_id}: {e}")
+        
+        # Fallback to tank id 1
+        return 1
 
 def pytest_configure(config):
     import sys

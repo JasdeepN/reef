@@ -190,10 +190,10 @@ def force_check():
 def get_due_schedules():
     """Get currently due dosing schedules (for monitoring/debugging)"""
     try:
-        from modules.tank_context import get_current_tank_id
+        from modules.system_context import get_current_system_id
         
         # Get current tank context
-        tank_id = get_current_tank_id()
+        tank_id = get_current_system_id()
         if not tank_id:
             return jsonify({
                 'success': False,
@@ -333,11 +333,11 @@ def simulate_schedule():
     This endpoint calculates when doses would occur based on schedule configuration.
     """
     try:
-        from modules.tank_context import get_current_tank_id
+        from modules.system_context import get_current_system_id
         from datetime import datetime, timedelta
         
         # Get current tank context
-        tank_id = get_current_tank_id()
+        tank_id = get_current_system_id()
         if not tank_id:
             return jsonify({
                 'success': False,

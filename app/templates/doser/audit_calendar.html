@@ -173,7 +173,8 @@
 {% block page_scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  const tankId = {{ tank_id }};
+  const systemId = {{ system_id }};
+  const tankIds = {{ tank_ids | tojson }};
   const apiUrls = {{ api_urls | tojson }};
   
   // Current calendar state - default to June 2025 where test data exists

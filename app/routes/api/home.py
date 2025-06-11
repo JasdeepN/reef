@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from modules.tank_context import get_current_tank_id, ensure_tank_context
+from modules.system_context import get_current_system_id, get_current_system_tank_ids, get_current_system_tanks, ensure_system_context
 from modules.models import Tank, TestResults
 from modules.timezone_utils import format_time_for_display
 
@@ -7,23 +7,31 @@ bp = Blueprint('home_api', __name__, url_prefix='/home')
 
 @bp.route('/tank-context', methods=['GET'])
 def get_tank_context():
-    """API endpoint to check current tank context without causing redirects"""
-    tank_id = get_current_tank_id()
+    """API endpoint to check current system context without causing redirects"""
+    system_id = get_current_system_id()
+    tank_ids = get_current_system_tank_ids()
+    tanks = get_current_system_tanks()
     return jsonify({
-        "has_context": tank_id is not None,
-        "tank_id": tank_id,
-        "tanks": [{"id": tank.id, "name": tank.name} for tank in Tank.query.all()]
+        "has_context": system_id is not None,
+        "system_id": system_id,
+        "tank_ids": tank_ids,
+        "tanks": [{"id": tank.id, "name": tank.name} for tank in tanks]
     })
 
 @bp.route('/test-results-data', methods=['GET'])
 def get_test_results_data():
     """API endpoint to get test results data for charting"""
-    tank_id = ensure_tank_context()  # Use ensure_tank_context for VS Code compatibility
-    if not tank_id:
-        return jsonify({"error": "No tank selected"}), 400
+    system_id = ensure_system_context()  # Use ensure_system_context for VS Code compatibility
+    if not system_id:
+        return jsonify({"error": "No system selected"}), 400
     
-    # Get test results ordered by date (ascending for time series)
-    tests = TestResults.query.filter_by(tank_id=tank_id).order_by(
+    # Get tank IDs for the current system
+    tank_ids = get_current_system_tank_ids()
+    if not tank_ids:
+        return jsonify({"error": "No tanks found for current system"}), 400
+    
+    # Get test results ordered by date (ascending for time series) for all tanks in system
+    tests = TestResults.query.filter(TestResults.tank_id.in_(tank_ids)).order_by(
         TestResults.test_date.asc(), 
         TestResults.test_time.asc()
     ).all()

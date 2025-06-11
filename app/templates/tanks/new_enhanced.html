@@ -1,27 +1,32 @@
 {% extends "base.html" %}
 
+{% block page_title %}Add New Tank - ReefDB{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tank-forms.css') }}">
+{% endblock %}
+
 {% block content %}
-<div class="container">
+<div class="container tank-form-page">
   <div class="row justify-content-center">
     <div class="col-lg-6 col-md-8">
       <!-- Header -->
-      <div class="text-center mb-4">
-        <h1 class="text-center">Edit Tank</h1>
-        <p class="text-muted">Update tank configuration for "{{ tank.name }}"</p>
+      <div class="form-header">
+        <h1>Add New Tank</h1>
+        <p>Create a new reef tank configuration</p>
       </div>
 
-      <!-- Tank Edit Form -->
-      <div class="card">
+      <!-- Tank Creation Form -->
+      <div class="card tank-form-card">
         <div class="card-body">
-          <form action="{{ url_for('tank_edit', tank_id=tank.id) }}" method="post" novalidate>
+          <form action="{{ url_for('tank_new') }}" method="post" novalidate>
             <!-- Tank Name -->
-            <div class="mb-3">
+            <div class="tank-form-group">
               <label for="name" class="form-label">Tank Name <span class="text-danger">*</span></label>
               <input type="text" 
                      class="form-control" 
                      id="name" 
                      name="name" 
-                     value="{{ tank.name }}"
                      placeholder="e.g., Main Display Tank, Quarantine Tank"
                      required
                      maxlength="100">
@@ -29,13 +34,12 @@
             </div>
 
             <!-- Gross Water Volume -->
-            <div class="mb-3">
+            <div class="tank-form-group">
               <label for="gross_water_vol" class="form-label">Gross Water Volume (Gallons)</label>
               <input type="number" 
                      class="form-control" 
                      id="gross_water_vol" 
                      name="gross_water_vol" 
-                     value="{{ tank.gross_water_vol or '' }}"
                      placeholder="e.g., 55, 120, 180"
                      min="0" 
                      max="10000"
@@ -44,13 +48,12 @@
             </div>
 
             <!-- Net Water Volume -->
-            <div class="mb-3">
+            <div class="tank-form-group">
               <label for="net_water_vol" class="form-label">Net Water Volume (Gallons)</label>
               <input type="number" 
                      class="form-control" 
                      id="net_water_vol" 
                      name="net_water_vol" 
-                     value="{{ tank.net_water_vol or '' }}"
                      placeholder="e.g., 50, 110, 165"
                      min="0" 
                      max="10000"
@@ -59,13 +62,12 @@
             </div>
 
             <!-- Live Rock Weight -->
-            <div class="mb-4">
+            <div class="tank-form-group">
               <label for="live_rock_lbs" class="form-label">Live Rock Weight (lbs)</label>
               <input type="number" 
                      class="form-control" 
                      id="live_rock_lbs" 
                      name="live_rock_lbs" 
-                     value="{{ tank.live_rock_lbs or '' }}"
                      placeholder="e.g., 45, 80, 120"
                      min="0" 
                      max="1000"
@@ -74,8 +76,8 @@
             </div>
 
             <!-- Tank Dimensions Section -->
-            <div class="mb-4">
-              <h6 class="form-section-title">Tank Dimensions</h6>
+            <div class="tank-form-group">
+              <h6 class="form-section-header">Tank Dimensions</h6>
               <div class="row">
                 <div class="col-md-4">
                   <label for="tank_length_inches" class="form-label">Length (inches)</label>
@@ -83,10 +85,9 @@
                          class="form-control" 
                          id="tank_length_inches" 
                          name="tank_length_inches" 
-                         value="{{ tank.tank_length_inches or '' }}"
-                         placeholder="e.g., 48"
+                         placeholder="e.g., 48, 72, 96"
                          min="0" 
-                         max="500"
+                         max="300"
                          step="0.1">
                 </div>
                 <div class="col-md-4">
@@ -95,10 +96,9 @@
                          class="form-control" 
                          id="tank_width_inches" 
                          name="tank_width_inches" 
-                         value="{{ tank.tank_width_inches or '' }}"
-                         placeholder="e.g., 24"
+                         placeholder="e.g., 18, 24, 30"
                          min="0" 
-                         max="500"
+                         max="100"
                          step="0.1">
                 </div>
                 <div class="col-md-4">
@@ -107,31 +107,40 @@
                          class="form-control" 
                          id="tank_height_inches" 
                          name="tank_height_inches" 
-                         value="{{ tank.tank_height_inches or '' }}"
-                         placeholder="e.g., 20"
+                         placeholder="e.g., 20, 24, 30"
                          min="0" 
-                         max="500"
+                         max="100"
                          step="0.1">
                 </div>
               </div>
-              <div class="form-text">Tank exterior dimensions in inches (L × W × H)</div>
+              <div class="form-text">Tank dimensions for space planning and equipment sizing</div>
             </div>
 
-            <!-- Note about Sump Volume -->
-            <div class="mb-4 p-3 border border-info rounded bg-light">
-              <p class="mb-0 text-info"><strong>Note:</strong> Sump and refugium volumes should be configured at the system level, not for individual tanks. Please configure sump volume in the Tank System settings.</p>
+            <!-- Sump Volume -->
+            <div class="tank-form-group">
+              <label for="sump_volume_gallons" class="form-label">Sump Volume (Gallons)</label>
+              <input type="number" 
+                     class="form-control" 
+                     id="sump_volume_gallons" 
+                     name="sump_volume_gallons" 
+                     placeholder="e.g., 20, 40, 75"
+                     min="0" 
+                     max="1000"
+                     step="0.1">
+              <div class="form-text">Volume of sump/refugium for total system water calculation</div>
             </div>
 
             <!-- Tank System -->
-            <div class="mb-4">
+            <div class="tank-form-group">
               <label for="tank_system_id" class="form-label">Tank System (Optional)</label>
-              <select class="form-control" id="tank_system_id" name="tank_system_id">
+              <select class="form-select" id="tank_system_id" name="tank_system_id">
                 <option value="">Standalone Tank (No System)</option>
-                {% for system in tank_systems %}
-                <option value="{{ system.id }}" {% if tank.tank_system_id == system.id %}selected{% endif %}>
-                  {{ system.name }} ({{ system.get_tank_count() }} tanks, {{ system.calculate_total_system_volume() }} gal total)
-                </option>
-                {% endfor %}
+                {% if tank_systems %}
+                  {% for system in tank_systems %}
+                  <option value="{{ system.id }}">{{ system.name }} 
+                    ({{ system.get_tank_count() }} tanks, {{ system.calculate_total_system_volume() }} gal total)</option>
+                  {% endfor %}
+                {% endif %}
               </select>
               <div class="form-text">
                 Assign this tank to a multi-tank system for shared equipment and volume calculations.
@@ -142,132 +151,53 @@
             </div>
 
             <!-- Description -->
-            <div class="mb-4">
-              <label for="description" class="form-label">Description</label>
+            <div class="tank-form-group">
+              <label for="description" class="form-label">Description/Notes</label>
               <textarea class="form-control" 
                         id="description" 
                         name="description" 
-                        rows="3"
-                        placeholder="Additional notes about this tank setup, equipment, livestock, etc."
-                        maxlength="1000">{{ tank.description or '' }}</textarea>
-              <div class="form-text">Optional description or notes about this tank</div>
+                        rows="3" 
+                        placeholder="Optional notes about this tank setup, equipment, or configuration..."></textarea>
+              <div class="form-text">Additional information about this tank (optional)</div>
             </div>
 
             <!-- Form Actions -->
-            <div class="d-flex justify-content-between">
-              <a href="{{ url_for('tank_system_list') }}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Back to Tank Management
+            <div class="tank-form-actions">
+              <a href="{{ url_for('tank_manage') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Tank Management
               </a>
-              <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save"></i> Save Changes
+              <button type="submit" class="btn btn-success">
+                <i class="fas fa-plus me-2"></i>Create Tank
               </button>
             </div>
           </form>
         </div>
       </div>
 
-      <!-- Tank Info -->
-      <div class="mt-4">
-        <div class="card">
-          <div class="card-body">
-            <h6 class="card-title">Tank Information</h6>
-            <div class="row">
-              <div class="col-sm-6">
-                <small class="text-muted">Tank ID:</small>
-                <div>{{ tank.id }}</div>
-              </div>
-              {% if tank.created_at %}
-              <div class="col-sm-6">
-                <small class="text-muted">Created:</small>
-                <div>{{ tank.created_at.strftime('%B %d, %Y') }}</div>
-              </div>
-              {% endif %}
-            </div>
-          </div>
-        </div>
+      <!-- Help Text -->
+      <div class="mt-4 text-center">
+        <small class="text-muted">
+          <i class="fas fa-info-circle"></i> 
+          If this is your first tank, it will automatically be selected as your active tank.
+        </small>
       </div>
     </div>
   </div>
 </div>
 
-<style>
-.card {
-  background-color: var(--card-bg);
-  border: 1px solid var(--border-color);
-}
-
-.form-label {
-  color: var(--text-color);
-  font-weight: 500;
-}
-
-.form-control {
-  background-color: var(--background-color);
-  border: 1px solid var(--border-color);
-  color: var(--text-color);
-}
-
-.form-control:focus {
-  background-color: var(--background-color);
-  border-color: #007bff;
-  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-  color: var(--text-color);
-}
-
-.form-control::placeholder {
-  color: var(--text-muted);
-}
-
-.form-text {
-  color: var(--text-muted);
-}
-
-.form-section-title {
-  color: var(--text-color);
-  font-weight: 600;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.text-danger {
-  color: #dc3545 !important;
-}
-
-h1 {
-  color: var(--text-color);
-  margin-bottom: 0.5rem;
-}
-
-.text-muted {
-  color: var(--text-muted) !important;
-}
-
-.card-title {
-  color: var(--text-color);
-  margin-bottom: 1rem;
-}
-
-.card-body small {
-  color: var(--text-muted);
-}
-
-.card-body div {
-  color: var(--text-color);
-  margin-bottom: 0.5rem;
-}
-</style>
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // Form validation
+  // Form validation enhancement
   const form = document.querySelector('form');
   const nameInput = document.getElementById('name');
   
+  // Add loading state to form submission
   form.addEventListener('submit', function(e) {
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    // Basic validation
     let isValid = true;
     
-    // Validate tank name
     if (!nameInput.value.trim()) {
       showFieldError(nameInput, 'Tank name is required');
       isValid = false;
@@ -275,7 +205,12 @@ document.addEventListener('DOMContentLoaded', function() {
       clearFieldError(nameInput);
     }
     
-    if (!isValid) {
+    if (isValid) {
+      // Show loading state
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating Tank...';
+      submitBtn.disabled = true;
+      form.classList.add('form-loading');
+    } else {
       e.preventDefault();
     }
   });
@@ -286,6 +221,26 @@ document.addEventListener('DOMContentLoaded', function() {
       showFieldError(this, 'Tank name is required');
     } else {
       clearFieldError(this);
+    }
+  });
+  
+  // Auto-calculate net volume based on gross volume (rough estimate)
+  const grossVolInput = document.getElementById('gross_water_vol');
+  const netVolInput = document.getElementById('net_water_vol');
+  
+  grossVolInput.addEventListener('blur', function() {
+    if (this.value && !netVolInput.value) {
+      // Rough estimate: net volume is typically 85-90% of gross volume
+      const grossVol = parseFloat(this.value);
+      const estimatedNet = Math.round(grossVol * 0.87);
+      netVolInput.value = estimatedNet;
+      netVolInput.style.backgroundColor = 'rgba(46, 204, 113, 0.1)';
+      
+      // Add a subtle hint that this is estimated
+      const hintText = netVolInput.parentNode.querySelector('.form-text');
+      if (hintText) {
+        hintText.innerHTML = 'Actual water volume after rock and equipment displacement <small class="text-success">(auto-estimated)</small>';
+      }
     }
   });
   
@@ -312,6 +267,18 @@ document.addEventListener('DOMContentLoaded', function() {
       errorDiv.remove();
     }
   }
+  
+  // Add focus animations
+  const formControls = document.querySelectorAll('.form-control, .form-select');
+  formControls.forEach(control => {
+    control.addEventListener('focus', function() {
+      this.parentNode.classList.add('focused');
+    });
+    
+    control.addEventListener('blur', function() {
+      this.parentNode.classList.remove('focused');
+    });
+  });
 });
 </script>
 {% endblock %}

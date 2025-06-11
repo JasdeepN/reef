@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+      <!-- Header -->
+      <div class="text-center mb-4">
+        <h1 class="text-center">Edit Tank System</h1>
+        <p class="text-muted">Update configuration for "{{ tank_system.name }}"</p>
+      </div>
+
+      <!-- Tank System Edit Form -->
+      <div class="card">
+        <div class="card-body">
+          <form action="{{ url_for('tank_system_edit', system_id=tank_system.id) }}" method="post" novalidate>
+            <!-- System Name -->
+            <div class="mb-3">
+              <label for="name" class="form-label">System Name <span class="text-danger">*</span></label>
+              <input type="text" 
+                     class="form-control" 
+                     id="name" 
+                     name="name" 
+                     value="{{ tank_system.name }}"
+                     placeholder="e.g., Main Display System, Breeding System"
+                     required
+                     maxlength="100">
+              <div class="form-text">Choose a descriptive name for your tank system</div>
+            </div>
+
+            <!-- System Type -->
+            <div class="mb-3">
+              <label for="system_type" class="form-label">System Type</label>
+              <select class="form-control" id="system_type" name="system_type">
+                <option value="multi_tank" {% if tank_system.system_type == 'multi_tank' %}selected{% endif %}>Multi-Tank System</option>
+                <option value="display_sump" {% if tank_system.system_type == 'display_sump' %}selected{% endif %}>Display + Sump</option>
+                <option value="breeding_system" {% if tank_system.system_type == 'breeding_system' %}selected{% endif %}>Breeding System</option>
+                <option value="quarantine_system" {% if tank_system.system_type == 'quarantine_system' %}selected{% endif %}>Quarantine System</option>
+                <option value="research_system" {% if tank_system.system_type == 'research_system' %}selected{% endif %}>Research System</option>
+                <option value="other" {% if tank_system.system_type == 'other' %}selected{% endif %}>Other</option>
+              </select>
+              <div class="form-text">Select the type of system for organizational purposes</div>
+            </div>
+
+            <!-- Description -->
+            <div class="mb-4">
+              <label for="description" class="form-label">Description/Notes</label>
+              <textarea class="form-control" 
+                        id="description" 
+                        name="description" 
+                        rows="3" 
+                        placeholder="Optional description of this tank system, its purpose, or configuration...">{{ tank_system.description or '' }}</textarea>
+              <div class="form-text">Additional information about this system (optional)</div>
+            </div>
+
+            <!-- Volume Configuration -->
+            <div class="card mb-4">
+              <div class="card-header">
+                <h5 class="mb-0">Volume Configuration</h5>
+              </div>
+              <div class="card-body">
+                <p class="text-muted">Configure system-wide volume settings. Individual tank volumes will be calculated automatically.</p>
+                
+                <!-- Current Volume Information -->
+                <div class="alert alert-info mb-3">
+                  <h6><i class="fas fa-info-circle"></i> Current System Volume</h6>
+                  <div class="row">
+                    <div class="col-sm-6">
+                      <strong>Calculated Total:</strong> {{ tank_system.calculate_total_system_volume() }} gallons
+                    </div>
+                    <div class="col-sm-6">
+                      <strong>Tanks in System:</strong> {{ tank_system.get_tank_count() }}
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Total System Volume Override -->
+                <div class="mb-3">
+                  <label for="total_system_volume_gallons" class="form-label">Total System Volume Override (Gallons)</label>
+                  <input type="number" 
+                         class="form-control" 
+                         id="total_system_volume_gallons" 
+                         name="total_system_volume_gallons" 
+                         value="{{ tank_system.total_system_volume_gallons or '' }}"
+                         placeholder="Leave empty to auto-calculate from tank volumes"
+                         min="0" 
+                         max="50000"
+                         step="0.1">
+                  <div class="form-text">Optional: Override automatic volume calculation with a specific total</div>
+                </div>
+
+                <!-- Shared Sump Volume -->
+                <div class="mb-3">
+                  <label for="shared_sump_volume_gallons" class="form-label">Shared Sump Volume (Gallons)</label>
+                  <input type="number" 
+                         class="form-control" 
+                         id="shared_sump_volume_gallons" 
+                         name="shared_sump_volume_gallons" 
+                         value="{{ tank_system.shared_sump_volume_gallons or '' }}"
+                         placeholder="e.g., 75, 120, 200"
+                         min="0" 
+                         max="10000"
+                         step="0.1">
+                  <div class="form-text">Volume of shared sump/filtration equipment used by all tanks in this system</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- System Tanks Information -->
+            {% if tank_system.tanks %}
+            <div class="card mb-4">
+              <div class="card-header">
+                <h5 class="mb-0">Tanks in System ({{ tank_system.get_tank_count() }})</h5>
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  {% for tank in tank_system.tanks %}
+                  <div class="col-md-6 mb-2">
+                    <div class="tank-summary">
+                      <strong>{{ tank.name }}</strong><br>
+                      <small class="text-muted">{{ tank.get_effective_volume() }} gallons</small>
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
+                <div class="mt-2">
+                  <a href="{{ url_for('tank_system_list') }}" class="text-decoration-none">
+                    <i class="fas fa-cog"></i> Manage tank assignments
+                  </a>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+
+            <!-- Form Actions -->
+            <div class="d-flex justify-content-between">
+              <a href="{{ url_for('tank_system_list') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Systems
+              </a>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Update System
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Danger Zone -->
+      <div class="card mt-4 border-danger">
+        <div class="card-header bg-transparent border-danger">
+          <h5 class="text-danger mb-0"><i class="fas fa-exclamation-triangle"></i> Danger Zone</h5>
+        </div>
+        <div class="card-body">
+          <p class="text-muted">
+            Deleting this tank system will remove the system configuration but will not delete the tanks. 
+            All tanks will become standalone tanks.
+          </p>
+          {% if tank_system.tanks %}
+          <div class="alert alert-warning">
+            <strong>Warning:</strong> This system contains {{ tank_system.get_tank_count() }} tank(s). 
+            You must remove all tanks from this system before you can delete it.
+          </div>
+          {% else %}
+          <form method="post" 
+                action="{{ url_for('tank_system_delete', system_id=tank_system.id) }}" 
+                onsubmit="return confirm('Are you sure you want to delete this tank system? This action cannot be undone.')">
+            <button type="submit" class="btn btn-outline-danger">
+              <i class="fas fa-trash"></i> Delete Tank System
+            </button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+.card-header {
+  background-color: var(--background-color);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+.card-header h5 {
+  color: var(--text-color);
+}
+
+.form-label {
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.form-control {
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+.form-control:focus {
+  background-color: var(--background-color);
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  color: var(--text-color);
+}
+
+.form-control::placeholder {
+  color: var(--text-muted);
+}
+
+.form-text {
+  color: var(--text-muted);
+}
+
+.text-danger {
+  color: #dc3545 !important;
+}
+
+h1 {
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+}
+
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+.alert-info {
+  background-color: rgba(13, 202, 240, 0.1);
+  border: 1px solid rgba(13, 202, 240, 0.2);
+  color: var(--text-color);
+}
+
+.alert-info h6 {
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+}
+
+.alert-warning {
+  background-color: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.2);
+  color: var(--text-color);
+}
+
+.tank-summary {
+  padding: 0.5rem;
+  background-color: var(--background-color);
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.border-danger {
+  border-color: #dc3545 !important;
+}
+
+.bg-transparent {
+  background-color: transparent !important;
+}
+
+.btn {
+  border-radius: 4px;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  border-color: #6c757d;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268;
+  border-color: #545b62;
+}
+
+.btn-outline-danger {
+  color: #dc3545;
+  border-color: #dc3545;
+}
+
+.btn-outline-danger:hover {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: white;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Form validation
+  const form = document.querySelector('form');
+  const nameInput = document.getElementById('name');
+  
+  form.addEventListener('submit', function(e) {
+    let isValid = true;
+    
+    // Validate system name
+    if (!nameInput.value.trim()) {
+      showFieldError(nameInput, 'System name is required');
+      isValid = false;
+    } else {
+      clearFieldError(nameInput);
+    }
+    
+    if (!isValid) {
+      e.preventDefault();
+    }
+  });
+  
+  // Real-time validation
+  nameInput.addEventListener('blur', function() {
+    if (!this.value.trim()) {
+      showFieldError(this, 'System name is required');
+    } else {
+      clearFieldError(this);
+    }
+  });
+  
+  function showFieldError(field, message) {
+    field.classList.add('is-invalid');
+    
+    // Remove existing error message
+    const existingError = field.parentNode.querySelector('.invalid-feedback');
+    if (existingError) {
+      existingError.remove();
+    }
+    
+    // Add new error message
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'invalid-feedback';
+    errorDiv.textContent = message;
+    field.parentNode.appendChild(errorDiv);
+  }
+  
+  function clearFieldError(field) {
+    field.classList.remove('is-invalid');
+    const errorDiv = field.parentNode.querySelector('.invalid-feedback');
+    if (errorDiv) {
+      errorDiv.remove();
+    }
+  }
+});
+</script>
+{% endblock %}

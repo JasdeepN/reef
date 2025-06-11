@@ -11,7 +11,7 @@
   <!-- Dashboard Header -->
   <div class="dashboard-header">
     <h1 class="mb-2">🧪 Test Results Dashboard</h1>
-    <p class="mb-0">Water parameter testing history for Tank {{ tank_id }}</p>
+    <p class="mb-0">Water parameter testing history for System {{ system_name }}</p>
   </div>
 
   <!-- Quick Stats Overview -->
@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Create CSV export
     const tests = extractAllTestData();
     const csv = generateCSV(tests);
-    downloadCSV(csv, `tank-{{ tank_id }}-test-results.csv`);
+    downloadCSV(csv, `system-{{ system_id }}-test-results.csv`);
     showNotification('Test results exported successfully!', 'success');
   });
   

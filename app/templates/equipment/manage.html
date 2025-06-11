@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+  <!-- Equipment Management Header -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="dashboard-header">
+        <h1 class="text-center">Equipment Management</h1>
+        <h3 class="text-center text-muted">{{ system_name }}</h3>
+        <p class="text-center text-muted">Manage equipment and power consumption</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Power Consumption Summary -->
+  <div class="row mb-4">
+    <div class="col-lg-4 col-md-6 offset-lg-2 offset-md-1">
+      <div class="card summary-card">
+        <div class="card-body text-center">
+          <h5 class="card-title">
+            <i class="fas fa-bolt text-warning"></i>
+            Total Power Consumption
+          </h5>
+          <h2 class="text-primary">{{ total_watts }} W</h2>
+          <p class="text-muted mb-0">{{ "%.1f"|format(total_monthly_kwh) }} kWh/month</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4 col-md-6">
+      <div class="card summary-card">
+        <div class="card-body text-center">
+          <h5 class="card-title">
+            <i class="fas fa-cogs text-info"></i>
+            Equipment Count
+          </h5>
+          <h2 class="text-primary">{{ equipment|length }}</h2>
+          <p class="text-muted mb-0">{{ equipment|selectattr('is_active')|list|length }} active</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add New Equipment Button -->
+  <div class="row mb-4">
+    <div class="col-12 text-center">
+      <a href="{{ url_for('equipment_new') }}" class="btn btn-primary btn-lg">
+        <i class="fas fa-plus"></i> Add New Equipment
+      </a>
+      <a href="{{ url_for('tank_system_list') }}" class="btn btn-secondary btn-lg ms-3">
+        <i class="fas fa-arrow-left"></i> Back to Tanks
+      </a>
+    </div>
+  </div>
+
+  <!-- Equipment List -->
+  <div class="row">
+    {% if equipment %}
+      {% for eq in equipment %}
+      <div class="col-lg-4 col-md-6 col-sm-12 mb-4">
+        <div class="card equipment-card {% if eq.is_active %}active-equipment{% else %}inactive-equipment{% endif %}">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <h5 class="card-title mb-0">{{ eq.equipment_name }}</h5>
+              <div class="equipment-status">
+                {% if eq.is_active %}
+                  <span class="badge bg-success">Active</span>
+                {% else %}
+                  <span class="badge bg-secondary">Inactive</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Equipment Type -->
+            <p class="card-text mb-1">
+              <small class="text-muted">
+                <i class="fas fa-tag"></i>
+                Type: <strong>{{ eq.equipment_type.value.title() }}</strong>
+              </small>
+            </p>
+
+            <!-- Power Consumption -->
+            {% if eq.power_watts %}
+            <p class="card-text mb-1">
+              <small class="text-muted">
+                <i class="fas fa-bolt"></i>
+                Power: <strong>{{ eq.power_watts }}W</strong>
+                {% if eq.is_active %}
+                  <span class="text-success">({{ "%.1f"|format((eq.power_watts * 24 * 30) / 1000) }} kWh/month)</span>
+                {% endif %}
+              </small>
+            </p>
+            {% endif %}
+
+            <!-- Brand and Model -->
+            {% if eq.brand or eq.model %}
+            <p class="card-text mb-1">
+              <small class="text-muted">
+                <i class="fas fa-industry"></i>
+                {% if eq.brand %}{{ eq.brand }}{% endif %}
+                {% if eq.brand and eq.model %} - {% endif %}
+                {% if eq.model %}{{ eq.model }}{% endif %}
+              </small>
+            </p>
+            {% endif %}
+
+            <!-- Notes -->
+            {% if eq.notes %}
+            <p class="card-text mb-2">
+              <small class="text-muted">
+                <i class="fas fa-sticky-note"></i>
+                {{ eq.notes[:100] }}{% if eq.notes|length > 100 %}...{% endif %}
+              </small>
+            </p>
+            {% endif %}
+
+            <!-- Equipment Actions -->
+            <div class="card-actions mt-3">
+              <a href="{{ url_for('equipment_edit', equipment_id=eq.id) }}" 
+                 class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-edit"></i> Edit
+              </a>
+              
+              <button type="button" 
+                      class="btn btn-outline-{% if eq.is_active %}warning{% else %}success{% endif %} btn-sm"
+                      onclick="toggleEquipment({{ eq.id }}, '{{ eq.equipment_name }}')">
+                <i class="fas fa-power-off"></i> 
+                {% if eq.is_active %}Deactivate{% else %}Activate{% endif %}
+              </button>
+              
+              <button type="button" 
+                      class="btn btn-outline-danger btn-sm" 
+                      data-bs-toggle="modal" 
+                      data-bs-target="#deleteEquipmentModal"
+                      data-equipment-id="{{ eq.id }}"
+                      data-equipment-name="{{ eq.equipment_name }}">
+                <i class="fas fa-trash"></i> Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <!-- Empty State -->
+      <div class="col-12">
+        <div class="empty-state text-center py-5">
+          <div class="empty-state-icon mb-4">
+            <i class="fas fa-cogs fa-4x text-muted"></i>
+          </div>
+          <h3 class="text-muted mb-3">No Equipment Found</h3>
+          <p class="text-muted mb-4">You haven't added any equipment to this system yet. Get started by adding your first piece of equipment!</p>
+          <a href="{{ url_for('equipment_new') }}" class="btn btn-primary btn-lg">
+            <i class="fas fa-plus"></i> Add Your First Equipment
+          </a>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Delete Equipment Confirmation Modal -->
+<div class="modal fade" id="deleteEquipmentModal" tabindex="-1" aria-labelledby="deleteEquipmentModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteEquipmentModalLabel">Delete Equipment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete the equipment <strong id="equipment-name-display"></strong>?</p>
+        <p class="text-danger"><small><i class="fas fa-exclamation-triangle"></i> This action cannot be undone.</small></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <form id="delete-equipment-form" action="" method="post" class="d-inline">
+          <button type="submit" class="btn btn-danger">Delete Equipment</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.equipment-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.equipment-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.equipment-card.active-equipment {
+  border-left: 4px solid #28a745;
+}
+
+.equipment-card.inactive-equipment {
+  border-left: 4px solid #6c757d;
+  opacity: 0.8;
+}
+
+.summary-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+.card-title {
+  color: var(--text-color);
+}
+
+.card-text {
+  color: var(--text-muted);
+}
+
+.dashboard-header {
+  padding: 2rem 1.5rem;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.dashboard-header h1, .dashboard-header h3 {
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+}
+
+.dashboard-header p {
+  color: var(--text-muted);
+  margin-bottom: 0;
+}
+
+.card-actions .btn {
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.equipment-status .badge {
+  font-size: 0.75em;
+}
+
+.empty-state {
+  padding: 4rem 2rem;
+}
+
+.empty-state-icon {
+  opacity: 0.6;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Handle delete equipment modal
+  const deleteEquipmentModal = document.getElementById('deleteEquipmentModal');
+  if (deleteEquipmentModal) {
+    deleteEquipmentModal.addEventListener('show.bs.modal', function (event) {
+      const button = event.relatedTarget;
+      const equipmentId = button.getAttribute('data-equipment-id');
+      const equipmentName = button.getAttribute('data-equipment-name');
+      
+      const equipmentNameDisplay = deleteEquipmentModal.querySelector('#equipment-name-display');
+      const deleteForm = deleteEquipmentModal.querySelector('#delete-equipment-form');
+      
+      equipmentNameDisplay.textContent = equipmentName;
+      deleteForm.action = `/equipment/delete/${equipmentId}`;
+    });
+  }
+});
+
+function toggleEquipment(equipmentId, equipmentName) {
+  fetch(`/equipment/toggle/${equipmentId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      location.reload(); // Refresh to show updated status
+    } else {
+      alert('Error toggling equipment: ' + data.error);
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Error toggling equipment status');
+  });
+}
+</script>
+{% endblock %}

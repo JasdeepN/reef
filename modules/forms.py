@@ -91,6 +91,7 @@ class CombinedDosingScheduleForm(FlaskForm):
         ]
 
 class test_result_form(FlaskForm):
+    tank_id = SelectField("Tank", coerce=int, validators=[DataRequired()])
     test_date = DateField("Date", default=dt.datetime.today)
     test_time = TimeField("Test Time", format='%H:%M:%S', default=dt.datetime.now)
     alk = DecimalField("Alkalinity (KH)", [Optional()])
@@ -127,6 +128,7 @@ class test_result_form(FlaskForm):
 # --- Coral Form ---
 class CoralForm(FlaskForm):
     # coral_name = SelectField("Coral Name / Species", validators=[])
+    tank_id = SelectField("Tank", coerce=int, validators=[DataRequired()])
     date_acquired = DateField("Date Acquired", default=date.today, format='%Y-%m-%d', validators=[DataRequired()])
     par = IntegerField("PAR Value", validators=[Optional()])
     flow = SelectField(

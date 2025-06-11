@@ -38,10 +38,10 @@
               </div>
             </div>
 
-            <!-- Hidden tank_id field for tank context -->
-            <input type="hidden" name="tank_id" id="tank_id_hidden" value="{{ tank_id }}">
-            {% if not tank_id %}
-            <div class="alert alert-warning mt-2">No tank selected. Please select a tank before adding a dosing schedule.</div>
+            <!-- Hidden system_id field for system context -->
+            <input type="hidden" name="system_id" id="system_id_hidden" value="{{ system_id }}">
+            {% if not system_id %}
+            <div class="alert alert-warning mt-2">No system selected. Please select a system before adding a dosing schedule.</div>
             <script>
               document.addEventListener('DOMContentLoaded', function() {
                 var submitBtn = document.querySelector('#dynamic-create-form button[type="submit"]');

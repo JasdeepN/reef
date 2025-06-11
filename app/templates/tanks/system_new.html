@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+      <!-- Header -->
+      <div class="text-center mb-4">
+        <h1 class="text-center">Create Tank System</h1>
+        <p class="text-muted">Set up a multi-tank system with shared equipment and volume calculations</p>
+      </div>
+
+      <!-- Tank System Creation Form -->
+      <div class="card">
+        <div class="card-body">
+          <form action="{{ url_for('tank_system_new') }}" method="post" novalidate>
+            <!-- System Name -->
+            <div class="mb-3">
+              <label for="name" class="form-label">System Name <span class="text-danger">*</span></label>
+              <input type="text" 
+                     class="form-control" 
+                     id="name" 
+                     name="name" 
+                     placeholder="e.g., Main Display System, Breeding System"
+                     required
+                     maxlength="100">
+              <div class="form-text">Choose a descriptive name for your tank system</div>
+            </div>
+
+            <!-- System Type -->
+            <div class="mb-3">
+              <label for="system_type" class="form-label">System Type</label>
+              <select class="form-control" id="system_type" name="system_type">
+                <option value="multi_tank">Multi-Tank System</option>
+                <option value="display_sump">Display + Sump</option>
+                <option value="breeding_system">Breeding System</option>
+                <option value="quarantine_system">Quarantine System</option>
+                <option value="research_system">Research System</option>
+                <option value="other">Other</option>
+              </select>
+              <div class="form-text">Select the type of system for organizational purposes</div>
+            </div>
+
+            <!-- Description -->
+            <div class="mb-4">
+              <label for="description" class="form-label">Description/Notes</label>
+              <textarea class="form-control" 
+                        id="description" 
+                        name="description" 
+                        rows="3" 
+                        placeholder="Optional description of this tank system, its purpose, or configuration..."></textarea>
+              <div class="form-text">Additional information about this system (optional)</div>
+            </div>
+
+            <!-- Volume Configuration -->
+            <div class="card mb-4">
+              <div class="card-header">
+                <h5 class="mb-0">Volume Configuration</h5>
+              </div>
+              <div class="card-body">
+                <p class="text-muted">Configure system-wide volume settings. Individual tank volumes will be calculated automatically.</p>
+                
+                <!-- Total System Volume Override -->
+                <div class="mb-3">
+                  <label for="total_system_volume_gallons" class="form-label">Total System Volume Override (Gallons)</label>
+                  <input type="number" 
+                         class="form-control" 
+                         id="total_system_volume_gallons" 
+                         name="total_system_volume_gallons" 
+                         placeholder="Leave empty to auto-calculate from tank volumes"
+                         min="0" 
+                         max="50000"
+                         step="0.1">
+                  <div class="form-text">Optional: Override automatic volume calculation with a specific total</div>
+                </div>
+
+                <!-- Shared Sump Volume -->
+                <div class="mb-3">
+                  <label for="shared_sump_volume_gallons" class="form-label">Shared Sump Volume (Gallons)</label>
+                  <input type="number" 
+                         class="form-control" 
+                         id="shared_sump_volume_gallons" 
+                         name="shared_sump_volume_gallons" 
+                         placeholder="e.g., 75, 120, 200"
+                         min="0" 
+                         max="10000"
+                         step="0.1">
+                  <div class="form-text">Volume of shared sump/filtration equipment used by all tanks in this system</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="d-flex justify-content-between">
+              <a href="{{ url_for('tank_system_list') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Systems
+              </a>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Create System
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Help Text -->
+      <div class="mt-4">
+        <div class="alert alert-info">
+          <h6><i class="fas fa-info-circle"></i> About Tank Systems</h6>
+          <ul class="mb-0">
+            <li>Tank systems group multiple tanks that share equipment or filtration</li>
+            <li>System volume is calculated automatically from individual tank volumes plus shared sump</li>
+            <li>You can assign existing tanks to this system after creation</li>
+            <li>Dosing calculations will consider the total system volume</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+.card-header {
+  background-color: var(--background-color);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+.card-header h5 {
+  color: var(--text-color);
+}
+
+.form-label {
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.form-control {
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+.form-control:focus {
+  background-color: var(--background-color);
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  color: var(--text-color);
+}
+
+.form-control::placeholder {
+  color: var(--text-muted);
+}
+
+.form-text {
+  color: var(--text-muted);
+}
+
+.text-danger {
+  color: #dc3545 !important;
+}
+
+h1 {
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+}
+
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+.alert-info {
+  background-color: rgba(13, 202, 240, 0.1);
+  border: 1px solid rgba(13, 202, 240, 0.2);
+  color: var(--text-color);
+}
+
+.alert-info h6 {
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+}
+
+.alert-info ul {
+  color: var(--text-color);
+}
+
+.btn {
+  border-radius: 4px;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  border-color: #6c757d;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268;
+  border-color: #545b62;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Form validation
+  const form = document.querySelector('form');
+  const nameInput = document.getElementById('name');
+  
+  form.addEventListener('submit', function(e) {
+    let isValid = true;
+    
+    // Validate system name
+    if (!nameInput.value.trim()) {
+      showFieldError(nameInput, 'System name is required');
+      isValid = false;
+    } else {
+      clearFieldError(nameInput);
+    }
+    
+    if (!isValid) {
+      e.preventDefault();
+    }
+  });
+  
+  // Real-time validation
+  nameInput.addEventListener('blur', function() {
+    if (!this.value.trim()) {
+      showFieldError(this, 'System name is required');
+    } else {
+      clearFieldError(this);
+    }
+  });
+  
+  function showFieldError(field, message) {
+    field.classList.add('is-invalid');
+    
+    // Remove existing error message
+    const existingError = field.parentNode.querySelector('.invalid-feedback');
+    if (existingError) {
+      existingError.remove();
+    }
+    
+    // Add new error message
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'invalid-feedback';
+    errorDiv.textContent = message;
+    field.parentNode.appendChild(errorDiv);
+  }
+  
+  function clearFieldError(field) {
+    field.classList.remove('is-invalid');
+    const errorDiv = field.parentNode.querySelector('.invalid-feedback');
+    if (errorDiv) {
+      errorDiv.remove();
+    }
+  }
+});
+</script>
+{% endblock %}

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import text
 import pytz
 
-from modules.tank_context import get_current_tank_id
+from modules.system_context import get_current_system_id
 
 bp = Blueprint('product_api', __name__, url_prefix='/products')
 

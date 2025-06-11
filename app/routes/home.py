@@ -3,37 +3,65 @@ from datetime import datetime
 from sqlalchemy import text
 from app import app, db
 from modules.models import Tank, TestResults
-from modules.tank_context import get_current_tank_id, ensure_tank_context
+from modules.system_context import (
+    get_current_system_id, 
+    get_current_system_tank_ids, 
+    get_current_system_tanks,
+    ensure_system_context
+)
 from modules.timezone_utils import format_time_for_display, datetime_to_iso_format
+
+# Constants
+ERROR_NO_SYSTEM = "No system selected."
+ERROR_NO_TANKS = "No tanks in selected system."
 
 @app.route("/", methods=["GET"])
 def index():
+    """Home page route - renders main dashboard."""
     # No need to pass tanks or tank_id, context processor handles it
     return render_template("home.html")
 
 @app.route("/set_tank", methods=["POST"])
 def set_tank():
+    """Backward compatibility route - convert tank_id to system_id."""
     tank_id = request.form.get('tank_id', type=int)
     if tank_id:
-        session['tank_id'] = tank_id
+        # Find the system for this tank
+        tank = Tank.query.get(tank_id)
+        if tank and tank.tank_system_id:
+            session['system_id'] = tank.tank_system_id
+        else:
+            # If tank has no system, use default
+            session['system_id'] = 1
+    return redirect(request.referrer or url_for('index'))
+
+@app.route("/set_system", methods=["POST"])
+def set_system():
+    """Set current system context."""
+    system_id = request.form.get('system_id', type=int)
+    if system_id:
+        session['system_id'] = system_id
     return redirect(request.referrer or url_for('index'))
 
 @app.route("/api/tank-context", methods=["GET"])
 def get_tank_context():
-    """API endpoint to check current tank context without causing redirects"""
-    tank_id = get_current_tank_id()
+    """API endpoint to check current system context without causing redirects."""
+    system_id = get_current_system_id()
+    tank_ids = get_current_system_tank_ids()
+    tanks = get_current_system_tanks()
     return jsonify({
-        "has_context": tank_id is not None,
-        "tank_id": tank_id,
-        "tanks": [{"id": tank.id, "name": tank.name} for tank in Tank.query.all()]
+        "has_context": system_id is not None,
+        "system_id": system_id,
+        "tank_ids": tank_ids,
+        "tanks": [{"id": tank.id, "name": tank.name} for tank in tanks]
     })
 
 @app.route("/chart", methods=["GET"])
 def test_results_chart():
-    """Route for displaying test results in chart format"""
-    tank_id = ensure_tank_context()
-    if not tank_id:
-        flash("No tank selected.", "warning")
+    """Route for displaying test results in chart format."""
+    system_id = ensure_system_context()
+    if not system_id:
+        flash(ERROR_NO_SYSTEM, "warning")
         return redirect(url_for('index'))
     return render_template("chart/test_results_chart.html")
 

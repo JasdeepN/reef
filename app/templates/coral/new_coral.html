@@ -19,6 +19,17 @@
                             <span class="text-primary">Required Information</span>
                         </legend>
                         <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="tank_id" class="form-label">Tank <span class="text-danger">*</span></label>
+                                {{ form.tank_id(class="form-select", required=true) }}
+                                {% if form_errors.tank_id %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form_errors.tank_id %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
                                                         
                             <div class="col-md-4 mb-3">
                                 <label for="type" class="form-label">Type<span class="text-danger">*</span></label>
